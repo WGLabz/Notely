@@ -18,7 +18,11 @@
     "markdown-it": "^14.1.0",
     "mermaid": "^11.6.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "remark": "^15.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-lint": "^10.0.1",
+    "remark-preset-lint-recommended": "^7.0.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.5.0",

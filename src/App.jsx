@@ -33,6 +33,15 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("raw");
   const [mode, setMode] = useState("edit");
   const [error, setError] = useState("");
+  const [toasts, setToasts] = useState([]);
+
+  const notify = (message, type = "info") => {
+    const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    setToasts((currentToasts) => [...currentToasts, { id, message, type }]);
+    window.setTimeout(() => {
+      setToasts((currentToasts) => currentToasts.filter((toast) => toast.id !== id));
+    }, 3000);
+  };
 
   const dirty =
     current
@@ -94,8 +103,10 @@ export default function App() {
       );
       setHistory(await getHistory(saved.filePath));
       await loadDocumentsData();
+      notify("Document saved.", "success");
     } catch (err) {
       setError(err?.message || "Unable to save document.");
+      notify(err?.message || "Unable to save document.", "error");
     } finally {
       setSaving(false);
     }
@@ -107,6 +118,13 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      <div className="toast-stack" aria-live="polite" aria-atomic="true">
+        {toasts.map((toast) => (
+          <div className={`toast-item ${toast.type}`} key={toast.id}>
+            {toast.message}
+          </div>
+        ))}
+      </div>
       {error && <div className="error-banner">{error}</div>}
       {!current ? (
         <>
@@ -136,6 +154,7 @@ export default function App() {
           saving={saving}
           dirty={dirty}
           onHome={() => setCurrent(null)}
+          onNotify={notify}
         />
       )}
     </div>

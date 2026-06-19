@@ -2,8 +2,17 @@ import { useEffect, useRef } from "react";
 import { MarkdownEditor } from "./MarkdownEditor";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { MarkdownToolbar } from "./MarkdownToolbar";
+import { MarkdownValidationBanner } from "./MarkdownValidationBanner";
 
-export function EditorPane({ value, onChange, mode, textareaRef, basePath, showToolbar = true }) {
+export function EditorPane({
+  value,
+  onChange,
+  mode,
+  textareaRef,
+  basePath,
+  showToolbar = true,
+  onNotify,
+}) {
   const previewRef = useRef(null);
   const isSyncingRef = useRef(false);
 
@@ -42,7 +51,7 @@ export function EditorPane({ value, onChange, mode, textareaRef, basePath, showT
   }, [mode, textareaRef]);
 
   const markdownEditor = (
-    <MarkdownEditor value={value} onChange={onChange} textareaRef={textareaRef} />
+    <MarkdownEditor value={value} onChange={onChange} textareaRef={textareaRef} onNotify={onNotify} />
   );
 
   if (mode === "preview") {
@@ -63,9 +72,11 @@ export function EditorPane({ value, onChange, mode, textareaRef, basePath, showT
                 onChange={onChange}
                 textareaRef={textareaRef}
                 basePath={basePath}
+                onNotify={onNotify}
               />
             </div>
           ) : null}
+          {showToolbar ? <MarkdownValidationBanner value={value} /> : null}
           <div className="markdown-editor">{markdownEditor}</div>
         </section>
         <section className="pane-block">
@@ -91,9 +102,11 @@ export function EditorPane({ value, onChange, mode, textareaRef, basePath, showT
             onChange={onChange}
             textareaRef={textareaRef}
             basePath={basePath}
+            onNotify={onNotify}
           />
         </div>
       ) : null}
+      {showToolbar ? <MarkdownValidationBanner value={value} /> : null}
       <div className="markdown-editor">{markdownEditor}</div>
     </section>
   );

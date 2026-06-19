@@ -30,6 +30,7 @@ export function DocumentDetail({
   saving,
   dirty,
   onHome,
+  onNotify,
 }) {
   const textareaRef = useRef(null);
   const content = activeTab === "raw" ? document.rawNotes : document.cleansed;
@@ -154,7 +155,7 @@ export function DocumentDetail({
           </div>
 
           {activeTab === "media" ? (
-            <MediaTab content={mediaContent} basePath={document.filePath} />
+            <MediaTab content={mediaContent} basePath={document.filePath} onNotify={onNotify} />
           ) : (
             <EditorPane
               value={content}
@@ -163,6 +164,7 @@ export function DocumentDetail({
               textareaRef={textareaRef}
               basePath={document.filePath}
               showToolbar={activeTab !== "media"}
+              onNotify={onNotify}
             />
           )}
         </main>

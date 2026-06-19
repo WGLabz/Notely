@@ -11,7 +11,7 @@ import {
 import { readFileAsDataUrl } from "../utils/imageUtils";
 import "../styles/media.css";
 
-export function MediaTab({ content, basePath }) {
+export function MediaTab({ content, basePath, onNotify }) {
   const linkedImages = useMemo(() => extractImagesFromMarkdown(content), [content]);
   const [allImages, setAllImages] = useState([]);
   const [resolvedImages, setResolvedImages] = useState({});
@@ -173,8 +173,10 @@ export function MediaTab({ content, basePath }) {
       await saveImage(file.name, dataUrl);
       setRefreshKey((value) => value + 1);
       setActionInfo("Image added successfully.");
+      onNotify?.("Image added.", "success");
     } catch (error) {
       setActionError(error?.message || "Unable to add image.");
+      onNotify?.(error?.message || "Unable to add image.", "error");
     } finally {
       setBusy(false);
       event.target.value = "";
@@ -192,8 +194,10 @@ export function MediaTab({ content, basePath }) {
       await deleteImage(basePath, pathValue);
       setRefreshKey((value) => value + 1);
       setActionInfo("Image deleted.");
+      onNotify?.("Image deleted.", "success");
     } catch (error) {
       setActionError(error?.message || "Unable to delete image.");
+      onNotify?.(error?.message || "Unable to delete image.", "error");
     } finally {
       setBusy(false);
     }
@@ -216,8 +220,10 @@ export function MediaTab({ content, basePath }) {
       await replaceImage(basePath, replaceTarget, dataUrl);
       setRefreshKey((value) => value + 1);
       setActionInfo("Image updated.");
+      onNotify?.("Image updated.", "success");
     } catch (error) {
       setActionError(error?.message || "Unable to replace image.");
+      onNotify?.(error?.message || "Unable to replace image.", "error");
     } finally {
       setBusy(false);
       setReplaceTarget("");
@@ -233,8 +239,10 @@ export function MediaTab({ content, basePath }) {
     try {
       await navigator.clipboard.writeText(markdown);
       setActionInfo("Markdown copied.");
+      onNotify?.("Markdown copied.", "success");
     } catch {
       setActionError("Unable to copy markdown to clipboard.");
+      onNotify?.("Unable to copy markdown to clipboard.", "error");
     }
   }
 

@@ -1,7 +1,14 @@
+import { useMemo, useRef } from "react";
 import { createImageMarkdown, insertTextAtCursor } from "../utils/markdownUtils";
 import { insertImagesFromFiles } from "../services/imageService";
 
-export function MarkdownEditor({ value, onChange, textareaRef }) {
+export function MarkdownEditor({ value, onChange, textareaRef, onNotify }) {
+  const gutterRef = useRef(null);
+  const lineNumbers = useMemo(() => {
+    const count = (value.match(/\n/g) || []).length + 1;
+    return Array.from({ length: count }, (_value, index) => index + 1);
+  }, [value]);
+
   const handleDragOver = (event) => {
     if (event.dataTransfer?.types?.includes("Files")) {
       event.preventDefault();
@@ -20,23 +27,38 @@ export function MarkdownEditor({ value, onChange, textareaRef }) {
         createImageMarkdown(result.altText, result.imagePath)
       );
       insertTextAtCursor(value, onChange, `${markdownImages.join("\n\n")}\n`, textareaRef);
+      onNotify?.(`Inserted ${results.length} image${results.length > 1 ? "s" : ""}.`, "success");
     } catch (error) {
       console.error("Image drop insertion failed:", error);
-      alert("Failed to insert images: " + error.message);
+      onNotify?.(error?.message || "Failed to insert dropped images.", "error");
+    }
+  };
+
+  const handleEditorScroll = (event) => {
+    if (gutterRef.current) {
+      gutterRef.current.scrollTop = event.target.scrollTop;
     }
   };
 
   return (
     <div className="markdown-editor">
-      <textarea
-        ref={textareaRef}
-        className="markdown-textarea"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
-        spellCheck
-      />
+      <div className="markdown-editor-shell">
+        <div className="markdown-gutter" ref={gutterRef} aria-hidden="true">
+          {lineNumbers.map((line) => (
+            <div className="markdown-line-number" key={line}>{line}</div>
+          ))}
+        </div>
+        <textarea
+          ref={textareaRef}
+          className="markdown-textarea with-line-numbers"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+          onScroll={handleEditorScroll}
+          spellCheck
+        />
+      </div>
     </div>
   );
 }
