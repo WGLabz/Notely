@@ -5,6 +5,7 @@ import {
   RotateCcw,
   ChevronLeft,
   ChevronRight,
+  FolderOpen,
   FileText,
   FilePenLine,
   PenLine,
@@ -18,6 +19,7 @@ import {
 import { EditorPane } from "./EditorPane";
 import { MediaTab } from "./MediaTab";
 import { formatDate } from "../utils/dateUtils";
+import { openInEditor } from "../services/electronService";
 
 export function DocumentDetail({
   document,
@@ -46,6 +48,19 @@ export function DocumentDetail({
     });
   };
 
+  const handleOpenLatestFile = async () => {
+    try {
+      const result = await openInEditor(document.filePath);
+      if (result?.openedWith === "default") {
+        onNotify?.("VS Code not available. Opened with system default app.", "info");
+      } else {
+        onNotify?.("Opened latest note file in VS Code.", "success");
+      }
+    } catch (error) {
+      onNotify?.(error?.message || "Unable to open file in editor.", "error");
+    }
+  };
+
   return (
     <div className="detail-shell">
       <div className="detail-topbar">
@@ -54,6 +69,10 @@ export function DocumentDetail({
         </button>
         <div className="crumb">Notes / {document.title}</div>
         <div className="save-status">{dirty ? "Unsaved changes" : "Saved"}</div>
+        <button className="text-button" onClick={handleOpenLatestFile} title="Open latest file">
+          <FolderOpen size={18} />
+          Open
+        </button>
         <button
           className="primary-button"
           onClick={onSave}

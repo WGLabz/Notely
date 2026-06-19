@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, ipcMain, shell } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
@@ -274,6 +274,28 @@ ipcMain.handle("documents:restore", (_event, payload) => {
   });
 
   return parseDocument(restored, resolved);
+});
+
+ipcMain.handle("documents:open-in-editor", async (_event, filePath) => {
+  const resolved = path.resolve(filePath || "");
+  if (!resolved.startsWith(notesRoot) || path.extname(resolved).toLowerCase() !== ".md") {
+    throw new Error("Invalid document path.");
+  }
+  if (!fs.existsSync(resolved)) {
+    throw new Error("Document file does not exist.");
+  }
+
+  try {
+    const vscodeUri = `vscode://file/${resolved.replace(/\\/g, "/")}`;
+    await shell.openExternal(encodeURI(vscodeUri));
+    return { openedWith: "vscode" };
+  } catch {
+    const fallbackResult = await shell.openPath(resolved);
+    if (fallbackResult) {
+      throw new Error(fallbackResult);
+    }
+    return { openedWith: "default" };
+  }
 });
 
 ipcMain.handle("images:save", (_event, payload) => {

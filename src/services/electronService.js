@@ -36,6 +36,19 @@ export async function restoreHistory(payload) {
   return api.restoreHistory(payload);
 }
 
+export async function openInEditor(filePath) {
+  const api = getNotesApi();
+  const openFn =
+    (typeof api.openInEditor === "function" && api.openInEditor) ||
+    (typeof api.openFileInEditor === "function" && api.openFileInEditor);
+
+  if (!openFn) {
+    throw new Error("Open action unavailable. Please restart the app to load the latest desktop API.");
+  }
+
+  return openFn(filePath);
+}
+
 export async function saveImage(fileName, base64Data) {
   const api = getNotesApi();
   return api.saveImage({ fileName, base64Data });
