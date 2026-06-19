@@ -14,7 +14,6 @@ import {
   Images,
 } from "lucide-react";
 import { EditorPane } from "./EditorPane";
-import { MarkdownToolbar } from "./MarkdownToolbar";
 import { MediaTab } from "./MediaTab";
 import { formatDate } from "../utils/dateUtils";
 
@@ -136,9 +135,6 @@ export function DocumentDetail({
                 <span>Media</span>
               </button>
             </div>
-            {mode !== "preview" && activeTab !== "media" && (
-              <MarkdownToolbar value={content} onChange={updateContent} textareaRef={textareaRef} />
-            )}
             <div className="mode-switch">
               {[
                 { key: "edit", label: "Edit", icon: PenLine },
@@ -166,6 +162,7 @@ export function DocumentDetail({
               mode={mode}
               textareaRef={textareaRef}
               basePath={document.filePath}
+              showToolbar={activeTab !== "media"}
             />
           )}
         </main>

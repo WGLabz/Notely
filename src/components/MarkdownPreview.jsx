@@ -7,7 +7,7 @@ import {
 import { readImage } from "../services/electronService";
 import { MermaidBlock } from "./MermaidBlock";
 
-export function MarkdownPreview({ content, basePath }) {
+export function MarkdownPreview({ content, basePath, externalRef }) {
   const previewRef = useRef(null);
   const parts = useMemo(() => {
     return parseMermaidBlocks(content);
@@ -43,7 +43,15 @@ export function MarkdownPreview({ content, basePath }) {
   }, [content, basePath]);
 
   return (
-    <div className="preview" ref={previewRef}>
+    <div
+      className="preview"
+      ref={(node) => {
+        previewRef.current = node;
+        if (externalRef && typeof externalRef === "object") {
+          externalRef.current = node;
+        }
+      }}
+    >
       {parts.map((part, index) =>
         part.type === "mermaid" ? (
           <MermaidBlock code={part.value} index={index} key={`${part.type}-${index}`} />

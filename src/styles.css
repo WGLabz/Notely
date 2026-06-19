@@ -14,6 +14,7 @@ body {
   margin: 0;
   min-width: 960px;
   min-height: 100vh;
+  overflow: hidden;
 }
 
 button,
@@ -114,9 +115,11 @@ button {
 
 .detail-shell {
   display: flex;
-  min-height: calc(100vh - 40px);
+  height: calc(100vh - 40px);
+  min-height: 0;
   flex-direction: column;
   gap: 10px;
+  overflow: hidden;
 }
 
 .detail-topbar,
@@ -285,7 +288,7 @@ button {
 
 .history-panel {
   padding: 12px;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .sidebar-heading {
@@ -442,6 +445,8 @@ button {
 .pane-title {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   min-height: 30px;
   padding: 0 12px;
   border-bottom: 1px solid #d9dedb;
@@ -450,6 +455,34 @@ button {
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
+}
+
+.pane-title-label {
+  white-space: nowrap;
+}
+
+.toolbar-label-row .pane-title-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pane-toolbar-row {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 12px;
+  border-bottom: 1px solid #d9dedb;
+  background: #f7f8f7;
+}
+
+.pane-toolbar-spacer {
+  min-height: 37px;
+  border-bottom: 1px solid #d9dedb;
+  background: #f7f8f7;
+}
+
+.pane-toolbar-row .editor-toolbar {
+  margin-left: 0;
+  text-transform: none;
 }
 
 .markdown-editor {
@@ -462,25 +495,26 @@ button {
 
 .editor-toolbar {
   display: flex;
-  min-height: 32px;
+  position: relative;
+  min-height: 28px;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   margin-left: auto;
-  padding: 3px 6px;
+  padding: 2px 4px;
   border: 1px solid #cfd8d4;
   border-radius: 6px;
   background: #f8faf9;
 }
 
 .editor-toolbar button {
-  min-width: 32px;
-  min-height: 26px;
-  padding: 0 8px;
+  min-width: 28px;
+  min-height: 24px;
+  padding: 0 6px;
   border: 1px solid #cfd8d4;
   border-radius: 5px;
   background: #ffffff;
   color: #1a3a3e;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -492,6 +526,165 @@ button {
   border-color: #1a3a3e;
   background: #eef5f2;
   color: #0d2326;
+}
+
+.mermaid-builder {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(420px, 88vw);
+  border: 1px solid #cfd8d4;
+  border-radius: 8px;
+  padding: 10px;
+  background: #ffffff;
+  box-shadow: 0 14px 32px rgba(17, 36, 40, 0.18);
+  z-index: 30;
+}
+
+.image-linker {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(420px, 88vw);
+  border: 1px solid #cfd8d4;
+  border-radius: 8px;
+  padding: 10px;
+  background: #ffffff;
+  box-shadow: 0 14px 32px rgba(17, 36, 40, 0.18);
+  z-index: 30;
+}
+
+.web-linker {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(360px, 88vw);
+  border: 1px solid #cfd8d4;
+  border-radius: 8px;
+  padding: 10px;
+  background: #ffffff;
+  box-shadow: 0 14px 32px rgba(17, 36, 40, 0.18);
+  z-index: 30;
+}
+
+.mermaid-builder-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.mermaid-close {
+  min-width: 24px;
+  min-height: 24px;
+  border: 1px solid #cfd8d4;
+  border-radius: 6px;
+  background: #f8faf9;
+  color: #1a3a3e;
+}
+
+.mermaid-type-switch {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.mermaid-type-switch button {
+  min-width: 0;
+  flex: 1;
+}
+
+.mermaid-type-switch button.active {
+  border-color: #1a3a3e;
+  background: #1a3a3e;
+  color: #ffffff;
+}
+
+.mermaid-fields {
+  display: grid;
+  gap: 8px;
+}
+
+.mermaid-fields label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: #41575d;
+}
+
+.mermaid-fields input,
+.mermaid-fields select {
+  min-height: 30px;
+  border: 1px solid #cfd8d4;
+  border-radius: 6px;
+  padding: 0 8px;
+  background: #fffefd;
+  color: #172326;
+  font-size: 12px;
+}
+
+.mermaid-preview-code {
+  margin: 8px 0 0;
+  padding: 8px;
+  border: 1px solid #d9dedb;
+  border-radius: 6px;
+  background: #f7f8f7;
+  color: #1b3438;
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+.mermaid-builder-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.mermaid-builder-actions button {
+  min-width: 72px;
+}
+
+.toolbar-inline-note,
+.toolbar-inline-error {
+  margin: 8px 0 0;
+  font-size: 12px;
+}
+
+.toolbar-inline-note {
+  color: #546b70;
+}
+
+.toolbar-inline-error {
+  color: #8e1b1b;
+}
+
+.image-linker-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  max-height: 170px;
+  overflow: auto;
+}
+
+.image-linker-url-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.image-linker-url-actions button {
+  min-width: 132px;
+}
+
+.image-linker-list button {
+  width: 100%;
+  min-height: 30px;
+  justify-content: flex-start;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .markdown-textarea {
