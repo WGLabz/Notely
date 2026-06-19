@@ -33,9 +33,48 @@
   padding: 12px 16px 0;
 }
 
+.media-toolbar {
+  display: flex;
+  gap: 10px;
+  padding: 10px 16px 0;
+  flex-wrap: wrap;
+}
+
+.media-search {
+  flex: 1;
+  min-width: 220px;
+  border: 1px solid #cbdad5;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1a3a3e;
+  padding: 7px 10px;
+  font-size: 13px;
+}
+
+.media-select {
+  border: 1px solid #cbdad5;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1a3a3e;
+  padding: 7px 10px;
+  font-size: 13px;
+}
+
+.media-summary {
+  margin: 8px 16px 0;
+  font-size: 12px;
+  color: #60767c;
+}
+
 .media-error {
   margin: 10px 16px 0;
   color: #8e1b1b;
+  font-size: 13px;
+}
+
+.media-info-text {
+  margin: 10px 16px 0;
+  color: #1b6654;
   font-size: 13px;
 }
 
@@ -68,8 +107,24 @@
   object-fit: cover;
 }
 
+.media-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: #8a9fa8;
+  font-size: 11px;
+}
+
 .media-info {
   padding: 12px;
+}
+
+.media-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .media-alt {
@@ -90,21 +145,47 @@
   font-family: monospace;
 }
 
+.media-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.media-badge.linked {
+  border: 1px solid #b7decf;
+  background: #ebfaf4;
+  color: #1b6654;
+}
+
+.media-badge.unlinked {
+  border: 1px solid #ded3b7;
+  background: #fbf8ec;
+  color: #74602b;
+}
+
 .media-item-actions {
   margin-top: 10px;
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 8px;
 }
 
 .small-button {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   border: 1px solid #cbdad5;
   background: #f7faf8;
   color: #1a3a3e;
   border-radius: 6px;
-  padding: 6px 10px;
+  padding: 5px 9px;
   font-size: 12px;
   cursor: pointer;
 }
@@ -128,4 +209,11 @@
 .small-button.danger:hover:not(:disabled) {
   border-color: #c35c5c;
   background: #ffeaea;
+}
+
+.small-button.icon-only {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  justify-content: center;
 }
