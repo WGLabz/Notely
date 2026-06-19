@@ -34,3 +34,28 @@ export function parseMermaidBlocks(content) {
 
   return chunks.length ? chunks : [{ type: "markdown", value: content || "" }];
 }
+
+export function normalizeMarkdownImagePaths(content) {
+  if (!content) return content;
+
+  return content.replace(/!\[([^\]]*)\]\((<[^>]+>|[^)]+)\)/g, (match, alt, rawPath) => {
+    const trimmed = (rawPath || "").trim();
+    const unwrapped =
+      trimmed.startsWith("<") && trimmed.endsWith(">")
+        ? trimmed.slice(1, -1)
+        : trimmed;
+
+    let decoded = unwrapped;
+    for (let i = 0; i < 5; i += 1) {
+      try {
+        const next = decodeURIComponent(decoded);
+        if (next === decoded) break;
+        decoded = next;
+      } catch {
+        break;
+      }
+    }
+
+    return `![${alt}](${encodeURI(decoded)})`;
+  });
+}

@@ -9,6 +9,7 @@ import {
   isImageFile,
 } from "../utils/imageUtils";
 import { saveImage } from "./electronService";
+import { normalizeImagePathForMarkdown } from "../utils/markdownUtils";
 
 export async function insertImageFromFile(file) {
   validateImageFile(file);
@@ -21,7 +22,7 @@ export async function insertImageFromFile(file) {
   console.log("Image saved at:", imagePath);
 
   const altText = getImageAltText(file.name);
-  return { imagePath, altText };
+  return { imagePath: normalizeImagePathForMarkdown(imagePath), altText };
 }
 
 export async function insertImagesFromFiles(files) {

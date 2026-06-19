@@ -65,6 +65,28 @@ export function applySnippet(
   });
 }
 
+export function normalizeImagePathForMarkdown(pathValue) {
+  if (!pathValue) return pathValue;
+  const trimmed = pathValue.trim();
+  const unwrapped =
+    trimmed.startsWith("<") && trimmed.endsWith(">")
+      ? trimmed.slice(1, -1)
+      : trimmed;
+
+  let decoded = unwrapped;
+  for (let i = 0; i < 5; i += 1) {
+    try {
+      const next = decodeURIComponent(decoded);
+      if (next === decoded) break;
+      decoded = next;
+    } catch {
+      break;
+    }
+  }
+
+  return encodeURI(decoded);
+}
+
 export function createImageMarkdown(altText, imagePath) {
-  return `![${altText}](${imagePath})`;
+  return `![${altText}](${normalizeImagePathForMarkdown(imagePath)})`;
 }

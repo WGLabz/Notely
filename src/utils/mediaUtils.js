@@ -5,15 +5,19 @@
 export function extractImagesFromMarkdown(content) {
   if (!content) return [];
 
-  const regex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+  const regex = /!\[([^\]]*)\]\((<[^>]+>|[^)]+)\)/g;
   const images = [];
   let match;
 
   while ((match = regex.exec(content))) {
+    const rawPath = (match[2] || "").trim();
+    const path = rawPath.startsWith("<") && rawPath.endsWith(">")
+      ? rawPath.slice(1, -1)
+      : rawPath;
     images.push({
       altText: match[1] || "Image",
-      path: match[2],
-      id: `${match[2]}-${Math.random().toString(36).slice(2)}`,
+      path,
+      id: path,
     });
   }
 

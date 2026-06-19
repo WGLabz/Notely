@@ -40,3 +40,23 @@ export async function saveImage(fileName, base64Data) {
   const api = getNotesApi();
   return api.saveImage({ fileName, base64Data });
 }
+
+export async function listImages(basePath) {
+  const api = getNotesApi();
+  return api.listImages({ basePath });
+}
+
+export async function readImage(basePath, assetPath) {
+  const api = getNotesApi();
+  return api.readImage({ basePath, assetPath });
+}
+
+export async function deleteImage(basePath, assetPath) {
+  const api = getNotesApi();
+  return api.deleteImage({ basePath, assetPath });
+}
+
+export async function replaceImage(basePath, assetPath, base64Data) {
+  const api = getNotesApi();
+  return api.replaceImage({ basePath, assetPath, base64Data });
+}
