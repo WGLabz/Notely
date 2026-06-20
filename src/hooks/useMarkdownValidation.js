@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { validateMarkdownComplete } from "../utils/markdownValidationComplete";
 
-export function useMarkdownValidation(value) {
+export function useMarkdownValidation(value, { spellCheck = true } = {}) {
   const [issues, setIssues] = useState([]);
   const [status, setStatus] = useState("checking");
   const requestIdRef = useRef(0);
@@ -13,7 +13,7 @@ export function useMarkdownValidation(value) {
 
     const runValidation = async () => {
       try {
-        const nextIssues = await validateMarkdownComplete(value || "");
+        const nextIssues = await validateMarkdownComplete(value || "", { spellCheck });
         if (requestId !== requestIdRef.current) return;
         setIssues(nextIssues);
         setStatus("ready");
@@ -29,7 +29,7 @@ export function useMarkdownValidation(value) {
     return () => {
       requestIdRef.current = Math.max(requestIdRef.current, requestId);
     };
-  }, [value]);
+  }, [value, spellCheck]);
 
   return { issues, status };
 }

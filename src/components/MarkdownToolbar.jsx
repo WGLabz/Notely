@@ -15,6 +15,7 @@ import {
   ImagePlus,
   Zap,
   FileText,
+  SpellCheck,
 } from "lucide-react";
 import { applySnippet, createImageMarkdown, insertTextAtCursor } from "../utils/markdownUtils";
 import { insertImageFromFile } from "../services/imageService";
@@ -72,6 +73,8 @@ export function MarkdownToolbar({
   onRedo,
   canUndo = false,
   canRedo = false,
+  spellCheckEnabled = true,
+  onToggleSpellCheck,
 }) {
   const imageInputRef = useRef(null);
   const mermaidPopoverRef = useRef(null);
@@ -510,6 +513,14 @@ export function MarkdownToolbar({
       </button>
       <button onClick={runMarkdownValidation} title="Validate markdown syntax">
         <CheckCircle2 size={18} />
+      </button>
+      <button
+        onClick={onToggleSpellCheck}
+        title={spellCheckEnabled ? "Disable spell check" : "Enable spell check"}
+        className={spellCheckEnabled ? "" : "toolbar-btn-inactive"}
+        aria-pressed={spellCheckEnabled}
+      >
+        <SpellCheck size={18} />
       </button>
       <span className={`toolbar-validation-summary ${validationStatus}`} title={validationSummary}>
         {validationSummary}

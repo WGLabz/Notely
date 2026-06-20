@@ -25,7 +25,8 @@ export function EditorPane({
   const [focusedLine, setFocusedLine] = useState(1);
   const [splitRatio, setSplitRatio] = useState(50);
   const [editorReadyTick, setEditorReadyTick] = useState(0);
-  const { issues: validationIssues, status: validationStatus } = useMarkdownValidation(value);
+  const [spellCheckEnabled, setSpellCheckEnabled] = useState(true);
+  const { issues: validationIssues, status: validationStatus } = useMarkdownValidation(value, { spellCheck: spellCheckEnabled });
 
   const jumpToLine = (line) => {
     const editor = textareaRef?.current;
@@ -223,6 +224,8 @@ export function EditorPane({
                 onRedo={onRedo}
                 canUndo={canUndo}
                 canRedo={canRedo}
+                spellCheckEnabled={spellCheckEnabled}
+                onToggleSpellCheck={() => setSpellCheckEnabled((prev) => !prev)}
               />
             </div>
           ) : null}
@@ -267,6 +270,8 @@ export function EditorPane({
             onRedo={onRedo}
             canUndo={canUndo}
             canRedo={canRedo}
+            spellCheckEnabled={spellCheckEnabled}
+            onToggleSpellCheck={() => setSpellCheckEnabled((prev) => !prev)}
           />
         </div>
       ) : null}
