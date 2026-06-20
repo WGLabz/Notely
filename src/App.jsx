@@ -30,13 +30,18 @@ import {
   setP2PDeviceName,
   createP2PInvite,
   pairP2PWithCode,
+  pairP2PWithCodeReauth,
   manualP2PConnect,
+  setP2PKeyPolicyDays,
   removeTrustedP2PPeer,
   rotateP2PWorkspaceKeys,
   runP2PSyncSelfTest,
   listP2PSyncConflicts,
+  readP2PConflictFiles,
+  resolveP2PConflict,
   getWorkspaceActivity,
   onP2PSyncApplied,
+  onP2PFullSyncProgress,
   updateMenuContext,
 } from "./services/electronService";
 
@@ -105,6 +110,7 @@ export default function App() {
   const [workspaceActivityLoading, setWorkspaceActivityLoading] = useState(false);
   const [workspaceActivity, setWorkspaceActivity] = useState(null);
   const [p2pSyncHelpOpen, setP2PSyncHelpOpen] = useState(false);
+  const [fullSyncProgressByPeer, setFullSyncProgressByPeer] = useState({});
 
   const syncStateRef = useRef({ current: null, dirty: false, openDocument: null });
   syncStateRef.current = { doc: current, dirty, openDocument };
@@ -114,6 +120,7 @@ export default function App() {
   const [conflictCenterOpen, setConflictCenterOpen] = useState(false);
   const [conflictCenterLoading, setConflictCenterLoading] = useState(false);
   const [conflictCenterData, setConflictCenterData] = useState(null);
+  const [conflictCursor, setConflictCursor] = useState(0);
   const [conflictResolutionOpen, setConflictResolutionOpen] = useState(false);
   const [conflictResolutionEntry, setConflictResolutionEntry] = useState(null);
   const [conflictResolutionFiles, setConflictResolutionFiles] = useState(null);
@@ -635,7 +642,37 @@ export default function App() {
       await refreshP2PStatus();
       notify("Peer paired successfully.", "success");
     } catch (err) {
+      const message = String(err?.message || "");
+      if (/confirm re-auth|re-auth confirmation/i.test(message)) {
+        const confirmed = window.confirm(
+          "This peer was removed earlier. Confirm re-auth to trust this peer again?"
+        );
+        if (confirmed) {
+          try {
+            await pairP2PWithCodeReauth(peerId, String(code || "").trim(), true);
+            await refreshP2PStatus();
+            notify("Peer re-authenticated and paired.", "success");
+            return;
+          } catch (reauthErr) {
+            notify(reauthErr?.message || "Unable to re-authenticate peer.", "error");
+            return;
+          }
+        }
+      }
       notify(err?.message || "Unable to pair with code.", "error");
+    } finally {
+      setP2PStatusLoading(false);
+    }
+  }
+
+  async function handleSetP2PKeyPolicyDays(days) {
+    try {
+      setP2PStatusLoading(true);
+      const snapshot = await setP2PKeyPolicyDays(Number(days));
+      setP2PStatus(snapshot);
+      notify(`Key expiry policy updated to ${snapshot?.keyPolicyDays || Number(days)} day(s).`, "success");
+    } catch (err) {
+      notify(err?.message || "Unable to update key expiry policy.", "error");
     } finally {
       setP2PStatusLoading(false);
     }
@@ -699,6 +736,7 @@ export default function App() {
   async function handleOpenConflictCenter() {
     setConflictCenterOpen(true);
     setConflictCenterLoading(true);
+    setConflictCursor(0);
     try {
       const data = await listP2PSyncConflicts(250);
       setConflictCenterData(data);
@@ -719,6 +757,7 @@ export default function App() {
   }
 
   async function handleOpenConflictResolution(entry) {
+    if (!entry) return;
     setConflictResolutionEntry(entry);
     setConflictResolutionOpen(true);
     setConflictResolutionFiles(null);
@@ -752,12 +791,25 @@ export default function App() {
       setConflictResolutionFiles(null);
       const data = await listP2PSyncConflicts(250);
       setConflictCenterData(data);
+      setConflictCursor((cursor) => Math.max(0, Math.min(cursor, Math.max(0, (data?.conflicts?.length || 1) - 1))));
       await loadDocumentsData();
     } catch (err) {
       notify(err?.message || "Unable to resolve conflict.", "error");
     } finally {
       setConflictResolutionLoading(false);
     }
+  }
+
+  function handleOpenNextConflict() {
+    const conflicts = conflictCenterData?.conflicts || [];
+    if (!conflicts.length) {
+      notify("No unresolved conflicts remain.", "info");
+      return;
+    }
+    const nextIndex = conflictCursor % conflicts.length;
+    const nextEntry = conflicts[nextIndex];
+    setConflictCursor(nextIndex + 1);
+    handleOpenConflictResolution(nextEntry);
   }
 
   useEffect(() => {
@@ -796,6 +848,28 @@ export default function App() {
       }
 
       loadDocumentsData();
+    });
+  }, []);
+
+  useEffect(() => {
+    return onP2PFullSyncProgress((payload) => {
+      const peerId = String(payload?.peerId || "unknown-peer");
+      setFullSyncProgressByPeer((currentMap) => ({
+        ...currentMap,
+        [peerId]: payload
+      }));
+
+      if (payload?.phase === "completed") {
+        const queued = Number(payload?.queuedFiles || 0);
+        const total = Number(payload?.totalFiles || queued);
+        const truncated = Boolean(payload?.truncated);
+        notify(
+          `Initial sync complete for ${peerId}: ${queued}/${total} note(s) queued${truncated ? " (truncated cap)." : "."}`,
+          "success"
+        );
+      } else if (payload?.phase === "failed") {
+        notify(payload?.error || `Initial sync failed for ${peerId}.`, "error");
+      }
     });
   }, []);
 
@@ -1170,10 +1244,12 @@ export default function App() {
             <P2PStatusPanel
               status={p2pStatus}
               loading={p2pStatusLoading}
+              fullSyncProgressByPeer={fullSyncProgressByPeer}
               onRefresh={handleOpenP2PStatus}
               onStartDiscovery={handleStartP2PDiscovery}
               onStopDiscovery={handleStopP2PDiscovery}
               onSetDeviceName={handleSetP2PDeviceName}
+              onSetKeyPolicyDays={handleSetP2PKeyPolicyDays}
               onCreateInvite={handleCreateP2PInvite}
               onPairWithCode={handlePairP2PWithCode}
               onManualConnect={handleManualP2PConnect}
@@ -1327,6 +1403,16 @@ export default function App() {
               </button>
             </div>
             <div className="p2p-conflict-center">
+              <div className="p2p-conflict-center-actions">
+                <button
+                  className="small-button"
+                  type="button"
+                  onClick={handleOpenNextConflict}
+                  disabled={!conflictCenterData?.conflicts?.length}
+                >
+                  Resolve Next Unresolved
+                </button>
+              </div>
               {conflictCenterLoading ? (
                 <p className="p2p-status-table-empty">Loading conflicts...</p>
               ) : !conflictCenterData?.conflicts?.length ? (
@@ -1382,34 +1468,6 @@ export default function App() {
         </div>
       ) : null}
 
-      {conflictResolutionOpen && conflictResolutionEntry ? (
-        <div className="overlay-dialog" role="dialog" aria-modal="true" aria-label="Resolve sync conflict">
-          <div className="overlay-dialog-card conflict-resolve-dialog-card">
-            <div className="overlay-dialog-header">
-              <h2>Resolve Conflict</h2>
-              <button
-                className="icon-button"
-                onClick={() => setConflictResolutionOpen(false)}
-                type="button"
-                aria-label="Close conflict resolution"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            {conflictResolutionLoading && !conflictResolutionFiles ? (
-              <p className="p2p-status-table-empty">Loading files...</p>
-            ) : conflictResolutionFiles ? (
-              <ConflictResolutionPanel
-                localFile={conflictResolutionFiles.local}
-                conflictFile={conflictResolutionFiles.conflict}
-                relativePath={conflictResolutionEntry.relativePath || conflictResolutionEntry.filePath}
-                onResolve={handleResolveConflict}
-                loading={conflictResolutionLoading}
-              />
-            ) : null}
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

@@ -152,6 +152,22 @@ export async function pairP2PWithCode(peerId, code) {
   return api.pairP2PWithCode({ peerId, code });
 }
 
+export async function pairP2PWithCodeReauth(peerId, code, reauth) {
+  const api = getNotesApi();
+  if (typeof api.pairP2PWithCode !== "function") {
+    throw new Error("P2P pairing unavailable. Please restart the app.");
+  }
+  return api.pairP2PWithCode({ peerId, code, reauth: Boolean(reauth) });
+}
+
+export async function setP2PKeyPolicyDays(days) {
+  const api = getNotesApi();
+  if (typeof api.setP2PKeyPolicyDays !== "function") {
+    throw new Error("P2P key policy unavailable. Please restart the app.");
+  }
+  return api.setP2PKeyPolicyDays({ days });
+}
+
 export async function manualP2PConnect(address, listenPort) {
   const api = getNotesApi();
   if (typeof api.manualP2PConnect !== "function") {
@@ -219,6 +235,14 @@ export function onP2PSyncApplied(callback) {
     return () => {};
   }
   return api.onP2PSyncApplied(callback);
+}
+
+export function onP2PFullSyncProgress(callback) {
+  const api = getNotesApi();
+  if (typeof api.onP2PFullSyncProgress !== "function") {
+    return () => {};
+  }
+  return api.onP2PFullSyncProgress(callback);
 }
 
 export async function getWorkspaceActivity(limit = 200) {

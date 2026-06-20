@@ -112,6 +112,11 @@ export function ConflictResolutionPanel({
   loading,
 }) {
   const [activeSection, setActiveSection] = useState("rawNotes");
+  const [collapsedSections, setCollapsedSections] = useState({
+    header: false,
+    rawNotes: false,
+    cleansed: false,
+  });
   const [mergedHeader, setMergedHeader] = useState(localFile?.header || "");
   const [mergedRaw, setMergedRaw] = useState(localFile?.rawNotes || "");
   const [mergedCleansed, setMergedCleansed] = useState(localFile?.cleansed || "");
@@ -146,6 +151,22 @@ export function ConflictResolutionPanel({
   const localSection = localFile?.[activeSection] || "";
   const conflictSection = conflictFile?.[activeSection] || "";
   const editorState = sectionEditors[activeSection];
+  const isActiveCollapsed = Boolean(collapsedSections[activeSection]);
+
+  function toggleCurrentSectionCollapse() {
+    setCollapsedSections((currentSections) => ({
+      ...currentSections,
+      [activeSection]: !currentSections[activeSection],
+    }));
+  }
+
+  function expandAllSections() {
+    setCollapsedSections({
+      header: false,
+      rawNotes: false,
+      cleansed: false,
+    });
+  }
 
   return (
     <div className="conflict-resolve-wrap">
@@ -171,37 +192,52 @@ export function ConflictResolutionPanel({
         ))}
       </div>
 
-      <div className="conflict-diff-wrap">
-        <SectionDiff localText={localSection} remoteText={conflictSection} />
+      <div className="conflict-tab-actions">
+        <button className="small-button" type="button" onClick={toggleCurrentSectionCollapse}>
+          {isActiveCollapsed ? "Expand Current Section" : "Collapse Current Section"}
+        </button>
+        <button className="small-button" type="button" onClick={expandAllSections}>
+          Expand All Sections
+        </button>
       </div>
 
-      <div className="conflict-merge-editor">
-        <div className="conflict-merge-editor-label">
-          <span>Merged ({SECTIONS.find((s) => s.key === activeSection)?.label})</span>
-          <div className="conflict-merge-shortcuts">
-            <button
-              className="small-button"
-              type="button"
-              onClick={() => editorState.onChange(localSection)}
-            >
-              Use Mine
-            </button>
-            <button
-              className="small-button"
-              type="button"
-              onClick={() => editorState.onChange(conflictSection)}
-            >
-              Use Theirs
-            </button>
+      {isActiveCollapsed ? (
+        <div className="p2p-status-table-empty">This section is collapsed.</div>
+      ) : (
+        <>
+          <div className="conflict-diff-wrap">
+            <SectionDiff localText={localSection} remoteText={conflictSection} />
           </div>
-        </div>
-        <textarea
-          className="conflict-merge-textarea"
-          value={editorState.value}
-          onChange={(event) => editorState.onChange(event.target.value)}
-          spellCheck={false}
-        />
-      </div>
+
+          <div className="conflict-merge-editor">
+            <div className="conflict-merge-editor-label">
+              <span>Merged ({SECTIONS.find((s) => s.key === activeSection)?.label})</span>
+              <div className="conflict-merge-shortcuts">
+                <button
+                  className="small-button"
+                  type="button"
+                  onClick={() => editorState.onChange(localSection)}
+                >
+                  Use Mine
+                </button>
+                <button
+                  className="small-button"
+                  type="button"
+                  onClick={() => editorState.onChange(conflictSection)}
+                >
+                  Use Theirs
+                </button>
+              </div>
+            </div>
+            <textarea
+              className="conflict-merge-textarea"
+              value={editorState.value}
+              onChange={(event) => editorState.onChange(event.target.value)}
+              spellCheck={false}
+            />
+          </div>
+        </>
+      )}
 
       <div className="conflict-resolve-actions">
         <button

@@ -12,6 +12,23 @@ const INVITE_TTL_MS = 5 * 60 * 1000;
 const SOCKET_TIMEOUT_MS = 4000;
 const SYNC_RETRY_INTERVAL_MS = 2000;
 const SYNC_MAX_ATTEMPTS = 5;
+const DEFAULT_KEY_TTL_DAYS = 30;
+const MIN_KEY_TTL_DAYS = 1;
+const MAX_KEY_TTL_DAYS = 365;
+const SYNC_TREND_LIMIT = 120;
+const SYNC_TREND_SAMPLE_MS = 5000;
+
+function clampKeyTtlDays(value) {
+  const days = Number(value);
+  if (!Number.isFinite(days)) {
+    return DEFAULT_KEY_TTL_DAYS;
+  }
+  return Math.max(MIN_KEY_TTL_DAYS, Math.min(MAX_KEY_TTL_DAYS, Math.floor(days)));
+}
+
+function daysToMs(days) {
+  return clampKeyTtlDays(days) * 24 * 60 * 60 * 1000;
+}
 
 function ensureWorkspaceKey(value) {
   const key = String(value || "").trim().toLowerCase();
@@ -105,6 +122,8 @@ class P2PLiveService {
     this.outgoingSyncCounters = new Map();
     this.incomingSyncCounters = new Map();
     this.peerSyncMeta = new Map();
+    this.syncTrend = [];
+    this.lastSyncTrendAt = 0;
 
     this.syncStats = {
       queued: 0,
@@ -122,7 +141,9 @@ class P2PLiveService {
       deviceId: randomHex(8),
       deviceName: os.hostname() || "Notely Peer",
       trustedPeers: [],
-      incomingSyncCounters: {}
+      incomingSyncCounters: {},
+      revokedPeers: {},
+      keyPolicyDays: DEFAULT_KEY_TTL_DAYS
     };
   }
 
@@ -181,10 +202,28 @@ class P2PLiveService {
           listenPort: Number(peer.listenPort) || 0,
           workspaceKey: ensureWorkspaceKey(peer.workspaceKey),
           pairedAt: String(peer.pairedAt || new Date().toISOString()),
-          lastSeenAt: String(peer.lastSeenAt || "")
+          lastSeenAt: String(peer.lastSeenAt || ""),
+          keyIssuedAt: String(peer.keyIssuedAt || peer.pairedAt || new Date().toISOString()),
+          keyExpiresAt: String(
+            peer.keyExpiresAt
+            || new Date(Date.parse(String(peer.keyIssuedAt || peer.pairedAt || new Date().toISOString()))
+              + daysToMs(parsed.keyPolicyDays)).toISOString()
+          )
         }))
         .filter((peer) => peer.peerId)
       : [];
+
+    this.state.keyPolicyDays = clampKeyTtlDays(parsed.keyPolicyDays);
+
+    if (parsed.revokedPeers && typeof parsed.revokedPeers === "object") {
+      this.state.revokedPeers = Object.fromEntries(
+        Object.entries(parsed.revokedPeers)
+          .map(([peerId, value]) => [String(peerId || "").trim(), String(value || "")])
+          .filter(([peerId, value]) => peerId && value)
+      );
+    } else {
+      this.state.revokedPeers = {};
+    }
 
     if (parsed.incomingSyncCounters && typeof parsed.incomingSyncCounters === "object") {
       this.state.incomingSyncCounters = {};
@@ -262,6 +301,52 @@ class P2PLiveService {
     this.state.deviceName = next;
     this.persistState();
     return this.state.deviceName;
+  }
+
+  setKeyPolicyDays(days) {
+    const nextDays = clampKeyTtlDays(days);
+    this.state.keyPolicyDays = nextDays;
+
+    this.state.trustedPeers = this.state.trustedPeers.map((peer) => {
+      const issuedAt = String(peer.keyIssuedAt || peer.pairedAt || new Date().toISOString());
+      const issuedTs = Date.parse(issuedAt) || Date.now();
+      return {
+        ...peer,
+        keyIssuedAt: new Date(issuedTs).toISOString(),
+        keyExpiresAt: new Date(issuedTs + daysToMs(nextDays)).toISOString()
+      };
+    });
+
+    this.persistState();
+    return this.state.keyPolicyDays;
+  }
+
+  isKeyExpired(peer) {
+    const expiresTs = Date.parse(String(peer?.keyExpiresAt || ""));
+    return Number.isFinite(expiresTs) && Date.now() > expiresTs;
+  }
+
+  recordSyncTrendSample(force = false) {
+    const now = Date.now();
+    if (!force && (now - this.lastSyncTrendAt) < SYNC_TREND_SAMPLE_MS) {
+      return;
+    }
+
+    this.lastSyncTrendAt = now;
+    this.syncTrend.push({
+      at: new Date(now).toISOString(),
+      queued: Number(this.syncStats.queued || 0),
+      sent: Number(this.syncStats.sent || 0),
+      acked: Number(this.syncStats.acked || 0),
+      retried: Number(this.syncStats.retried || 0),
+      failed: Number(this.syncStats.failed || 0),
+      dropped: Number(this.syncStats.dropped || 0),
+      outboxCount: this.syncOutbox.filter((task) => !task.done).length
+    });
+
+    if (this.syncTrend.length > SYNC_TREND_LIMIT) {
+      this.syncTrend = this.syncTrend.slice(this.syncTrend.length - SYNC_TREND_LIMIT);
+    }
   }
 
   startDiscovery() {
@@ -457,6 +542,13 @@ class P2PLiveService {
       const fromPeerId = String(message.fromPeerId || "").trim();
       const fromName = String(message.fromName || "Unknown peer").trim() || "Unknown peer";
       const fromListenPort = Number(message.fromListenPort) || 0;
+      const reauth = Boolean(message.reauth);
+
+      if (this.state.revokedPeers[fromPeerId] && !reauth) {
+        socket.write(`${JSON.stringify({ ok: false, error: "Peer was previously removed. Re-auth confirmation is required." })}\n`);
+        socket.end();
+        return;
+      }
 
       const invite = Array.from(this.pendingInvites.values()).find((entry) => (
         !entry.used
@@ -522,6 +614,12 @@ class P2PLiveService {
         return;
       }
 
+      if (this.isKeyExpired(trustedPeer)) {
+        socket.write(`${JSON.stringify({ ok: false, error: "Workspace key expired. Re-pair or rotate keys to continue sync." })}\n`);
+        socket.end();
+        return;
+      }
+
       const lastCounter = Number(this.incomingSyncCounters.get(fromPeerId) || 0);
       if (counter > 0 && counter <= lastCounter) {
         socket.write(`${JSON.stringify({ ok: true, duplicate: true, staleCounter: true })}\n`);
@@ -572,6 +670,12 @@ class P2PLiveService {
       const trustedPeer = this.state.trustedPeers.find((entry) => entry.peerId === fromPeerId);
       if (!trustedPeer || !trustedPeer.workspaceKey) {
         socket.write(`${JSON.stringify({ ok: false, error: "Peer not trusted for rekey." })}\n`);
+        socket.end();
+        return;
+      }
+
+      if (this.isKeyExpired(trustedPeer)) {
+        socket.write(`${JSON.stringify({ ok: false, error: "Workspace key expired. Re-auth is required before rekey." })}\n`);
         socket.end();
         return;
       }
@@ -718,7 +822,7 @@ class P2PLiveService {
     };
   }
 
-  async pairWithCode({ peerId, code }) {
+  async pairWithCode({ peerId, code, reauth = false }) {
     const targetPeerId = String(peerId || "").trim();
     const inviteCode = String(code || "").trim();
     if (!targetPeerId) {
@@ -726,6 +830,10 @@ class P2PLiveService {
     }
     if (!inviteCode) {
       throw new Error("Pairing code is required.");
+    }
+
+    if (this.state.revokedPeers[targetPeerId] && !reauth) {
+      throw new Error("Peer was previously removed. Confirm re-auth to pair again.");
     }
 
     const peer = this.discoveredPeers.get(targetPeerId)
@@ -743,7 +851,8 @@ class P2PLiveService {
         fromPeerId: this.state.deviceId,
         fromName: this.state.deviceName,
         fromListenPort: this.listenPort,
-        code: inviteCode
+        code: inviteCode,
+        reauth: Boolean(reauth)
       }
     });
 
@@ -783,7 +892,16 @@ class P2PLiveService {
   removeTrustedPeer(peerId) {
     const targetPeerId = String(peerId || "").trim();
     this.state.trustedPeers = this.state.trustedPeers.filter((peer) => peer.peerId !== targetPeerId);
+    if (targetPeerId) {
+      this.state.revokedPeers[targetPeerId] = new Date().toISOString();
+      this.incomingSyncCounters.delete(targetPeerId);
+      this.outgoingSyncCounters.delete(targetPeerId);
+      this.peerSyncMeta.delete(targetPeerId);
+      this.syncOutbox = this.syncOutbox.filter((task) => task.peerId !== targetPeerId);
+      this.state.incomingSyncCounters = Object.fromEntries(this.incomingSyncCounters);
+    }
     this.persistState();
+    this.persistOutbox();
 
     const discovered = this.discoveredPeers.get(targetPeerId);
     if (discovered) {
@@ -846,6 +964,23 @@ class P2PLiveService {
           task.nextAttemptAt = Date.now() + waitMs;
           continue;
         }
+
+        if (this.isKeyExpired(currentPeer)) {
+          task.done = true;
+          task.attempt = SYNC_MAX_ATTEMPTS;
+          this.syncStats.failed += 1;
+          this.syncStats.dropped += 1;
+          this.syncStats.lastErrorAt = new Date().toISOString();
+          this.syncStats.lastError = "Workspace key expired for peer.";
+          this.peerSyncMeta.set(task.peerId, {
+            lastAckAt: this.peerSyncMeta.get(task.peerId)?.lastAckAt || null,
+            lastErrorAt: this.syncStats.lastErrorAt,
+            lastError: this.syncStats.lastError,
+            lastCounter: Number(this.peerSyncMeta.get(task.peerId)?.lastCounter || 0)
+          });
+          continue;
+        }
+
         const encrypted = encryptWithWorkspaceKey(currentPeer.workspaceKey, task.syncEvent);
         const response = await this.requestPeer({
           address: currentPeer.address,
@@ -905,6 +1040,7 @@ class P2PLiveService {
 
     this.syncOutbox = this.syncOutbox.filter((task) => !task.done);
     this.persistOutbox();
+    this.recordSyncTrendSample();
   }
 
   async rotateWorkspaceKeys(peerId) {
@@ -1025,14 +1161,30 @@ class P2PLiveService {
 
   upsertTrustedPeer(peer) {
     const existingIndex = this.state.trustedPeers.findIndex((entry) => entry.peerId === peer.peerId);
+    const existing = existingIndex >= 0 ? this.state.trustedPeers[existingIndex] : null;
+    const workspaceKey = ensureWorkspaceKey(peer.workspaceKey);
+    const nowIso = new Date().toISOString();
+    const keyChanged = !existing || existing.workspaceKey !== workspaceKey;
+    const issuedAtRaw = keyChanged
+      ? nowIso
+      : String(peer.keyIssuedAt || existing?.keyIssuedAt || existing?.pairedAt || nowIso);
+    const issuedAtTs = Date.parse(issuedAtRaw);
+    const safeIssuedAtTs = Number.isFinite(issuedAtTs) ? issuedAtTs : Date.now();
+    const keyIssuedAt = new Date(safeIssuedAtTs).toISOString();
+    const fallbackExpiresAt = new Date(safeIssuedAtTs + daysToMs(this.state.keyPolicyDays)).toISOString();
+
     const next = {
       peerId: String(peer.peerId || ""),
       name: String(peer.name || "Unknown peer"),
       address: normalizeAddress(peer.address),
       listenPort: Number(peer.listenPort) || 0,
-      workspaceKey: ensureWorkspaceKey(peer.workspaceKey),
+      workspaceKey,
       pairedAt: String(peer.pairedAt || new Date().toISOString()),
-      lastSeenAt: String(peer.lastSeenAt || new Date().toISOString())
+      lastSeenAt: String(peer.lastSeenAt || new Date().toISOString()),
+      keyIssuedAt,
+      keyExpiresAt: keyChanged
+        ? fallbackExpiresAt
+        : String(peer.keyExpiresAt || existing?.keyExpiresAt || fallbackExpiresAt)
     };
 
     if (existingIndex >= 0) {
@@ -1043,6 +1195,8 @@ class P2PLiveService {
     } else {
       this.state.trustedPeers.push(next);
     }
+
+    delete this.state.revokedPeers[next.peerId];
 
     this.persistState();
   }
@@ -1072,7 +1226,10 @@ class P2PLiveService {
       address: peer.address,
       listenPort: peer.listenPort,
       pairedAt: peer.pairedAt,
-      lastSeenAt: peer.lastSeenAt
+      lastSeenAt: peer.lastSeenAt,
+      keyIssuedAt: peer.keyIssuedAt || null,
+      keyExpiresAt: peer.keyExpiresAt || null,
+      keyExpired: this.isKeyExpired(peer)
     }));
 
     const activeInvites = Array.from(this.pendingInvites.values())
@@ -1100,6 +1257,21 @@ class P2PLiveService {
       lastError: meta?.lastError || "",
       lastCounter: Number(meta?.lastCounter || 0)
     }));
+
+    this.recordSyncTrendSample();
+
+    const syncTrend = this.syncTrend.slice(-30);
+    const nowMs = Date.now();
+    const keyExpiryWarningMs = 3 * 24 * 60 * 60 * 1000;
+    const keySecurity = {
+      policyDays: this.state.keyPolicyDays,
+      revokedPeerCount: Object.keys(this.state.revokedPeers || {}).length,
+      expiringSoonCount: trustedPeerStatus.filter((peer) => {
+        const expiresAtMs = Date.parse(String(peer.keyExpiresAt || ""));
+        return Number.isFinite(expiresAtMs) && !peer.keyExpired && (expiresAtMs - nowMs) <= keyExpiryWarningMs;
+      }).length,
+      expiredCount: trustedPeerStatus.filter((peer) => peer.keyExpired).length
+    };
 
     return {
       available: true,
@@ -1132,8 +1304,11 @@ class P2PLiveService {
         outboxCount: outbox.length,
         stats: { ...this.syncStats },
         outbox,
-        peerMeta: peerSyncMeta
-      }
+        peerMeta: peerSyncMeta,
+        trend: syncTrend
+      },
+      security: keySecurity,
+      keyPolicyDays: this.state.keyPolicyDays
     };
   }
 }

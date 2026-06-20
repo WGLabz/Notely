@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld("notesApi", {
   setP2PDeviceName: (payload) => ipcRenderer.invoke("p2p:set-device-name", payload),
   createP2PInvite: (payload) => ipcRenderer.invoke("p2p:create-invite", payload),
   pairP2PWithCode: (payload) => ipcRenderer.invoke("p2p:pair-with-code", payload),
+  setP2PKeyPolicyDays: (payload) => ipcRenderer.invoke("p2p:set-key-policy", payload),
   manualP2PConnect: (payload) => ipcRenderer.invoke("p2p:manual-connect", payload),
   removeTrustedP2PPeer: (payload) => ipcRenderer.invoke("p2p:remove-trusted-peer", payload),
   rotateP2PWorkspaceKeys: (payload) => ipcRenderer.invoke("p2p:rotate-workspace-keys", payload),
@@ -34,6 +35,12 @@ contextBridge.exposeInMainWorld("notesApi", {
     const listener = (_event, payload) => callback(payload);
     ipcRenderer.on("sync:applied", listener);
     return () => ipcRenderer.removeListener("sync:applied", listener);
+  },
+  onP2PFullSyncProgress: (callback) => {
+    if (typeof callback !== "function") return () => {};
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on("p2p:full-sync-progress", listener);
+    return () => ipcRenderer.removeListener("p2p:full-sync-progress", listener);
   },
   getWorkspaceActivity: (payload) => ipcRenderer.invoke("activity:get-workspace", payload),
   listDocuments: (payload) => ipcRenderer.invoke("documents:list", payload),

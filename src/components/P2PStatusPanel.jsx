@@ -13,10 +13,12 @@ function formatDateTime(value) {
 export function P2PStatusPanel({
   status,
   loading,
+  fullSyncProgressByPeer,
   onRefresh,
   onStartDiscovery,
   onStopDiscovery,
   onSetDeviceName,
+  onSetKeyPolicyDays,
   onCreateInvite,
   onPairWithCode,
   onManualConnect,
@@ -29,6 +31,7 @@ export function P2PStatusPanel({
   const [pairCode, setPairCode] = useState("");
   const [manualAddress, setManualAddress] = useState("127.0.0.1");
   const [manualPort, setManualPort] = useState("");
+  const [keyPolicyDraft, setKeyPolicyDraft] = useState("30");
   const [busyAction, setBusyAction] = useState("");
 
   const currentStatus = status || {};
@@ -40,6 +43,12 @@ export function P2PStatusPanel({
   const syncStats = currentStatus?.sync?.stats || null;
   const syncOutboxCount = Number(currentStatus?.sync?.outboxCount || 0);
   const peerSyncMeta = Array.isArray(currentStatus?.sync?.peerMeta) ? currentStatus.sync.peerMeta : [];
+  const syncTrend = Array.isArray(currentStatus?.sync?.trend) ? currentStatus.sync.trend : [];
+  const security = currentStatus?.security || {};
+  const fullSyncRows = Object.entries(fullSyncProgressByPeer || {}).map(([peerId, progress]) => ({
+    peerId,
+    ...progress,
+  }));
 
   const sortedDiscovered = useMemo(
     () => [...discoveredPeers].sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""))),
@@ -51,6 +60,12 @@ export function P2PStatusPanel({
       setDeviceNameDraft(currentStatus.self.name);
     }
   }, [currentStatus, deviceNameDraft]);
+
+  useEffect(() => {
+    if (currentStatus?.keyPolicyDays) {
+      setKeyPolicyDraft(String(currentStatus.keyPolicyDays));
+    }
+  }, [currentStatus?.keyPolicyDays]);
 
   if (!status) {
     return (
@@ -129,6 +144,25 @@ export function P2PStatusPanel({
         </p>
       </div>
 
+      <div className="p2p-status-meta">
+        <p>
+          <span>Key Policy</span>
+          <strong>{currentStatus?.keyPolicyDays || 30} day(s)</strong>
+        </p>
+        <p>
+          <span>Revoked Peers</span>
+          <strong>{security?.revokedPeerCount || 0}</strong>
+        </p>
+        <p>
+          <span>Keys Expiring Soon</span>
+          <strong>{security?.expiringSoonCount || 0}</strong>
+        </p>
+        <p>
+          <span>Expired Keys</span>
+          <strong className={(security?.expiredCount || 0) > 0 ? "offline" : ""}>{security?.expiredCount || 0}</strong>
+        </p>
+      </div>
+
       <div className="p2p-control-grid">
         <div className="p2p-control-card">
           <h3>Device</h3>
@@ -148,6 +182,28 @@ export function P2PStatusPanel({
             onClick={() => runAction("name", () => onSetDeviceName(deviceNameDraft))}
           >
             Save Name
+          </button>
+        </div>
+
+        <div className="p2p-control-card">
+          <h3>Key Policy</h3>
+          <label>
+            <span>Expiry (Days)</span>
+            <input
+              type="number"
+              min="1"
+              max="365"
+              value={keyPolicyDraft}
+              onChange={(event) => setKeyPolicyDraft(event.target.value)}
+            />
+          </label>
+          <button
+            className="small-button"
+            type="button"
+            disabled={busyAction === "key-policy" || !String(keyPolicyDraft || "").trim()}
+            onClick={() => runAction("key-policy", () => onSetKeyPolicyDays(Number(keyPolicyDraft)))}
+          >
+            Save Key Policy
           </button>
         </div>
 
@@ -239,6 +295,40 @@ export function P2PStatusPanel({
             Rotate All Keys
           </button>
         </div>
+      </div>
+
+      <div className="p2p-status-peer-table-wrap">
+        <h3 className="p2p-section-title">Initial Sync Progress</h3>
+        <table className="p2p-status-peer-table">
+          <thead>
+            <tr>
+              <th>Peer</th>
+              <th>Phase</th>
+              <th>Queued</th>
+              <th>Total</th>
+              <th>Remaining</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {!fullSyncRows.length ? (
+              <tr>
+                <td colSpan={6} className="p2p-status-table-empty">No initial sync progress yet.</td>
+              </tr>
+            ) : fullSyncRows.map((row) => (
+              <tr key={row.peerId}>
+                <td className="mono-cell" title={row.peerId}>{row.peerId}</td>
+                <td>{row.phase || "unknown"}</td>
+                <td>{Number(row.queuedFiles || 0)}</td>
+                <td>{Number(row.totalFiles || 0)}</td>
+                <td>{Number(row.remainingFiles || 0)}</td>
+                <td className={row.failed ? "p2p-test-fail" : (row.completed ? "p2p-test-pass" : "")}>
+                  {row.failed ? (row.error || "failed") : (row.completed ? "completed" : "in-progress")}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       <div className="p2p-status-peer-table-wrap">
@@ -387,6 +477,30 @@ export function P2PStatusPanel({
                     <td className="mono-cell" title={meta.peerId}>{meta.peerId}</td>
                     <td>{meta.lastAckAt ? formatDateTime(meta.lastAckAt) : "None"}</td>
                     <td className={meta.lastError ? "p2p-test-fail" : ""}>{meta.lastError || "OK"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : null}
+          {syncTrend.length ? (
+            <table className="p2p-status-peer-table p2p-trend-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Outbox</th>
+                  <th>Acked</th>
+                  <th>Failed</th>
+                  <th>Dropped</th>
+                </tr>
+              </thead>
+              <tbody>
+                {syncTrend.slice(-10).map((point, index) => (
+                  <tr key={`${point.at}-${index}`}>
+                    <td>{formatDateTime(point.at)}</td>
+                    <td>{Number(point.outboxCount || 0)}</td>
+                    <td>{Number(point.acked || 0)}</td>
+                    <td>{Number(point.failed || 0)}</td>
+                    <td>{Number(point.dropped || 0)}</td>
                   </tr>
                 ))}
               </tbody>

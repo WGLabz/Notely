@@ -189,6 +189,14 @@ This harness is designed for one-machine validation of planned peer-to-peer flow
 
 Harness output artifacts are written to `.artifacts/p2p-harness/`.
 
+### Run packaged P2P validation preflight
+
+```bash
+npm run test:p2p:packaged
+```
+
+This command checks whether expected Windows release executables are present and prints a repeatable two-machine LAN validation checklist.
+
 ### Markdown linting
 
 ```bash

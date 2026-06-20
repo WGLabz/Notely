@@ -27,6 +27,8 @@ let webPreviewScopeLabel = "Project";
 const terminalSessions = new Map();
 let nextTerminalSessionId = 1;
 let p2pService = null;
+const FULL_SYNC_BATCH_SIZE = 25;
+const FULL_SYNC_MAX_FILES = 1000;
 
 function ensureDir(dirPath) {
   if (!dirPath || typeof dirPath !== "string") {
@@ -83,7 +85,11 @@ function applyNotesRoot(nextRootPath) {
     storageDir: appDataDir,
     onSyncEvent: handleIncomingP2PSyncEvent,
     onPeerTrusted: (peerId) => {
-      setImmediate(() => initiateFullSyncForPeer(peerId));
+      setImmediate(() => {
+        initiateFullSyncForPeer(peerId).catch((error) => {
+          console.error("[p2p] full sync on trust failed:", error?.message || error);
+        });
+      });
     }
   });
   p2pService.init();
@@ -429,7 +435,7 @@ function applyNoteDelta({ filePath, baseContent, delta }) {
   });
 }
 
-function initiateFullSyncForPeer(peerId) {
+async function initiateFullSyncForPeer(peerId) {
   if (!p2pService || !notesRoot) {
     return;
   }
@@ -439,6 +445,15 @@ function initiateFullSyncForPeer(peerId) {
     return;
   }
 
+  const publishProgress = (payload) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("p2p:full-sync-progress", {
+        peerId: targetPeerId,
+        ...payload
+      });
+    }
+  };
+
   try {
     const allFiles = walkFiles(notesRoot, { excludeDirs: [".notes-app", "removed", "images"] });
     const mdFiles = allFiles.filter((f) => {
@@ -446,39 +461,93 @@ function initiateFullSyncForPeer(peerId) {
       return lower.endsWith(".md") && !path.basename(f).includes(".sync-conflict-");
     });
 
-    for (const filePath of mdFiles) {
-      try {
-        const content = fs.readFileSync(filePath, "utf8");
-        const relativePath = normalizeToPosix(path.relative(notesRoot, filePath));
-        if (!isValidSyncRelativePath(relativePath)) {
-          continue;
-        }
-        const queued = p2pService.queueSyncToPeer(targetPeerId, {
-          eventId: randomId(10),
-          timestamp: new Date().toISOString(),
-          docId: relativePath.toLowerCase(),
-          op: "update",
-          baseHash: null,
-          newHash: hashContent(content),
-          payload: {
-            relativePath,
-            content,
-            baseContent: null,
-            delta: null
+    const truncated = mdFiles.length > FULL_SYNC_MAX_FILES;
+    const plannedFiles = truncated ? mdFiles.slice(0, FULL_SYNC_MAX_FILES) : mdFiles;
+    const totalFiles = plannedFiles.length;
+    let queuedFiles = 0;
+
+    publishProgress({
+      phase: "starting",
+      totalFiles,
+      queuedFiles,
+      remainingFiles: totalFiles,
+      truncated,
+      completed: totalFiles === 0,
+      failed: false,
+      startedAt: new Date().toISOString()
+    });
+
+    for (let batchStart = 0; batchStart < plannedFiles.length; batchStart += FULL_SYNC_BATCH_SIZE) {
+      const batch = plannedFiles.slice(batchStart, batchStart + FULL_SYNC_BATCH_SIZE);
+
+      for (const filePath of batch) {
+        try {
+          const content = fs.readFileSync(filePath, "utf8");
+          const relativePath = normalizeToPosix(path.relative(notesRoot, filePath));
+          if (!isValidSyncRelativePath(relativePath)) {
+            continue;
           }
-        });
-        if (!queued) {
-          break;
+
+          const queued = p2pService.queueSyncToPeer(targetPeerId, {
+            eventId: randomId(10),
+            timestamp: new Date().toISOString(),
+            docId: relativePath.toLowerCase(),
+            op: "update",
+            baseHash: null,
+            newHash: hashContent(content),
+            payload: {
+              relativePath,
+              content,
+              baseContent: null,
+              delta: null
+            }
+          });
+          if (!queued) {
+            throw new Error("Peer is no longer available for full sync.");
+          }
+
+          queuedFiles += 1;
+        } catch {
+          // Skip unreadable files.
         }
-      } catch {
-        // Skip unreadable files.
       }
+
+      await p2pService.drainSyncOutbox();
+
+      publishProgress({
+        phase: "sending",
+        totalFiles,
+        queuedFiles,
+        remainingFiles: Math.max(0, totalFiles - queuedFiles),
+        truncated,
+        completed: false,
+        failed: false,
+        startedAt: null
+      });
     }
 
-    p2pService.drainSyncOutbox().catch((error) => {
-      console.error("[p2p] full-sync drain failed:", error?.message);
+    publishProgress({
+      phase: "completed",
+      totalFiles,
+      queuedFiles,
+      remainingFiles: Math.max(0, totalFiles - queuedFiles),
+      truncated,
+      completed: true,
+      failed: false,
+      startedAt: null
     });
   } catch (error) {
+    publishProgress({
+      phase: "failed",
+      totalFiles: 0,
+      queuedFiles: 0,
+      remainingFiles: 0,
+      truncated: false,
+      completed: true,
+      failed: true,
+      error: error?.message || "Full sync failed.",
+      startedAt: null
+    });
     console.error("[p2p] initiateFullSyncForPeer failed:", error?.message);
   }
 }
@@ -3239,8 +3308,17 @@ ipcMain.handle("p2p:pair-with-code", async (_event, payload) => {
   }
   return await p2pService.pairWithCode({
     peerId: payload?.peerId,
-    code: payload?.code
+    code: payload?.code,
+    reauth: Boolean(payload?.reauth)
   });
+});
+
+ipcMain.handle("p2p:set-key-policy", (_event, payload) => {
+  if (!p2pService) {
+    throw new Error("P2P service unavailable.");
+  }
+  p2pService.setKeyPolicyDays(payload?.days);
+  return p2pService.getStatus();
 });
 
 ipcMain.handle("p2p:manual-connect", async (_event, payload) => {
