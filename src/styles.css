@@ -309,6 +309,17 @@ button {
   line-height: 1.1;
 }
 
+.landing-path {
+  margin-top: 6px;
+  color: #5f757b;
+  font-size: 12px;
+  font-family: "Cascadia Code", Consolas, ui-monospace, monospace;
+  max-width: min(760px, 70vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .landing-header span {
   display: block;
   max-width: 560px;
@@ -354,6 +365,98 @@ button {
 .document-view-toggle button.active {
   background: #1a3a3e;
   color: #ffffff;
+}
+
+.embedded-terminal {
+  border: 1px solid #2a3a3f;
+  border-radius: 10px 10px 0 0;
+  background: #0f1719;
+  overflow: hidden;
+}
+
+.embedded-terminal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #2e4045;
+  background: linear-gradient(180deg, #1d2a2f 0%, #142025 100%);
+}
+
+.embedded-terminal-header strong {
+  font-size: 13px;
+  color: #d8ece2;
+}
+
+.embedded-terminal-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.embedded-terminal-header span {
+  color: #9bb6bf;
+  font-size: 11px;
+  font-family: "Cascadia Code", Consolas, ui-monospace, monospace;
+  max-width: 40vw;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.embedded-terminal-xterm {
+  height: min(320px, 38vh);
+  padding: 8px 10px 10px;
+}
+
+.terminal-toggle-fab {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 1700;
+  min-height: 36px;
+  border: 1px solid #1f5057;
+  border-radius: 999px;
+  background: #1a3a3e;
+  color: #ffffff;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.terminal-toggle-fab.active {
+  background: #143035;
+}
+
+.terminal-dock {
+  position: fixed;
+  left: 14px;
+  right: 14px;
+  bottom: 0;
+  z-index: 1650;
+  pointer-events: none;
+  transform: translateY(0);
+  animation: terminal-dock-enter 0.18s ease-out;
+}
+
+.terminal-dock .embedded-terminal {
+  pointer-events: auto;
+}
+
+@keyframes terminal-dock-enter {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 880px) {
+  .embedded-terminal-xterm {
+    height: min(260px, 34vh);
+  }
 }
 
 .document-grid {

@@ -35,5 +35,26 @@ contextBridge.exposeInMainWorld("notesApi", {
   getImageUsage: (payload) => ipcRenderer.invoke("images:usage", payload),
   readImage: (payload) => ipcRenderer.invoke("images:read", payload),
   deleteImage: (payload) => ipcRenderer.invoke("images:delete", payload),
-  replaceImage: (payload) => ipcRenderer.invoke("images:replace", payload)
+  replaceImage: (payload) => ipcRenderer.invoke("images:replace", payload),
+  runTerminalCommand: (payload) => ipcRenderer.invoke("terminal:run", payload),
+  createTerminalSession: (payload) => ipcRenderer.invoke("terminal:create", payload),
+  writeTerminalInput: (payload) => ipcRenderer.invoke("terminal:write", payload),
+  resizeTerminal: (payload) => ipcRenderer.invoke("terminal:resize", payload),
+  killTerminalSession: (payload) => ipcRenderer.invoke("terminal:kill", payload),
+  onTerminalData: (callback) => {
+    if (typeof callback !== "function") {
+      return () => {};
+    }
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on("terminal:data", listener);
+    return () => ipcRenderer.removeListener("terminal:data", listener);
+  },
+  onTerminalExit: (callback) => {
+    if (typeof callback !== "function") {
+      return () => {};
+    }
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on("terminal:exit", listener);
+    return () => ipcRenderer.removeListener("terminal:exit", listener);
+  }
 });

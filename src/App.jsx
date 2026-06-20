@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import mermaid from "mermaid";
-import { FolderOpen, Globe, LayoutGrid, NotebookPen, Rows3, X } from "lucide-react";
+import { FolderOpen, LayoutGrid, NotebookPen, Rows3, X } from "lucide-react";
 import { DocumentList } from "./components/DocumentList";
 import { DocumentDetail } from "./components/DocumentDetail";
+import { EmbeddedTerminal } from "./components/EmbeddedTerminal";
 import {
   createDocument,
   deleteDocument as deleteDocumentApi,
@@ -75,6 +76,11 @@ export default function App() {
   const [notesFolderPath, setNotesFolderPath] = useState("");
   const [savingNotesFolder, setSavingNotesFolder] = useState(false);
   const [documentMenuAction, setDocumentMenuAction] = useState(null);
+  const [showTerminal, setShowTerminal] = useState(false);
+
+  const terminalCwd = current?.filePath
+    ? current.filePath.replace(/[\\/][^\\/]+$/, "")
+    : (activeProject?.rootPath || notesFolderPath);
 
   const notify = (message, type = "info") => {
     const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -117,6 +123,7 @@ export default function App() {
 
   async function openDocument(filePath, options = {}) {
     setError("");
+    setDocumentMenuAction(null);
     const doc = await readDocument(filePath);
     setCurrent(doc);
     setSavedHash(
@@ -353,6 +360,7 @@ export default function App() {
       if (!confirmed) return;
     }
 
+    setDocumentMenuAction(null);
     setCurrent(null);
     setHistory([]);
   }
@@ -455,6 +463,11 @@ export default function App() {
         return;
       }
 
+      if (action === "open-notes-folder-settings") {
+        setNotesFolderDialogOpen(true);
+        return;
+      }
+
       if (action === "view-tile") {
         setNotesViewMode("tile");
         return;
@@ -543,58 +556,25 @@ export default function App() {
         ))}
       </div>
       {error && <div className="error-banner">{error}</div>}
+      {!showTerminal ? (
+        <button
+          className="terminal-toggle-fab"
+          type="button"
+          onClick={() => setShowTerminal(true)}
+        >
+          Terminal
+        </button>
+      ) : null}
       {!current ? (
         <>
-          <section className="project-toolbar">
-            <div className="project-toolbar-left">
-              <span className="project-toolbar-label">Folder</span>
-              <select
-                className="project-select"
-                value={activeProject?.slug || ""}
-                onChange={(event) => handleSwitchProject(event.target.value)}
-              >
-                {(projects || []).map((project) => (
-                  <option key={project.slug} value={project.slug}>
-                    {project.isRoot ? "Root" : project.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="project-toolbar-right">
-              <button
-                className="small-button"
-                onClick={() => setNotesFolderDialogOpen(true)}
-                disabled={savingNotesFolder}
-              >
-                <FolderOpen size={14} />
-                Notes Folder
-              </button>
-              <button className="small-button" onClick={handleOpenWebsiteFromLanding} type="button">
-                <Globe size={14} />
-                Website
-              </button>
-              <button
-                className="small-button"
-                onClick={() => {
-                  setNoteDialogOpen(true);
-                }}
-                disabled={creatingNote}
-              >
-                <NotebookPen size={14} />
-                New Note
-              </button>
-            </div>
-          </section>
           <header className="landing-header">
             <div>
-              <p>{activeProject?.isRoot ? "Root" : activeProject?.name || "Folder"}</p>
-              <h1>{activeProject?.isRoot ? "Root Notes Browser" : `${activeProject?.name || "Folder"} Notes`}</h1>
+              <h1>{activeProject?.isRoot ? "All Notes" : `${activeProject?.name || "Folder"} Notes`}</h1>
+              <div className="landing-path" title={activeProject?.rootPath || notesFolderPath || "Path unavailable"}>
+                {activeProject?.rootPath || notesFolderPath || "Path unavailable"}
+              </div>
             </div>
             <div className="landing-header-actions">
-              <span>
-                Markdown source files with quick notes, formal notes, Mermaid diagrams, and local
-                versions.
-              </span>
               <div className="document-view-toggle" role="group" aria-label="Landing notes view mode">
                 <button
                   className={notesViewMode === "tile" ? "active" : ""}
@@ -640,6 +620,12 @@ export default function App() {
           onBack={handleGoHome}
         />
       )}
+
+      {showTerminal ? (
+        <div className="terminal-dock open">
+          <EmbeddedTerminal cwd={terminalCwd} onClose={() => setShowTerminal(false)} />
+        </div>
+      ) : null}
 
       {noteDialogOpen ? (
         <div className="overlay-dialog" role="dialog" aria-modal="true" aria-label="Create note">
