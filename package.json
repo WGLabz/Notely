@@ -19,6 +19,8 @@
     "dist:win": "npm run release:clean && npm run assets:icon && npm run build && node scripts/run-electron-builder.cjs --win nsis portable && npm run release:collect",
     "lint:markdown": "markdownlint-cli2",
     "test": "vitest run",
+    "test:p2p": "node scripts/p2p-harness.cjs",
+    "test:p2p:packaged": "node scripts/p2p-packaged-validation.cjs",
     "ci:check": "npm run build && npm run lint:markdown && npm run test"
   },
   "dependencies": {

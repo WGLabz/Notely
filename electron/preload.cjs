@@ -16,6 +16,33 @@ contextBridge.exposeInMainWorld("notesApi", {
   pickFolder: () => ipcRenderer.invoke("settings:pick-folder"),
   listProjects: () => ipcRenderer.invoke("projects:list"),
   setActiveProject: (payload) => ipcRenderer.invoke("projects:set-active", payload),
+  getP2PStatus: () => ipcRenderer.invoke("p2p:get-status"),
+  startP2PDiscovery: () => ipcRenderer.invoke("p2p:start-discovery"),
+  stopP2PDiscovery: () => ipcRenderer.invoke("p2p:stop-discovery"),
+  setP2PDeviceName: (payload) => ipcRenderer.invoke("p2p:set-device-name", payload),
+  createP2PInvite: (payload) => ipcRenderer.invoke("p2p:create-invite", payload),
+  pairP2PWithCode: (payload) => ipcRenderer.invoke("p2p:pair-with-code", payload),
+  setP2PKeyPolicyDays: (payload) => ipcRenderer.invoke("p2p:set-key-policy", payload),
+  manualP2PConnect: (payload) => ipcRenderer.invoke("p2p:manual-connect", payload),
+  removeTrustedP2PPeer: (payload) => ipcRenderer.invoke("p2p:remove-trusted-peer", payload),
+  rotateP2PWorkspaceKeys: (payload) => ipcRenderer.invoke("p2p:rotate-workspace-keys", payload),
+  runP2PSyncSelfTest: () => ipcRenderer.invoke("p2p:run-sync-self-test"),
+  listP2PSyncConflicts: (payload) => ipcRenderer.invoke("sync:list-conflicts", payload),
+  readP2PConflictFiles: (payload) => ipcRenderer.invoke("sync:read-conflict-files", payload),
+  resolveP2PConflict: (payload) => ipcRenderer.invoke("sync:resolve-conflict", payload),
+  onP2PSyncApplied: (callback) => {
+    if (typeof callback !== "function") return () => {};
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on("sync:applied", listener);
+    return () => ipcRenderer.removeListener("sync:applied", listener);
+  },
+  onP2PFullSyncProgress: (callback) => {
+    if (typeof callback !== "function") return () => {};
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on("p2p:full-sync-progress", listener);
+    return () => ipcRenderer.removeListener("p2p:full-sync-progress", listener);
+  },
+  getWorkspaceActivity: (payload) => ipcRenderer.invoke("activity:get-workspace", payload),
   listDocuments: (payload) => ipcRenderer.invoke("documents:list", payload),
   createDocument: (payload) => ipcRenderer.invoke("documents:create", payload),
   createFolder: (payload) => ipcRenderer.invoke("folders:create", payload),

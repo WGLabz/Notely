@@ -1,9 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import mermaid from "mermaid";
 import { ArrowUp, FolderOpen, FolderPlus, LayoutGrid, NotebookPen, Rows3, X } from "lucide-react";
 import { DocumentList } from "./components/DocumentList";
 import { DocumentDetail } from "./components/DocumentDetail";
 import { EmbeddedTerminal } from "./components/EmbeddedTerminal";
+import { P2PStatusPanel } from "./components/P2PStatusPanel";
+import { WorkspaceActivityPanel } from "./components/WorkspaceActivityPanel";
+import { ConflictResolutionPanel } from "./components/ConflictResolutionPanel";
 import {
   createFolder,
   createDocument,
@@ -21,6 +24,24 @@ import {
   setNotesRootSetting,
   setActiveProject,
   getHistory,
+  getP2PStatus,
+  startP2PDiscovery,
+  stopP2PDiscovery,
+  setP2PDeviceName,
+  createP2PInvite,
+  pairP2PWithCode,
+  pairP2PWithCodeReauth,
+  manualP2PConnect,
+  setP2PKeyPolicyDays,
+  removeTrustedP2PPeer,
+  rotateP2PWorkspaceKeys,
+  runP2PSyncSelfTest,
+  listP2PSyncConflicts,
+  readP2PConflictFiles,
+  resolveP2PConflict,
+  getWorkspaceActivity,
+  onP2PSyncApplied,
+  onP2PFullSyncProgress,
   updateMenuContext,
 } from "./services/electronService";
 
@@ -82,6 +103,28 @@ export default function App() {
   const [documentMenuAction, setDocumentMenuAction] = useState(null);
   const [showTerminal, setShowTerminal] = useState(false);
   const [landingFolderPath, setLandingFolderPath] = useState("");
+  const [p2pStatusOpen, setP2PStatusOpen] = useState(false);
+  const [p2pStatusLoading, setP2PStatusLoading] = useState(false);
+  const [p2pStatus, setP2PStatus] = useState(null);
+  const [workspaceActivityOpen, setWorkspaceActivityOpen] = useState(false);
+  const [workspaceActivityLoading, setWorkspaceActivityLoading] = useState(false);
+  const [workspaceActivity, setWorkspaceActivity] = useState(null);
+  const [p2pSyncHelpOpen, setP2PSyncHelpOpen] = useState(false);
+  const [fullSyncProgressByPeer, setFullSyncProgressByPeer] = useState({});
+
+  const syncStateRef = useRef({ current: null, dirty: false, openDocument: null });
+  syncStateRef.current = { doc: current, dirty, openDocument };
+  const [syncSelfTestOpen, setSyncSelfTestOpen] = useState(false);
+  const [syncSelfTestLoading, setSyncSelfTestLoading] = useState(false);
+  const [syncSelfTestResult, setSyncSelfTestResult] = useState(null);
+  const [conflictCenterOpen, setConflictCenterOpen] = useState(false);
+  const [conflictCenterLoading, setConflictCenterLoading] = useState(false);
+  const [conflictCenterData, setConflictCenterData] = useState(null);
+  const [conflictCursor, setConflictCursor] = useState(0);
+  const [conflictResolutionOpen, setConflictResolutionOpen] = useState(false);
+  const [conflictResolutionEntry, setConflictResolutionEntry] = useState(null);
+  const [conflictResolutionFiles, setConflictResolutionFiles] = useState(null);
+  const [conflictResolutionLoading, setConflictResolutionLoading] = useState(false);
 
   const terminalCwd = current?.filePath
     ? current.filePath.replace(/[\\/][^\\/]+$/, "")
@@ -504,8 +547,330 @@ export default function App() {
     }
   }
 
+  async function handleOpenP2PStatus() {
+    setP2PStatusOpen(true);
+    setP2PStatusLoading(true);
+    try {
+      const snapshot = await getP2PStatus();
+      setP2PStatus(snapshot);
+      setError("");
+    } catch (err) {
+      setError(err?.message || "Unable to load P2P status.");
+      notify(err?.message || "Unable to load P2P status.", "error");
+    } finally {
+      setP2PStatusLoading(false);
+    }
+  }
+
+  async function handleOpenWorkspaceActivity() {
+    setWorkspaceActivityOpen(true);
+    setWorkspaceActivityLoading(true);
+    try {
+      const timeline = await getWorkspaceActivity(250);
+      setWorkspaceActivity(timeline);
+      setError("");
+    } catch (err) {
+      setError(err?.message || "Unable to load workspace activity.");
+      notify(err?.message || "Unable to load workspace activity.", "error");
+    } finally {
+      setWorkspaceActivityLoading(false);
+    }
+  }
+
+  async function refreshP2PStatus() {
+    const snapshot = await getP2PStatus();
+    setP2PStatus(snapshot);
+  }
+
+  async function handleStartP2PDiscovery() {
+    try {
+      setP2PStatusLoading(true);
+      await startP2PDiscovery();
+      await refreshP2PStatus();
+      notify("P2P discovery started.", "success");
+    } catch (err) {
+      notify(err?.message || "Unable to start P2P discovery.", "error");
+    } finally {
+      setP2PStatusLoading(false);
+    }
+  }
+
+  async function handleStopP2PDiscovery() {
+    try {
+      setP2PStatusLoading(true);
+      await stopP2PDiscovery();
+      await refreshP2PStatus();
+      notify("P2P discovery stopped.", "success");
+    } catch (err) {
+      notify(err?.message || "Unable to stop P2P discovery.", "error");
+    } finally {
+      setP2PStatusLoading(false);
+    }
+  }
+
+  async function handleSetP2PDeviceName(name) {
+    try {
+      setP2PStatusLoading(true);
+      await setP2PDeviceName(String(name || "").trim());
+      await refreshP2PStatus();
+      notify("P2P device name updated.", "success");
+    } catch (err) {
+      notify(err?.message || "Unable to update P2P device name.", "error");
+    } finally {
+      setP2PStatusLoading(false);
+    }
+  }
+
+  async function handleCreateP2PInvite(peerId) {
+    try {
+      setP2PStatusLoading(true);
+      const result = await createP2PInvite(peerId || undefined);
+      await refreshP2PStatus();
+      const code = result?.invite?.code;
+      notify(code ? `Invite code: ${code}` : "P2P invite created.", "success");
+    } catch (err) {
+      notify(err?.message || "Unable to create P2P invite.", "error");
+    } finally {
+      setP2PStatusLoading(false);
+    }
+  }
+
+  async function handlePairP2PWithCode(peerId, code) {
+    try {
+      setP2PStatusLoading(true);
+      await pairP2PWithCode(peerId, String(code || "").trim());
+      await refreshP2PStatus();
+      notify("Peer paired successfully.", "success");
+    } catch (err) {
+      const message = String(err?.message || "");
+      if (/confirm re-auth|re-auth confirmation/i.test(message)) {
+        const confirmed = window.confirm(
+          "This peer was removed earlier. Confirm re-auth to trust this peer again?"
+        );
+        if (confirmed) {
+          try {
+            await pairP2PWithCodeReauth(peerId, String(code || "").trim(), true);
+            await refreshP2PStatus();
+            notify("Peer re-authenticated and paired.", "success");
+            return;
+          } catch (reauthErr) {
+            notify(reauthErr?.message || "Unable to re-authenticate peer.", "error");
+            return;
+          }
+        }
+      }
+      notify(err?.message || "Unable to pair with code.", "error");
+    } finally {
+      setP2PStatusLoading(false);
+    }
+  }
+
+  async function handleSetP2PKeyPolicyDays(days) {
+    try {
+      setP2PStatusLoading(true);
+      const snapshot = await setP2PKeyPolicyDays(Number(days));
+      setP2PStatus(snapshot);
+      notify(`Key expiry policy updated to ${snapshot?.keyPolicyDays || Number(days)} day(s).`, "success");
+    } catch (err) {
+      notify(err?.message || "Unable to update key expiry policy.", "error");
+    } finally {
+      setP2PStatusLoading(false);
+    }
+  }
+
+  async function handleManualP2PConnect(address, listenPort) {
+    try {
+      setP2PStatusLoading(true);
+      await manualP2PConnect(String(address || "").trim(), Number(listenPort));
+      await refreshP2PStatus();
+      notify("Manual connect request sent.", "success");
+    } catch (err) {
+      notify(err?.message || "Unable to connect to peer.", "error");
+    } finally {
+      setP2PStatusLoading(false);
+    }
+  }
+
+  async function handleRemoveTrustedP2PPeer(peerId) {
+    try {
+      setP2PStatusLoading(true);
+      await removeTrustedP2PPeer(peerId);
+      await refreshP2PStatus();
+      notify("Trusted peer removed.", "success");
+    } catch (err) {
+      notify(err?.message || "Unable to remove trusted peer.", "error");
+    } finally {
+      setP2PStatusLoading(false);
+    }
+  }
+
+  async function handleRotateP2PWorkspaceKeys(peerId) {
+    try {
+      setP2PStatusLoading(true);
+      const result = await rotateP2PWorkspaceKeys(peerId);
+      await refreshP2PStatus();
+      const count = Number(result?.rotated || 0);
+      notify(`Workspace key rotated for ${count} peer${count === 1 ? "" : "s"}.`, "success");
+    } catch (err) {
+      notify(err?.message || "Unable to rotate workspace keys.", "error");
+    } finally {
+      setP2PStatusLoading(false);
+    }
+  }
+
+  async function handleRunP2PSyncSelfTest() {
+    setSyncSelfTestOpen(true);
+    setSyncSelfTestLoading(true);
+    try {
+      const result = await runP2PSyncSelfTest();
+      setSyncSelfTestResult(result);
+      notify(result?.ok ? "P2P sync self-test passed." : "P2P sync self-test failed.", result?.ok ? "success" : "error");
+    } catch (err) {
+      setSyncSelfTestResult({ ok: false, error: err?.message || "Self-test failed." });
+      notify(err?.message || "Unable to run sync self-test.", "error");
+    } finally {
+      setSyncSelfTestLoading(false);
+    }
+  }
+
+  async function handleOpenConflictCenter() {
+    setConflictCenterOpen(true);
+    setConflictCenterLoading(true);
+    setConflictCursor(0);
+    try {
+      const data = await listP2PSyncConflicts(250);
+      setConflictCenterData(data);
+    } catch (err) {
+      notify(err?.message || "Unable to load conflict center.", "error");
+      setConflictCenterData({ total: 0, conflicts: [] });
+    } finally {
+      setConflictCenterLoading(false);
+    }
+  }
+
+  async function handleOpenConflictFile(filePath) {
+    try {
+      await openInEditor(filePath);
+    } catch (err) {
+      notify(err?.message || "Unable to open conflict file.", "error");
+    }
+  }
+
+  async function handleOpenConflictResolution(entry) {
+    if (!entry) return;
+    setConflictResolutionEntry(entry);
+    setConflictResolutionOpen(true);
+    setConflictResolutionFiles(null);
+    setConflictResolutionLoading(true);
+    try {
+      const files = await readP2PConflictFiles(entry.filePath, entry.conflictPath);
+      setConflictResolutionFiles(files);
+    } catch (err) {
+      notify(err?.message || "Unable to load conflict files.", "error");
+      setConflictResolutionOpen(false);
+    } finally {
+      setConflictResolutionLoading(false);
+    }
+  }
+
+  async function handleResolveConflict(resolution) {
+    if (!conflictResolutionEntry) return;
+    setConflictResolutionLoading(true);
+    try {
+      const mergedContent = typeof resolution === "object" ? resolution.mergedContent : undefined;
+      const resolutionType = typeof resolution === "string" ? resolution : "merged";
+      await resolveP2PConflict(
+        conflictResolutionEntry.filePath,
+        conflictResolutionEntry.conflictPath,
+        resolutionType,
+        mergedContent
+      );
+      notify("Conflict resolved.", "success");
+      setConflictResolutionOpen(false);
+      setConflictResolutionEntry(null);
+      setConflictResolutionFiles(null);
+      const data = await listP2PSyncConflicts(250);
+      setConflictCenterData(data);
+      setConflictCursor((cursor) => Math.max(0, Math.min(cursor, Math.max(0, (data?.conflicts?.length || 1) - 1))));
+      await loadDocumentsData();
+    } catch (err) {
+      notify(err?.message || "Unable to resolve conflict.", "error");
+    } finally {
+      setConflictResolutionLoading(false);
+    }
+  }
+
+  function handleOpenNextConflict() {
+    const conflicts = conflictCenterData?.conflicts || [];
+    if (!conflicts.length) {
+      notify("No unresolved conflicts remain.", "info");
+      return;
+    }
+    const nextIndex = conflictCursor % conflicts.length;
+    const nextEntry = conflicts[nextIndex];
+    setConflictCursor(nextIndex + 1);
+    handleOpenConflictResolution(nextEntry);
+  }
+
   useEffect(() => {
     loadDocumentsData();
+  }, []);
+
+  useEffect(() => {
+    return onP2PSyncApplied((payload) => {
+      const op = payload?.op;
+      const relativePath = payload?.relativePath || "";
+      const filePath = payload?.filePath || "";
+      const peerName = payload?.peerName || "a peer";
+
+      if (op === "delete") {
+        notify(`Note deleted by ${peerName}: ${relativePath}`, "info");
+      } else if (op === "delete-conflict") {
+        notify(
+          `${peerName} tried to delete "${relativePath}" but your local version differs — check Activity for details.`,
+          "warning"
+        );
+      } else if (op === "conflict") {
+        notify(`Sync conflict from ${peerName} — open P2P → Conflict Center to resolve.`, "warning");
+      } else {
+        notify(`Note synced from ${peerName}: ${relativePath}`, "info");
+      }
+
+      const { doc, dirty: isDirty, openDocument: openDoc } = syncStateRef.current;
+      const appliedToOpenNote =
+        filePath &&
+        doc?.filePath &&
+        !isDirty &&
+        filePath.toLowerCase().replace(/\\/g, "/") === doc.filePath.toLowerCase().replace(/\\/g, "/");
+
+      if (appliedToOpenNote && (op === "update" || op === "create" || op === "merge")) {
+        openDoc(doc.filePath, { preserveActiveTab: true }).catch(() => {});
+      }
+
+      loadDocumentsData();
+    });
+  }, []);
+
+  useEffect(() => {
+    return onP2PFullSyncProgress((payload) => {
+      const peerId = String(payload?.peerId || "unknown-peer");
+      setFullSyncProgressByPeer((currentMap) => ({
+        ...currentMap,
+        [peerId]: payload
+      }));
+
+      if (payload?.phase === "completed") {
+        const queued = Number(payload?.queuedFiles || 0);
+        const total = Number(payload?.totalFiles || queued);
+        const truncated = Boolean(payload?.truncated);
+        notify(
+          `Initial sync complete for ${peerId}: ${queued}/${total} note(s) queued${truncated ? " (truncated cap)." : "."}`,
+          "success"
+        );
+      } else if (payload?.phase === "failed") {
+        notify(payload?.error || `Initial sync failed for ${peerId}.`, "error");
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -546,6 +911,36 @@ export default function App() {
 
       if (action === "open-notes-folder-settings") {
         setNotesFolderDialogOpen(true);
+        return;
+      }
+
+      if (action === "open-p2p-status") {
+        handleOpenP2PStatus();
+        return;
+      }
+
+      if (action === "open-workspace-activity") {
+        handleOpenWorkspaceActivity();
+        return;
+      }
+
+      if (action === "open-p2p-sync-help") {
+        setP2PSyncHelpOpen(true);
+        return;
+      }
+
+      if (action === "run-p2p-sync-self-test") {
+        handleRunP2PSyncSelfTest();
+        return;
+      }
+
+      if (action === "rotate-p2p-workspace-keys") {
+        handleRotateP2PWorkspaceKeys();
+        return;
+      }
+
+      if (action === "open-p2p-conflicts") {
+        handleOpenConflictCenter();
         return;
       }
 
@@ -831,6 +1226,248 @@ export default function App() {
           </div>
         </div>
       ) : null}
+
+      {p2pStatusOpen ? (
+        <div className="overlay-dialog" role="dialog" aria-modal="true" aria-label="P2P status">
+          <div className="overlay-dialog-card p2p-status-dialog-card">
+            <div className="overlay-dialog-header">
+              <h2>P2P Status</h2>
+              <button
+                className="icon-button"
+                onClick={() => setP2PStatusOpen(false)}
+                type="button"
+                aria-label="Close P2P status"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <P2PStatusPanel
+              status={p2pStatus}
+              loading={p2pStatusLoading}
+              fullSyncProgressByPeer={fullSyncProgressByPeer}
+              onRefresh={handleOpenP2PStatus}
+              onStartDiscovery={handleStartP2PDiscovery}
+              onStopDiscovery={handleStopP2PDiscovery}
+              onSetDeviceName={handleSetP2PDeviceName}
+              onSetKeyPolicyDays={handleSetP2PKeyPolicyDays}
+              onCreateInvite={handleCreateP2PInvite}
+              onPairWithCode={handlePairP2PWithCode}
+              onManualConnect={handleManualP2PConnect}
+              onRemoveTrustedPeer={handleRemoveTrustedP2PPeer}
+              onRotateWorkspaceKeys={handleRotateP2PWorkspaceKeys}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      {workspaceActivityOpen ? (
+        <div className="overlay-dialog" role="dialog" aria-modal="true" aria-label="Workspace activity">
+          <div className="overlay-dialog-card activity-dialog-card">
+            <div className="overlay-dialog-header">
+              <h2>Workspace Activity</h2>
+              <button
+                className="icon-button"
+                onClick={() => setWorkspaceActivityOpen(false)}
+                type="button"
+                aria-label="Close workspace activity"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <WorkspaceActivityPanel
+              data={workspaceActivity}
+              loading={workspaceActivityLoading}
+              onRefresh={handleOpenWorkspaceActivity}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      {p2pSyncHelpOpen ? (
+        <div className="overlay-dialog" role="dialog" aria-modal="true" aria-label="P2P sync notes">
+          <div className="overlay-dialog-card">
+            <div className="overlay-dialog-header">
+              <h2>How P2P Sync Works</h2>
+              <button
+                className="icon-button"
+                onClick={() => setP2PSyncHelpOpen(false)}
+                type="button"
+                aria-label="Close P2P sync help"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p2p-sync-help-content">
+              <p><strong>Current behavior</strong></p>
+              <ol>
+                <li>Discovery: each app broadcasts a LAN hello packet and lists nearby peers.</li>
+                <li>Connect: you can manually ping a peer by address and port.</li>
+                <li>Pairing: one peer creates an invite code, the other submits the code to establish trust.</li>
+                <li>Trust state: trusted peers are saved locally on each device.</li>
+                <li>Sync: create, update, and delete note events are shared between trusted peers.</li>
+              </ol>
+              <p><strong>File sync status</strong></p>
+              <p>Automatic note sync is enabled for trusted peers using AES-256-GCM encrypted sync events.</p>
+              <p><strong>Planned next phase</strong></p>
+              <ol>
+                <li>Replace full-content updates with true section/line deltas.</li>
+                <li>Add richer conflict resolution UI (manual choose/merge).</li>
+                <li>Add delivery retry queues and offline reconciliation.</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {conflictResolutionOpen && conflictResolutionEntry ? (
+        <div className="overlay-dialog" role="dialog" aria-modal="true" aria-label="Resolve sync conflict">
+          <div className="overlay-dialog-card conflict-resolve-dialog-card">
+            <div className="overlay-dialog-header">
+              <h2>Resolve Conflict</h2>
+              <button
+                className="icon-button"
+                onClick={() => setConflictResolutionOpen(false)}
+                type="button"
+                aria-label="Close conflict resolution"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            {conflictResolutionLoading && !conflictResolutionFiles ? (
+              <p className="p2p-status-table-empty">Loading files...</p>
+            ) : conflictResolutionFiles ? (
+              <ConflictResolutionPanel
+                localFile={conflictResolutionFiles.local}
+                conflictFile={conflictResolutionFiles.conflict}
+                relativePath={conflictResolutionEntry.relativePath || conflictResolutionEntry.filePath}
+                onResolve={handleResolveConflict}
+                loading={conflictResolutionLoading}
+              />
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {syncSelfTestOpen ? (
+        <div className="overlay-dialog" role="dialog" aria-modal="true" aria-label="P2P sync self-test">
+          <div className="overlay-dialog-card">
+            <div className="overlay-dialog-header">
+              <h2>P2P Sync Self-Test</h2>
+              <button
+                className="icon-button"
+                onClick={() => setSyncSelfTestOpen(false)}
+                type="button"
+                aria-label="Close sync self-test"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p2p-sync-help-content">
+              {syncSelfTestLoading ? (
+                <p>Running self-test...</p>
+              ) : syncSelfTestResult ? (
+                <>
+                  <p>
+                    <strong>Result:</strong>{" "}
+                    <span className={syncSelfTestResult.ok ? "p2p-test-pass" : "p2p-test-fail"}>
+                      {syncSelfTestResult.ok ? "PASS" : "FAIL"}
+                    </span>
+                  </p>
+                  <p><strong>Crypto round-trip:</strong> {syncSelfTestResult.cryptoRoundTrip || "N/A"}</p>
+                  <p><strong>Trusted peers:</strong> {syncSelfTestResult.trustedPeers ?? "N/A"}</p>
+                  <p><strong>Outbox count:</strong> {syncSelfTestResult.outboxCount ?? "N/A"}</p>
+                  {syncSelfTestResult.error ? (
+                    <p className="p2p-test-fail"><strong>Error:</strong> {syncSelfTestResult.error}</p>
+                  ) : null}
+                </>
+              ) : (
+                <p>No result yet.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {conflictCenterOpen ? (
+        <div className="overlay-dialog" role="dialog" aria-modal="true" aria-label="P2P conflict center">
+          <div className="overlay-dialog-card p2p-status-dialog-card">
+            <div className="overlay-dialog-header">
+              <h2>Conflict Center</h2>
+              <button
+                className="icon-button"
+                onClick={() => setConflictCenterOpen(false)}
+                type="button"
+                aria-label="Close conflict center"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p2p-conflict-center">
+              <div className="p2p-conflict-center-actions">
+                <button
+                  className="small-button"
+                  type="button"
+                  onClick={handleOpenNextConflict}
+                  disabled={!conflictCenterData?.conflicts?.length}
+                >
+                  Resolve Next Unresolved
+                </button>
+              </div>
+              {conflictCenterLoading ? (
+                <p className="p2p-status-table-empty">Loading conflicts...</p>
+              ) : !conflictCenterData?.conflicts?.length ? (
+                <p className="p2p-status-table-empty">No unresolved sync conflicts.</p>
+              ) : (
+                <table className="p2p-status-peer-table">
+                  <thead>
+                    <tr>
+                      <th>Note</th>
+                      <th>Conflict File</th>
+                      <th>When</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {conflictCenterData.conflicts.map((entry) => (
+                      <tr key={entry.id}>
+                        <td className="mono-cell">{entry.relativePath || entry.filePath}</td>
+                        <td className="mono-cell" title={entry.conflictPath}>
+                          {entry.conflictPath.split(/[\\/]/).pop()}
+                        </td>
+                        <td>{entry.createdAt ? new Date(entry.createdAt).toLocaleString() : "Unknown"}</td>
+                        <td className="p2p-conflict-actions">
+                          <button
+                            className="small-button"
+                            type="button"
+                            onClick={() => handleOpenConflictResolution(entry)}
+                          >
+                            Resolve
+                          </button>
+                          <button
+                            className="small-button"
+                            type="button"
+                            onClick={() => handleOpenConflictFile(entry.filePath)}
+                          >
+                            Open Local
+                          </button>
+                          <button
+                            className="small-button"
+                            type="button"
+                            onClick={() => handleOpenConflictFile(entry.conflictPath)}
+                          >
+                            Open Conflict
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
     </div>
   );
 }

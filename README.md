@@ -172,6 +172,31 @@ npm run build
 npm test
 ```
 
+### Run local P2P harness
+
+```bash
+npm run test:p2p
+```
+
+This harness is designed for one-machine validation of planned peer-to-peer flows without cloud dependencies. It validates:
+
+- Peer discovery
+- Human-readable pairing code handshake
+- Workspace key exchange to trusted peers
+- Encrypted message sync using workspace keys
+- Workspace key rotation and re-share
+- Peer revoke behavior
+
+Harness output artifacts are written to `.artifacts/p2p-harness/`.
+
+### Run packaged P2P validation preflight
+
+```bash
+npm run test:p2p:packaged
+```
+
+This command checks whether expected Windows release executables are present and prints a repeatable two-machine LAN validation checklist.
+
 ### Markdown linting
 
 ```bash

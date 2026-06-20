@@ -8,6 +8,7 @@ const http = require("node:http");
 const { spawn } = require("node:child_process");
 const pty = require("node-pty");
 const MarkdownIt = require("markdown-it");
+const { P2PLiveService } = require("./p2pLive.cjs");
 
 const rendererUrl = process.env.ELECTRON_RENDERER_URL;
 const projectRoot = app.getAppPath();
@@ -25,6 +26,9 @@ let webPreviewScopeRoot = "";
 let webPreviewScopeLabel = "Project";
 const terminalSessions = new Map();
 let nextTerminalSessionId = 1;
+let p2pService = null;
+const FULL_SYNC_BATCH_SIZE = 25;
+const FULL_SYNC_MAX_FILES = 1000;
 
 function ensureDir(dirPath) {
   if (!dirPath || typeof dirPath !== "string") {
@@ -73,6 +77,23 @@ function applyNotesRoot(nextRootPath) {
   ensureDir(versionsRoot);
 
   metadataStore = new MetadataStore();
+
+  if (p2pService) {
+    p2pService.shutdown();
+  }
+  p2pService = new P2PLiveService({
+    storageDir: appDataDir,
+    onSyncEvent: handleIncomingP2PSyncEvent,
+    onPeerTrusted: (peerId) => {
+      setImmediate(() => {
+        initiateFullSyncForPeer(peerId).catch((error) => {
+          console.error("[p2p] full sync on trust failed:", error?.message || error);
+        });
+      });
+    }
+  });
+  p2pService.init();
+
   activeProjectSlug = ROOT_PROJECT_SLUG;
 }
 
@@ -98,6 +119,10 @@ function nowStamp() {
   ].join("-");
 }
 
+function randomId(bytes = 10) {
+  return crypto.randomBytes(bytes).toString("hex");
+}
+
 function hashContent(content) {
   return crypto.createHash("sha256").update(content, "utf8").digest("hex");
 }
@@ -106,6 +131,69 @@ function filePathWithin(rootDir, targetPath) {
   const normalizedRoot = path.resolve(rootDir).toLowerCase();
   const normalizedTarget = path.resolve(targetPath).toLowerCase();
   return normalizedTarget.startsWith(normalizedRoot);
+}
+
+function readP2PStatusSnapshot() {
+  const harnessRoot = path.join(projectRoot, ".artifacts", "p2p-harness");
+  const summaryPath = path.join(harnessRoot, "summary.json");
+
+  if (!fs.existsSync(summaryPath)) {
+    return {
+      available: false,
+      source: summaryPath,
+      generatedAt: null,
+      sessionId: null,
+      workspaceId: null,
+      peerCount: 0,
+      trustedLinkCount: 0,
+      workspaceKeyCount: 0,
+      peers: []
+    };
+  }
+
+  let summary;
+  try {
+    summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
+  } catch {
+    return {
+      available: false,
+      source: summaryPath,
+      generatedAt: null,
+      sessionId: null,
+      workspaceId: null,
+      peerCount: 0,
+      trustedLinkCount: 0,
+      workspaceKeyCount: 0,
+      peers: []
+    };
+  }
+
+  const peers = Array.isArray(summary?.peers)
+    ? summary.peers
+      .filter((peer) => peer && typeof peer === "object")
+      .map((peer) => ({
+        name: String(peer.name || "Unknown peer"),
+        peerId: String(peer.peerId || ""),
+        trustedPeerCount: Array.isArray(peer.trustedPeers) ? peer.trustedPeers.length : 0,
+        workspaceKeyCount: Array.isArray(peer.workspaceKeys) ? peer.workspaceKeys.length : 0,
+        inboxCount: Number.isFinite(peer.inboxCount) ? peer.inboxCount : 0
+      }))
+    : [];
+
+  const trustedLinkCount = peers.reduce((total, peer) => total + peer.trustedPeerCount, 0);
+  const workspaceKeyCount = peers.reduce((total, peer) => total + peer.workspaceKeyCount, 0);
+
+  return {
+    available: true,
+    source: summaryPath,
+    generatedAt: summary?.generatedAt || null,
+    sessionId: summary?.sessionId || null,
+    workspaceId: summary?.workspaceId || null,
+    peerCount: peers.length,
+    trustedLinkCount,
+    workspaceKeyCount,
+    peers
+  };
 }
 
 function getUniquePath(targetPath) {
@@ -245,6 +333,424 @@ function buildDocumentContent(document) {
   parts.push("# RawNotes\n" + (document.rawNotes || "").trim());
   parts.push("# Cleansed\n" + (document.cleansed || "").trim());
   return parts.join("\n\n") + "\n";
+}
+
+function buildP2PSyncReason(baseReason, peerId) {
+  const safePeerId = String(peerId || "unknown-peer").trim() || "unknown-peer";
+  return `${baseReason}:${safePeerId}`;
+}
+
+function isValidSyncRelativePath(relativePath) {
+  const normalized = normalizeToPosix(String(relativePath || "").trim());
+  if (!normalized || normalized.startsWith("/") || normalized.includes("..")) {
+    return false;
+  }
+  return normalized.toLowerCase().endsWith(".md");
+}
+
+function addSyncHistoryEntry({ filePath, reason, versionPath, fileHash }) {
+  metadataStore.addHistory({
+    filePath,
+    versionPath: String(versionPath || `p2p://${reason}`),
+    fileHash: String(fileHash || hashContent(`${reason}:${filePath}`)),
+    reason,
+    createdAt: new Date().toISOString()
+  });
+}
+
+function createVersionSnapshot(filePath, content, tag) {
+  const slug = slugify(path.basename(filePath));
+  const versionDir = path.join(versionsRoot, slug);
+  ensureDir(versionDir);
+  const stamp = nowStamp();
+  const versionPath = path.join(versionDir, `${stamp}-${slugify(tag || "snapshot")}.md`);
+  fs.writeFileSync(versionPath, content, "utf8");
+  return versionPath;
+}
+
+function createSyncConflictCopy(filePath, peerId, incomingContent) {
+  const ext = path.extname(filePath) || ".md";
+  const baseName = path.basename(filePath, ext);
+  const conflictName = `${baseName}.sync-conflict-${slugify(peerId || "peer")}-${nowStamp()}${ext}`;
+  const conflictPath = getUniquePath(path.join(path.dirname(filePath), conflictName));
+  fs.writeFileSync(conflictPath, incomingContent, "utf8");
+  return conflictPath;
+}
+
+function tryMergeSection(baseValue, localValue, remoteValue) {
+  if (localValue === remoteValue) return localValue;
+  if (localValue === baseValue) return remoteValue;
+  if (remoteValue === baseValue) return localValue;
+  return null;
+}
+
+function tryMergeDocumentContent({ filePath, baseContent, localContent, remoteContent }) {
+  if (typeof baseContent !== "string") {
+    return null;
+  }
+
+  const baseDoc = parseDocument(baseContent, filePath);
+  const localDoc = parseDocument(localContent, filePath);
+  const remoteDoc = parseDocument(remoteContent, filePath);
+
+  const mergedHeader = tryMergeSection(baseDoc.header, localDoc.header, remoteDoc.header);
+  const mergedRaw = tryMergeSection(baseDoc.rawNotes, localDoc.rawNotes, remoteDoc.rawNotes);
+  const mergedCleansed = tryMergeSection(baseDoc.cleansed, localDoc.cleansed, remoteDoc.cleansed);
+
+  if (mergedHeader === null || mergedRaw === null || mergedCleansed === null) {
+    return null;
+  }
+
+  return buildDocumentContent({
+    header: mergedHeader,
+    rawNotes: mergedRaw,
+    cleansed: mergedCleansed
+  });
+}
+
+function buildNoteDelta({ filePath, previousContent, nextContent }) {
+  const previousDoc = parseDocument(String(previousContent || ""), filePath);
+  const nextDoc = parseDocument(String(nextContent || ""), filePath);
+  const delta = {};
+
+  if (previousDoc.header !== nextDoc.header) {
+    delta.header = nextDoc.header;
+  }
+  if (previousDoc.rawNotes !== nextDoc.rawNotes) {
+    delta.rawNotes = nextDoc.rawNotes;
+  }
+  if (previousDoc.cleansed !== nextDoc.cleansed) {
+    delta.cleansed = nextDoc.cleansed;
+  }
+
+  return delta;
+}
+
+function applyNoteDelta({ filePath, baseContent, delta }) {
+  const baseDoc = parseDocument(String(baseContent || ""), filePath);
+  return buildDocumentContent({
+    header: typeof delta?.header === "string" ? delta.header : baseDoc.header,
+    rawNotes: typeof delta?.rawNotes === "string" ? delta.rawNotes : baseDoc.rawNotes,
+    cleansed: typeof delta?.cleansed === "string" ? delta.cleansed : baseDoc.cleansed
+  });
+}
+
+async function initiateFullSyncForPeer(peerId) {
+  if (!p2pService || !notesRoot) {
+    return;
+  }
+
+  const targetPeerId = String(peerId || "").trim();
+  if (!targetPeerId) {
+    return;
+  }
+
+  const publishProgress = (payload) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("p2p:full-sync-progress", {
+        peerId: targetPeerId,
+        ...payload
+      });
+    }
+  };
+
+  try {
+    const allFiles = walkFiles(notesRoot, { excludeDirs: [".notes-app", "removed", "images"] });
+    const mdFiles = allFiles.filter((f) => {
+      const lower = f.toLowerCase();
+      return lower.endsWith(".md") && !path.basename(f).includes(".sync-conflict-");
+    });
+
+    const truncated = mdFiles.length > FULL_SYNC_MAX_FILES;
+    const plannedFiles = truncated ? mdFiles.slice(0, FULL_SYNC_MAX_FILES) : mdFiles;
+    const totalFiles = plannedFiles.length;
+    let queuedFiles = 0;
+
+    publishProgress({
+      phase: "starting",
+      totalFiles,
+      queuedFiles,
+      remainingFiles: totalFiles,
+      truncated,
+      completed: totalFiles === 0,
+      failed: false,
+      startedAt: new Date().toISOString()
+    });
+
+    for (let batchStart = 0; batchStart < plannedFiles.length; batchStart += FULL_SYNC_BATCH_SIZE) {
+      const batch = plannedFiles.slice(batchStart, batchStart + FULL_SYNC_BATCH_SIZE);
+
+      for (const filePath of batch) {
+        try {
+          const content = fs.readFileSync(filePath, "utf8");
+          const relativePath = normalizeToPosix(path.relative(notesRoot, filePath));
+          if (!isValidSyncRelativePath(relativePath)) {
+            continue;
+          }
+
+          const queued = p2pService.queueSyncToPeer(targetPeerId, {
+            eventId: randomId(10),
+            timestamp: new Date().toISOString(),
+            docId: relativePath.toLowerCase(),
+            op: "update",
+            baseHash: null,
+            newHash: hashContent(content),
+            payload: {
+              relativePath,
+              content,
+              baseContent: null,
+              delta: null
+            }
+          });
+          if (!queued) {
+            throw new Error("Peer is no longer available for full sync.");
+          }
+
+          queuedFiles += 1;
+        } catch {
+          // Skip unreadable files.
+        }
+      }
+
+      await p2pService.drainSyncOutbox();
+
+      publishProgress({
+        phase: "sending",
+        totalFiles,
+        queuedFiles,
+        remainingFiles: Math.max(0, totalFiles - queuedFiles),
+        truncated,
+        completed: false,
+        failed: false,
+        startedAt: null
+      });
+    }
+
+    publishProgress({
+      phase: "completed",
+      totalFiles,
+      queuedFiles,
+      remainingFiles: Math.max(0, totalFiles - queuedFiles),
+      truncated,
+      completed: true,
+      failed: false,
+      startedAt: null
+    });
+  } catch (error) {
+    publishProgress({
+      phase: "failed",
+      totalFiles: 0,
+      queuedFiles: 0,
+      remainingFiles: 0,
+      truncated: false,
+      completed: true,
+      failed: true,
+      error: error?.message || "Full sync failed.",
+      startedAt: null
+    });
+    console.error("[p2p] initiateFullSyncForPeer failed:", error?.message);
+  }
+}
+
+function emitLocalP2PSyncEvent(event) {
+  if (!p2pService) {
+    return;
+  }
+
+  const resolved = path.resolve(String(event?.filePath || ""));
+  if (!filePathWithin(notesRoot, resolved)) {
+    return;
+  }
+
+  const relativePath = normalizeToPosix(path.relative(notesRoot, resolved));
+  if (!isValidSyncRelativePath(relativePath)) {
+    return;
+  }
+
+  const op = String(event?.op || "").trim();
+  if (!["create", "update", "delete"].includes(op)) {
+    return;
+  }
+
+  p2pService.broadcastSyncEvent({
+    eventId: randomId(10),
+    timestamp: new Date().toISOString(),
+    docId: relativePath.toLowerCase(),
+    op,
+    baseHash: event?.baseHash || null,
+    newHash: event?.newHash || null,
+    payload: {
+      relativePath,
+      content: typeof event?.content === "string" ? event.content : null,
+      baseContent: typeof event?.baseContent === "string" ? event.baseContent : null,
+      delta: event?.delta && typeof event.delta === "object" ? event.delta : null
+    }
+  }).catch((error) => {
+    console.error("P2P sync broadcast failed:", error?.message || error);
+  });
+}
+
+function pushSyncApplied(payload) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("sync:applied", payload);
+  }
+}
+
+function handleIncomingP2PSyncEvent({ peerId, peerName, event }) {
+  try {
+    const op = String(event?.op || "").trim();
+    const relativePath = normalizeToPosix(String(event?.payload?.relativePath || "").trim());
+    if (!["create", "update", "delete"].includes(op) || !isValidSyncRelativePath(relativePath)) {
+      return;
+    }
+
+    const resolved = path.resolve(notesRoot, relativePath);
+    if (!filePathWithin(notesRoot, resolved)) {
+      return;
+    }
+
+    ensureDir(path.dirname(resolved));
+    const baseReason = buildP2PSyncReason("p2p-sync-received", peerId);
+    addSyncHistoryEntry({
+      filePath: resolved,
+      reason: baseReason,
+      versionPath: `p2p://${event?.eventId || "unknown"}`,
+      fileHash: String(event?.newHash || event?.baseHash || hashContent(baseReason))
+    });
+
+    if (op === "delete") {
+      if (!fs.existsSync(resolved)) {
+        addSyncHistoryEntry({
+          filePath: resolved,
+          reason: buildP2PSyncReason("p2p-sync-stale-ignored", peerId),
+          versionPath: `p2p://${event?.eventId || "unknown"}`,
+          fileHash: String(event?.baseHash || hashContent("delete-stale"))
+        });
+        return;
+      }
+
+      const localContent = fs.readFileSync(resolved, "utf8");
+      const localHash = hashContent(localContent);
+      if (event?.baseHash && event.baseHash !== localHash) {
+        addSyncHistoryEntry({
+          filePath: resolved,
+          reason: buildP2PSyncReason("p2p-sync-delete-conflict", peerId),
+          versionPath: `p2p://${event?.eventId || "unknown"}`,
+          fileHash: localHash
+        });
+        pushSyncApplied({ op: "delete-conflict", relativePath, filePath: resolved, peerName: peerName || peerId });
+        return;
+      }
+
+      const result = deleteDocumentFile(resolved);
+      addSyncHistoryEntry({
+        filePath: resolved,
+        reason: buildP2PSyncReason("p2p-sync-delete-applied", peerId),
+        versionPath: result?.movedPath || `p2p://${event?.eventId || "unknown"}`,
+        fileHash: localHash
+      });
+      pushSyncApplied({ op: "delete", relativePath, filePath: resolved, peerName: peerName || peerId });
+      return;
+    }
+
+    const incomingDelta = event?.payload?.delta && typeof event.payload.delta === "object"
+      ? event.payload.delta
+      : null;
+    let incomingContent = typeof event?.payload?.content === "string"
+      ? event.payload.content
+      : null;
+
+    if (!incomingContent && incomingDelta && fs.existsSync(resolved)) {
+      const localForDelta = fs.readFileSync(resolved, "utf8");
+      incomingContent = applyNoteDelta({
+        filePath: resolved,
+        baseContent: localForDelta,
+        delta: incomingDelta
+      });
+    }
+
+    if (!incomingContent) {
+      return;
+    }
+
+    if (!fs.existsSync(resolved)) {
+      fs.writeFileSync(resolved, incomingContent, "utf8");
+      addSyncHistoryEntry({
+        filePath: resolved,
+        reason: buildP2PSyncReason("p2p-sync-applied", peerId),
+        versionPath: `p2p://${event?.eventId || "unknown"}`,
+        fileHash: hashContent(incomingContent)
+      });
+      pushSyncApplied({ op, relativePath, filePath: resolved, peerName: peerName || peerId });
+      return;
+    }
+
+    const localContent = fs.readFileSync(resolved, "utf8");
+    const localHash = hashContent(localContent);
+    if (event?.newHash && localHash === event.newHash) {
+      addSyncHistoryEntry({
+        filePath: resolved,
+        reason: buildP2PSyncReason("p2p-sync-duplicate-ignored", peerId),
+        versionPath: `p2p://${event?.eventId || "unknown"}`,
+        fileHash: localHash
+      });
+      return;
+    }
+
+    if (event?.baseHash && localHash === event.baseHash) {
+      const backupPath = createVersionSnapshot(resolved, localContent, "before-p2p-sync");
+      fs.writeFileSync(resolved, incomingContent, "utf8");
+      addSyncHistoryEntry({
+        filePath: resolved,
+        reason: buildP2PSyncReason("p2p-sync-applied", peerId),
+        versionPath: backupPath,
+        fileHash: localHash
+      });
+      pushSyncApplied({ op, relativePath, filePath: resolved, peerName: peerName || peerId });
+      return;
+    }
+
+    const mergedContent = tryMergeDocumentContent({
+      filePath: resolved,
+      baseContent: event?.payload?.baseContent,
+      localContent,
+      remoteContent: incomingContent
+    });
+
+    if (typeof mergedContent === "string" && mergedContent !== localContent) {
+      const backupPath = createVersionSnapshot(resolved, localContent, "before-p2p-merge");
+      fs.writeFileSync(resolved, mergedContent, "utf8");
+      addSyncHistoryEntry({
+        filePath: resolved,
+        reason: buildP2PSyncReason("p2p-sync-merged", peerId),
+        versionPath: backupPath,
+        fileHash: localHash
+      });
+      pushSyncApplied({ op: "merge", relativePath, filePath: resolved, peerName: peerName || peerId });
+      return;
+    }
+
+    if (typeof mergedContent === "string" && mergedContent === localContent) {
+      addSyncHistoryEntry({
+        filePath: resolved,
+        reason: buildP2PSyncReason("p2p-sync-duplicate-ignored", peerId),
+        versionPath: `p2p://${event?.eventId || "unknown"}`,
+        fileHash: localHash
+      });
+      return;
+    }
+
+    const conflictPath = createSyncConflictCopy(resolved, peerId, incomingContent);
+    addSyncHistoryEntry({
+      filePath: resolved,
+      reason: buildP2PSyncReason("p2p-sync-conflict", peerId),
+      versionPath: conflictPath,
+      fileHash: hashContent(incomingContent)
+    });
+    pushSyncApplied({ op: "conflict", relativePath, filePath: resolved, peerName: peerName || peerId });
+  } catch (error) {
+    console.error("P2P sync apply failed:", error?.message || error);
+  }
 }
 
 function listMarkdownFiles(rootDir) {
@@ -2034,6 +2540,34 @@ class MetadataStore {
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
+  getWorkspaceActivity(workspaceRoot, limit = 200) {
+    const resolvedRoot = path.resolve(String(workspaceRoot || notesRoot));
+    const safeLimit = Math.max(1, Math.min(1000, Number(limit) || 200));
+
+    if (this.db) {
+      const prefix = `${resolvedRoot.toLowerCase()}%`;
+      return this.db.prepare(`
+        SELECT file_path AS filePath, version_path AS versionPath, file_hash AS fileHash, reason, created_at AS createdAt
+        FROM history_entries
+        WHERE lower(file_path) LIKE ?
+        ORDER BY created_at DESC
+        LIMIT ?
+      `).all(prefix, safeLimit);
+    }
+
+    return this.state.history
+      .filter((entry) => filePathWithin(resolvedRoot, entry.filePath))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, safeLimit)
+      .map((entry) => ({
+        filePath: entry.filePath,
+        versionPath: entry.versionPath,
+        fileHash: entry.fileHash,
+        reason: entry.reason,
+        createdAt: entry.createdAt
+      }));
+  }
+
   deleteHistoryVersion(filePath, versionPath) {
     if (this.db) {
       this.db.prepare(`
@@ -2148,6 +2682,11 @@ function buildAppMenu(win, context = {}) {
           accelerator: "CmdOrCtrl+Shift+H",
           click: () => sendMenuAction(win, "manage-versions")
         },
+        {
+          label: "Workspace Activity",
+          accelerator: "CmdOrCtrl+Shift+A",
+          click: () => sendMenuAction(win, "open-workspace-activity")
+        },
         { type: "separator" },
         {
           label: "Open",
@@ -2205,6 +2744,11 @@ function buildAppMenu(win, context = {}) {
           label: "Open Website View",
           accelerator: "CmdOrCtrl+Shift+W",
           click: () => sendMenuAction(win, "open-website")
+        },
+        {
+          label: "Workspace Activity",
+          accelerator: "CmdOrCtrl+Shift+A",
+          click: () => sendMenuAction(win, "open-workspace-activity")
         },
         { type: "separator" },
         { role: "quit" }
@@ -2284,6 +2828,41 @@ function buildAppMenu(win, context = {}) {
     {
       label: "View",
       submenu: viewSubmenu
+    },
+    {
+      label: "P2P",
+      submenu: [
+        {
+          label: "P2P Status",
+          accelerator: "CmdOrCtrl+Shift+P",
+          click: () => sendMenuAction(win, "open-p2p-status")
+        },
+        { type: "separator" },
+        {
+          label: "Run Sync Self-Test",
+          click: () => sendMenuAction(win, "run-p2p-sync-self-test")
+        },
+        {
+          label: "Conflict Center",
+          click: () => sendMenuAction(win, "open-p2p-conflicts")
+        },
+        { type: "separator" },
+        {
+          label: "Rotate Workspace Keys",
+          click: () => sendMenuAction(win, "rotate-p2p-workspace-keys")
+        },
+        { type: "separator" },
+        {
+          label: "How Sync Works",
+          click: () => sendMenuAction(win, "open-p2p-sync-help")
+        }
+      ]
+    },
+    {
+      label: "Help",
+      submenu: [
+        { role: "toggleDevTools" }
+      ]
     }
   ]);
 }
@@ -2406,6 +2985,11 @@ app.on("before-quit", () => {
   webPreviewContentOverrides.clear();
   webPreviewScopeRoot = "";
   webPreviewScopeLabel = "Project";
+
+  if (p2pService) {
+    p2pService.shutdown();
+    p2pService = null;
+  }
 });
 
 app.on("browser-window-focus", (_event, win) => {
@@ -2687,6 +3271,232 @@ ipcMain.handle("projects:set-active", (_event, payload) => {
   return listProjectsState();
 });
 
+ipcMain.handle("p2p:start-discovery", () => {
+  if (!p2pService) {
+    throw new Error("P2P service unavailable.");
+  }
+  p2pService.startDiscovery();
+  return p2pService.getStatus();
+});
+
+ipcMain.handle("p2p:stop-discovery", () => {
+  if (!p2pService) {
+    throw new Error("P2P service unavailable.");
+  }
+  p2pService.stopDiscovery();
+  return p2pService.getStatus();
+});
+
+ipcMain.handle("p2p:set-device-name", (_event, payload) => {
+  if (!p2pService) {
+    throw new Error("P2P service unavailable.");
+  }
+  p2pService.setDeviceName(payload?.name);
+  return p2pService.getStatus();
+});
+
+ipcMain.handle("p2p:create-invite", (_event, payload) => {
+  if (!p2pService) {
+    throw new Error("P2P service unavailable.");
+  }
+  return p2pService.createInvite({ targetPeerId: payload?.peerId });
+});
+
+ipcMain.handle("p2p:pair-with-code", async (_event, payload) => {
+  if (!p2pService) {
+    throw new Error("P2P service unavailable.");
+  }
+  return await p2pService.pairWithCode({
+    peerId: payload?.peerId,
+    code: payload?.code,
+    reauth: Boolean(payload?.reauth)
+  });
+});
+
+ipcMain.handle("p2p:set-key-policy", (_event, payload) => {
+  if (!p2pService) {
+    throw new Error("P2P service unavailable.");
+  }
+  p2pService.setKeyPolicyDays(payload?.days);
+  return p2pService.getStatus();
+});
+
+ipcMain.handle("p2p:manual-connect", async (_event, payload) => {
+  if (!p2pService) {
+    throw new Error("P2P service unavailable.");
+  }
+  return await p2pService.manualConnect({
+    address: payload?.address,
+    listenPort: payload?.listenPort
+  });
+});
+
+ipcMain.handle("p2p:remove-trusted-peer", (_event, payload) => {
+  if (!p2pService) {
+    throw new Error("P2P service unavailable.");
+  }
+  p2pService.removeTrustedPeer(payload?.peerId);
+  return p2pService.getStatus();
+});
+
+ipcMain.handle("p2p:rotate-workspace-keys", async (_event, payload) => {
+  if (!p2pService) {
+    throw new Error("P2P service unavailable.");
+  }
+
+  return await p2pService.rotateWorkspaceKeys(payload?.peerId);
+});
+
+ipcMain.handle("p2p:run-sync-self-test", async () => {
+  if (!p2pService) {
+    throw new Error("P2P service unavailable.");
+  }
+  return await p2pService.runSyncSelfTest();
+});
+
+ipcMain.handle("p2p:get-status", () => {
+  if (p2pService) {
+    return p2pService.getStatus();
+  }
+  return readP2PStatusSnapshot();
+});
+
+ipcMain.handle("sync:list-conflicts", (_event, payload) => {
+  const activeProject = getActiveProject();
+  const workspaceRoot = path.resolve(activeProject?.rootPath || notesRoot);
+  const rows = metadataStore.getWorkspaceActivity(workspaceRoot, payload?.limit || 200);
+
+  const conflicts = rows
+    .filter((entry) => String(entry.reason || "").startsWith("p2p-sync-conflict:"))
+    .map((entry, index) => ({
+      id: `${entry.createdAt || "unknown"}-${index}`,
+      reason: String(entry.reason || ""),
+      createdAt: entry.createdAt || null,
+      filePath: entry.filePath || "",
+      relativePath: normalizeToPosix(path.relative(workspaceRoot, entry.filePath || "")),
+      conflictPath: entry.versionPath || ""
+    }))
+    .filter((entry) => entry.conflictPath && fs.existsSync(entry.conflictPath));
+
+  return {
+    workspaceRoot,
+    total: conflicts.length,
+    conflicts
+  };
+});
+
+ipcMain.handle("sync:read-conflict-files", (_event, payload) => {
+  const localPath = path.resolve(String(payload?.filePath || ""));
+  const conflictPath = path.resolve(String(payload?.conflictPath || ""));
+
+  if (!filePathWithin(notesRoot, localPath)) {
+    throw new Error("Invalid file path.");
+  }
+  if (!fs.existsSync(localPath)) {
+    throw new Error("Local note file not found.");
+  }
+  if (!fs.existsSync(conflictPath)) {
+    throw new Error("Conflict file not found.");
+  }
+
+  const localContent = fs.readFileSync(localPath, "utf8");
+  const conflictContent = fs.readFileSync(conflictPath, "utf8");
+  const localDoc = parseDocument(localContent, localPath);
+  const conflictDoc = parseDocument(conflictContent, conflictPath);
+
+  return {
+    local: {
+      content: localContent,
+      header: localDoc.header,
+      rawNotes: localDoc.rawNotes,
+      cleansed: localDoc.cleansed
+    },
+    conflict: {
+      content: conflictContent,
+      header: conflictDoc.header,
+      rawNotes: conflictDoc.rawNotes,
+      cleansed: conflictDoc.cleansed
+    }
+  };
+});
+
+ipcMain.handle("sync:resolve-conflict", (_event, payload) => {
+  const localPath = path.resolve(String(payload?.filePath || ""));
+  const conflictPath = path.resolve(String(payload?.conflictPath || ""));
+  const resolution = String(payload?.resolution || "");
+  const mergedContent = payload?.mergedContent;
+
+  if (!filePathWithin(notesRoot, localPath)) {
+    throw new Error("Invalid file path.");
+  }
+  if (!fs.existsSync(localPath)) {
+    throw new Error("Local note file not found.");
+  }
+  if (!fs.existsSync(conflictPath)) {
+    throw new Error("Conflict file not found.");
+  }
+
+  if (resolution === "remote") {
+    const conflictContent = fs.readFileSync(conflictPath, "utf8");
+    const previous = fs.readFileSync(localPath, "utf8");
+    const backupPath = createVersionSnapshot(localPath, previous, "before-conflict-resolve");
+    fs.writeFileSync(localPath, conflictContent, "utf8");
+    metadataStore.addHistory({
+      filePath: localPath,
+      versionPath: backupPath,
+      fileHash: hashContent(previous),
+      reason: "conflict-resolved-remote",
+      createdAt: new Date().toISOString()
+    });
+  } else if (resolution === "merged" && typeof mergedContent === "string") {
+    const previous = fs.readFileSync(localPath, "utf8");
+    const backupPath = createVersionSnapshot(localPath, previous, "before-conflict-merge");
+    fs.writeFileSync(localPath, mergedContent, "utf8");
+    metadataStore.addHistory({
+      filePath: localPath,
+      versionPath: backupPath,
+      fileHash: hashContent(previous),
+      reason: "conflict-resolved-merged",
+      createdAt: new Date().toISOString()
+    });
+  }
+
+  const movedPath = moveFileToRemoved(conflictPath, "conflicts");
+  return { ok: true, movedPath };
+});
+
+ipcMain.handle("activity:get-workspace", (_event, payload) => {
+  const activeProject = getActiveProject();
+  const workspaceRoot = path.resolve(activeProject?.rootPath || notesRoot);
+  const rows = metadataStore.getWorkspaceActivity(workspaceRoot, payload?.limit);
+
+  const activity = rows.map((entry, index) => {
+    const rawReason = String(entry.reason || "unknown");
+    const syncReasonMatch = rawReason.match(/^(p2p-sync-[^:]+):(.+)$/);
+    const normalizedReason = syncReasonMatch ? syncReasonMatch[1] : rawReason;
+    const actor = syncReasonMatch ? `peer:${syncReasonMatch[2]}` : "local-user";
+
+    return {
+      id: `${entry.createdAt || "unknown"}-${index}`,
+      filePath: entry.filePath,
+      fileName: path.basename(entry.filePath || ""),
+      relativePath: normalizeToPosix(path.relative(workspaceRoot, entry.filePath || "")),
+      reason: normalizedReason,
+      createdAt: entry.createdAt || null,
+      versionPath: entry.versionPath || "",
+      fileHash: entry.fileHash || "",
+      actor
+    };
+  });
+
+  return {
+    workspaceRoot,
+    workspaceLabel: activeProject?.isRoot ? "Root" : (activeProject?.name || "Workspace"),
+    total: activity.length,
+    activity
+  };
+});
+
 ipcMain.handle("documents:list", (_event, payload) => {
   const activeProject = getActiveProject();
   const projectRoot = path.resolve(activeProject?.rootPath || notesRoot);
@@ -2707,7 +3517,22 @@ ipcMain.handle("documents:list", (_event, payload) => {
 ipcMain.handle("documents:create", (_event, payload) => {
   const activeProject = getActiveProject();
   const rootDir = activeProject.rootPath;
-  return createDocumentInProject(rootDir, payload);
+  const created = createDocumentInProject(rootDir, payload);
+  const content = buildDocumentContent(created);
+  emitLocalP2PSyncEvent({
+    op: "create",
+    filePath: created.filePath,
+    baseHash: null,
+    newHash: hashContent(content),
+    content,
+    baseContent: null,
+    delta: {
+      header: created.header || "",
+      rawNotes: created.rawNotes || "",
+      cleansed: created.cleansed || ""
+    }
+  });
+  return created;
 });
 
 ipcMain.handle("folders:create", (_event, payload) => {
@@ -2721,7 +3546,28 @@ ipcMain.handle("documents:rename", (_event, payload) => {
 });
 
 ipcMain.handle("documents:delete", (_event, payload) => {
-  return deleteDocumentFile(payload?.filePath);
+  const resolved = path.resolve(String(payload?.filePath || ""));
+  if (!filePathWithin(notesRoot, resolved) || path.extname(resolved).toLowerCase() !== ".md") {
+    throw new Error("Invalid document path.");
+  }
+  if (!fs.existsSync(resolved)) {
+    throw new Error("Document file does not exist.");
+  }
+
+  const previous = fs.readFileSync(resolved, "utf8");
+  const previousHash = hashContent(previous);
+  const result = deleteDocumentFile(resolved);
+
+  emitLocalP2PSyncEvent({
+    op: "delete",
+    filePath: resolved,
+    baseHash: previousHash,
+    newHash: null,
+    content: null,
+    baseContent: previous
+  });
+
+  return result;
 });
 
 ipcMain.handle("documents:read", (_event, filePath) => {
@@ -2745,6 +3591,20 @@ ipcMain.handle("documents:save", (_event, payload) => {
 
   const next = buildDocumentContent(payload);
   fs.writeFileSync(resolved, next, "utf8");
+
+  emitLocalP2PSyncEvent({
+    op: "update",
+    filePath: resolved,
+    baseHash: hashContent(previous),
+    newHash: hashContent(next),
+    content: next,
+    baseContent: previous,
+    delta: buildNoteDelta({
+      filePath: resolved,
+      previousContent: previous,
+      nextContent: next
+    })
+  });
 
   if (!isAutoSave) {
     const slug = slugify(path.basename(resolved));
