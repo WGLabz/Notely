@@ -1468,6 +1468,104 @@ button {
   padding: 8px;
 }
 
+.webview-shell {
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(circle at top right, #e4eeea 0%, #edf3f0 44%, #f7faf8 100%);
+}
+
+.webview-browser-bar {
+  min-height: 44px;
+  border-bottom: 1px solid #d7e1dc;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f6faf8;
+}
+
+.webview-browser-bar .dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.webview-browser-bar .dot.red {
+  background: #f06a5e;
+}
+
+.webview-browser-bar .dot.amber {
+  background: #e0a63f;
+}
+
+.webview-browser-bar .dot.green {
+  background: #5bb56b;
+}
+
+.address-pill {
+  margin-left: 6px;
+  min-height: 28px;
+  min-width: 220px;
+  border: 1px solid #d5dfda;
+  border-radius: 999px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  color: #54666a;
+  background: #ffffff;
+  font-size: 12px;
+  max-width: min(72%, 640px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.webview-page {
+  width: min(960px, calc(100% - 28px));
+  margin: 14px auto;
+  border: 1px solid #d8e1dd;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 24px 28px;
+  overflow: auto;
+  line-height: 1.65;
+  box-shadow: 0 14px 30px rgba(20, 40, 45, 0.1);
+}
+
+.webview-page h1,
+.webview-page h2,
+.webview-page h3,
+.webview-page h4,
+.webview-page h5,
+.webview-page h6 {
+  color: #15363b;
+}
+
+.webview-page pre {
+  overflow: auto;
+  border-radius: 8px;
+  background: #0f2227;
+  color: #e7f2ef;
+  padding: 12px;
+}
+
+.webview-page code {
+  font-family: "Cascadia Code", "Consolas", ui-monospace, monospace;
+}
+
+.webview-page pre code {
+  color: inherit;
+}
+
+.webview-page img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
 .mermaid-render {
   overflow: auto;
   margin: 16px 0;

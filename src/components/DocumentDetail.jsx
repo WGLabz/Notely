@@ -11,6 +11,7 @@ import {
   PenLine,
   SplitSquareHorizontal,
   Eye,
+  Globe,
   Clock,
   MapPin,
   User,
@@ -25,6 +26,7 @@ import { EditorPane } from "./EditorPane";
 import { MediaTab } from "./MediaTab";
 import { formatDate } from "../utils/dateUtils";
 import { openInEditor } from "../services/electronService";
+import { openWebView } from "../services/electronService";
 import { deleteVersion, readVersion } from "../services/electronService";
 
 function buildDiffRows(latest, previous, options = {}) {
@@ -156,6 +158,19 @@ export function DocumentDetail({
     }
   };
 
+  const handleOpenWebsite = async () => {
+    try {
+      const result = await openWebView(document.filePath, content);
+      if (result?.openedWith === "chrome") {
+        onNotify?.("Opened website view in Chrome.", "success");
+      } else {
+        onNotify?.("Chrome not found. Opened in your default browser.", "info");
+      }
+    } catch (error) {
+      onNotify?.(error?.message || "Unable to open website view.", "error");
+    }
+  };
+
   const handleCompareVersion = async (entry) => {
     setCompareLoading(true);
     setCompareModalOpen(true);
@@ -227,6 +242,10 @@ export function DocumentDetail({
         <button className="text-button" onClick={handleOpenLatestFile} title="Open latest file">
           <FolderOpen size={18} />
           Open
+        </button>
+        <button className="text-button" onClick={handleOpenWebsite} title="Open website in browser">
+          <Globe size={18} />
+          Website
         </button>
         <button
           className="primary-button"
@@ -361,6 +380,7 @@ export function DocumentDetail({
                 { key: "edit", label: "Edit", icon: PenLine },
                 { key: "split", label: "Split", icon: SplitSquareHorizontal },
                 { key: "preview", label: "Preview", icon: Eye },
+                { key: "web", label: "Web", icon: Globe },
               ].map((item) => (
                 <button
                   className={mode === item.key ? "active" : ""}

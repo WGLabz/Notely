@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld("notesApi", {
   deleteVersion: (payload) => ipcRenderer.invoke("documents:delete-version", payload),
   openInEditor: (filePath) => ipcRenderer.invoke("documents:open-in-editor", filePath),
   openFileInEditor: (filePath) => ipcRenderer.invoke("documents:open-in-editor", filePath),
+  openWebView: (payload) => ipcRenderer.invoke("documents:open-web-view", payload),
   saveImage: (payload) => ipcRenderer.invoke("images:save", payload),
   listImages: (payload) => ipcRenderer.invoke("images:list", payload),
   readImage: (payload) => ipcRenderer.invoke("images:read", payload),

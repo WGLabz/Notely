@@ -3,6 +3,7 @@ import { MarkdownEditor } from "./MarkdownEditor";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { MarkdownToolbar } from "./MarkdownToolbar";
 import { MarkdownValidationBanner } from "./MarkdownValidationBanner";
+import { WebViewPreview } from "./WebViewPreview";
 import { useMarkdownValidation } from "../hooks/useMarkdownValidation";
 
 export function EditorPane({
@@ -117,6 +118,10 @@ export function EditorPane({
 
   if (mode === "preview") {
     return <MarkdownPreview content={value} basePath={basePath} />;
+  }
+
+  if (mode === "web") {
+    return <WebViewPreview content={value} />;
   }
 
   if (mode === "split") {

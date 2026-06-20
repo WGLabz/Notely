@@ -137,6 +137,19 @@ export async function openInEditor(filePath) {
   return openFn(filePath);
 }
 
+export async function openWebView(filePath, content) {
+  const api = getNotesApi();
+  if (typeof api.openWebView !== "function") {
+    throw new Error("Web view action unavailable. Please restart the app to load the latest desktop API.");
+  }
+
+  if (!filePath) {
+    return api.openWebView({});
+  }
+
+  return api.openWebView({ filePath, content });
+}
+
 export async function saveImage(fileName, base64Data) {
   const api = getNotesApi();
   return api.saveImage({ fileName, base64Data });

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import mermaid from "mermaid";
-import { FolderOpen, FolderPlus, LayoutGrid, NotebookPen, Rows3, X } from "lucide-react";
+import { FolderOpen, FolderPlus, Globe, LayoutGrid, NotebookPen, Rows3, X } from "lucide-react";
 import { DocumentList } from "./components/DocumentList";
 import { DocumentDetail } from "./components/DocumentDetail";
 import {
@@ -12,6 +12,7 @@ import {
   onMenuAction,
   pickFolder,
   openInEditor,
+  openWebView,
   readDocument,
   saveDocument as saveDocumentApi,
   setNotesRootSetting,
@@ -311,6 +312,19 @@ export default function App() {
     }
   }
 
+  async function handleOpenWebsiteFromLanding() {
+    try {
+      const result = await openWebView();
+      if (result?.openedWith === "chrome") {
+        notify("Opened project website in Chrome.", "success");
+      } else {
+        notify("Chrome not found. Opened project website in default browser.", "info");
+      }
+    } catch (err) {
+      notify(err?.message || "Unable to open project website.", "error");
+    }
+  }
+
   async function handleOpenListItem(item) {
     if (!item) return;
     if (item.entryType === "folder") {
@@ -420,6 +434,10 @@ export default function App() {
               >
                 <FolderOpen size={14} />
                 Notes Folder
+              </button>
+              <button className="small-button" onClick={handleOpenWebsiteFromLanding} type="button">
+                <Globe size={14} />
+                Website
               </button>
               <button
                 className="small-button"

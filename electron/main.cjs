@@ -2,6 +2,9 @@ const { app, BrowserWindow, dialog, ipcMain, Menu, shell } = require("electron")
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
+const http = require("node:http");
+const { spawn } = require("node:child_process");
+const MarkdownIt = require("markdown-it");
 
 const rendererUrl = process.env.ELECTRON_RENDERER_URL;
 const projectRoot = app.getAppPath();
@@ -12,6 +15,11 @@ let versionsRoot = "";
 const ROOT_PROJECT_SLUG = "__root__";
 let activeProjectSlug = ROOT_PROJECT_SLUG;
 let mainWindow = null;
+let webPreviewServer = null;
+let webPreviewPort = 0;
+const webPreviewContentOverrides = new Map();
+let webPreviewScopeRoot = "";
+let webPreviewScopeLabel = "Project";
 
 function ensureDir(dirPath) {
   if (!dirPath || typeof dirPath !== "string") {
@@ -215,6 +223,723 @@ function listMarkdownFiles(rootDir) {
       };
     })
     .sort((a, b) => a.title.localeCompare(b.title));
+}
+
+function walkFiles(rootDir, options = {}) {
+  const excludeDirs = new Set(options.excludeDirs || []);
+  const files = [];
+
+  const visit = (currentDir) => {
+    const entries = fs.readdirSync(currentDir, { withFileTypes: true });
+    for (const entry of entries) {
+      const nextPath = path.join(currentDir, entry.name);
+      if (entry.isDirectory()) {
+        if (excludeDirs.has(entry.name)) continue;
+        visit(nextPath);
+        continue;
+      }
+      if (entry.isFile()) {
+        files.push(nextPath);
+      }
+    }
+  };
+
+  visit(rootDir);
+  return files;
+}
+
+function normalizeToPosix(relPath) {
+  return relPath.split(path.sep).join("/");
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function safeDecode(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function encodePathForUrl(relPath) {
+  return normalizeToPosix(relPath)
+    .split("/")
+    .filter(Boolean)
+    .map((part) => encodeURIComponent(part))
+    .join("/");
+}
+
+function decodeUrlPath(pathname, prefix) {
+  const sliced = pathname.slice(prefix.length).replace(/^\/+/, "");
+  return safeDecode(sliced);
+}
+
+function getWebPreviewScopeRoot() {
+  const activeProject = getActiveProject();
+  if (activeProject?.rootPath) {
+    return path.resolve(activeProject.rootPath);
+  }
+  return path.resolve(notesRoot);
+}
+
+function getWebPreviewScopeLabel() {
+  const activeProject = getActiveProject();
+  if (!activeProject) return "Project";
+  return activeProject.isRoot ? "Root" : activeProject.name;
+}
+
+function listMarkdownRelativePaths() {
+  const scopeRoot = webPreviewScopeRoot || getWebPreviewScopeRoot();
+  return walkFiles(scopeRoot, { excludeDirs: [".notes-app"] })
+    .filter((item) => path.extname(item).toLowerCase() === ".md")
+    .map((item) => normalizeToPosix(path.relative(scopeRoot, item)))
+    .sort((a, b) => a.localeCompare(b));
+}
+
+function resolveRelativeToNotesRoot(relPath) {
+  const scopeRoot = webPreviewScopeRoot || getWebPreviewScopeRoot();
+  const normalized = normalizeToPosix(String(relPath || "")).replace(/^\/+/, "");
+  const resolved = path.resolve(scopeRoot, normalized);
+  if (!filePathWithin(scopeRoot, resolved)) {
+    return null;
+  }
+  return {
+    normalized,
+    resolved
+  };
+}
+
+function buildWebsiteMarkdownRenderer() {
+  const markdown = new MarkdownIt({
+    html: false,
+    linkify: true,
+    typographer: true
+  });
+
+  const headingSlugCounts = new Map();
+
+  markdown.core.ruler.push("notely-heading-ids", (state) => {
+    headingSlugCounts.clear();
+    for (let i = 0; i < state.tokens.length; i += 1) {
+      const token = state.tokens[i];
+      if (token.type !== "heading_open") continue;
+
+      const inlineToken = state.tokens[i + 1];
+      const headingText = (inlineToken?.content || "").trim().toLowerCase();
+      const baseSlug = (headingText
+        .replace(/[^a-z0-9\s-]/g, "")
+        .replace(/\s+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-+|-+$/g, "")) || "section";
+
+      const count = headingSlugCounts.get(baseSlug) || 0;
+      headingSlugCounts.set(baseSlug, count + 1);
+      const finalSlug = count === 0 ? baseSlug : `${baseSlug}-${count + 1}`;
+      token.attrSet("id", finalSlug);
+    }
+  });
+
+  const defaultLinkOpen = markdown.renderer.rules.link_open
+    || ((tokens, idx, options, env, self) => self.renderToken(tokens, idx, options));
+
+  const rewriteAssetPath = (rawPath, env) => {
+    const fromRelMd = env?.relMdPath || "";
+    const normalizedPath = safeDecode(String(rawPath || "").replace(/\\/g, "/"));
+    const resolved = normalizedPath.startsWith("/")
+      ? path.posix.normalize(normalizedPath.slice(1))
+      : path.posix.normalize(path.posix.join(path.posix.dirname(fromRelMd), normalizedPath));
+    return `/raw/${encodePathForUrl(resolved)}`;
+  };
+
+  markdown.renderer.rules.link_open = (tokens, idx, options, env, self) => {
+    const hrefIndex = tokens[idx].attrIndex("href");
+    if (hrefIndex >= 0) {
+      const rawHref = String(tokens[idx].attrs[hrefIndex][1] || "").trim();
+      if (rawHref && !/^(https?:|mailto:|tel:|#|javascript:|data:|blob:)/i.test(rawHref)) {
+        const [pathAndQuery, hashPart = ""] = rawHref.split("#");
+        const [pathPart, queryPart = ""] = pathAndQuery.split("?");
+        const normalizedLinkPath = safeDecode(pathPart.replace(/\\/g, "/"));
+        const isMarkdownTarget = /\.md$/i.test(normalizedLinkPath);
+        const suffix = `${queryPart ? `?${queryPart}` : ""}${hashPart ? `#${hashPart}` : ""}`;
+
+        if (isMarkdownTarget) {
+          const fromRelMd = env?.relMdPath || "";
+          const resolvedTargetMd = normalizedLinkPath.startsWith("/")
+            ? path.posix.normalize(normalizedLinkPath.slice(1))
+            : path.posix.normalize(path.posix.join(path.posix.dirname(fromRelMd), normalizedLinkPath));
+          tokens[idx].attrs[hrefIndex][1] = `/view/${encodePathForUrl(resolvedTargetMd)}${suffix}`;
+        } else if (normalizedLinkPath) {
+          tokens[idx].attrs[hrefIndex][1] = `${rewriteAssetPath(normalizedLinkPath, env)}${suffix}`;
+        }
+      }
+    }
+
+    return defaultLinkOpen(tokens, idx, options, env, self);
+  };
+
+  const defaultImage = markdown.renderer.rules.image
+    || ((tokens, idx, options, env, self) => self.renderToken(tokens, idx, options));
+
+  markdown.renderer.rules.image = (tokens, idx, options, env, self) => {
+    const srcIndex = tokens[idx].attrIndex("src");
+    if (srcIndex >= 0) {
+      const src = String(tokens[idx].attrs[srcIndex][1] || "").trim();
+      if (src && !/^(https?:|data:|blob:)/i.test(src)) {
+        const [pathPart, queryPart = ""] = src.split("?");
+        const rewritten = rewriteAssetPath(pathPart, env);
+        tokens[idx].attrs[srcIndex][1] = queryPart ? `${rewritten}?${queryPart}` : rewritten;
+      }
+    }
+
+    return defaultImage(tokens, idx, options, env, self);
+  };
+
+  return markdown;
+}
+
+function buildWebsiteHtml({ title, bodyHtml, navigationHtml = "" }) {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${escapeHtml(title)}</title>
+    <style>
+      :root {
+        color: #1b2a2f;
+        background: #eff4f2;
+        font-family: "Segoe UI", "SF Pro Text", Tahoma, sans-serif;
+        --accent: #0f5f78;
+        --accent-soft: #e6f3f8;
+        --ink-soft: #546870;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: radial-gradient(circle at top right, #d7e7e1 0%, #eff4f2 38%, #f9fbfa 100%);
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 300px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .sidebar {
+        border-right: 1px solid #d5e0dc;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(248, 251, 249, 0.95) 100%);
+        padding: 16px 14px;
+        overflow: auto;
+      }
+
+      .scope-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 24px;
+        border: 1px solid #cfe0e8;
+        border-radius: 999px;
+        background: #f1f7fa;
+        color: #305662;
+        padding: 0 10px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .brand {
+        margin: 0 0 6px;
+        font-size: 20px;
+        color: #0d2a32;
+        letter-spacing: 0.01em;
+      }
+
+      .brand-subtle {
+        margin: 0 0 14px;
+        color: var(--ink-soft);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .nav-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+
+      .nav-list a {
+        display: block;
+        text-decoration: none;
+        color: #1d4953;
+        padding: 8px 9px;
+        border-radius: 8px;
+        font-size: 13px;
+        overflow-wrap: anywhere;
+        border: 1px solid transparent;
+        transition: all 0.18s ease;
+      }
+
+      .nav-list a:hover,
+      .nav-list a.active {
+        background: #e8f4f7;
+        border-color: #cae2eb;
+        color: #0f4c60;
+      }
+
+      .content {
+        padding: 22px 26px;
+      }
+
+      .content-topbar {
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .content-topbar h2 {
+        margin: 0;
+        font-size: 14px;
+        color: #3f636d;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .page {
+        width: min(980px, 100%);
+        margin: 0;
+        background: #ffffff;
+        border: 1px solid #d4dfe3;
+        border-radius: 14px;
+        box-shadow: 0 18px 42px rgba(16, 39, 46, 0.11);
+        padding: 28px 30px;
+      }
+
+      h1, h2, h3, h4, h5, h6 {
+        color: #123943;
+        scroll-margin-top: 24px;
+      }
+
+      p, li {
+        line-height: 1.65;
+      }
+
+      a {
+        color: var(--accent);
+      }
+
+      code {
+        background: #edf4f7;
+        border: 1px solid #d5e4ea;
+        border-radius: 4px;
+        padding: 1px 5px;
+      }
+
+      pre {
+        background: #0f2227;
+        color: #e7f2ef;
+        border-radius: 8px;
+        padding: 14px;
+        overflow: auto;
+      }
+
+      pre code {
+        background: transparent;
+        border: 0;
+        padding: 0;
+        color: inherit;
+      }
+
+      img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+      }
+
+      blockquote {
+        margin: 0;
+        padding-left: 12px;
+        border-left: 4px solid #b9d6e0;
+        color: #49626a;
+      }
+
+      .doc-hero {
+        padding-bottom: 12px;
+        border-bottom: 1px solid #e5ecef;
+        margin-bottom: 16px;
+      }
+
+      .doc-hero h1 {
+        margin: 0;
+        font-size: 28px;
+      }
+
+      .doc-path {
+        margin: 8px 0 0;
+        color: var(--ink-soft);
+        font-size: 13px;
+      }
+
+      .doc-meta {
+        margin-bottom: 16px;
+        padding: 12px 14px;
+        border: 1px solid #dbe7eb;
+        border-radius: 10px;
+        background: #f8fbfc;
+      }
+
+      .doc-meta p:last-child {
+        margin-bottom: 0;
+      }
+
+      .tab-switcher {
+        display: inline-flex;
+        gap: 6px;
+        padding: 5px;
+        border-radius: 10px;
+        border: 1px solid #d3e0e6;
+        background: #f2f7f9;
+      }
+
+      .tab-btn {
+        border: 1px solid transparent;
+        border-radius: 8px;
+        min-height: 34px;
+        padding: 0 14px;
+        color: #2a4e59;
+        background: transparent;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .tab-btn.active {
+        border-color: #c5dce6;
+        background: #ffffff;
+        color: #0f4c60;
+      }
+
+      .tab-panel {
+        display: none;
+        margin-top: 16px;
+      }
+
+      .tab-panel.active {
+        display: block;
+      }
+
+      .tab-empty {
+        margin: 16px 0;
+        color: var(--ink-soft);
+        font-style: italic;
+      }
+
+      @media (max-width: 980px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          max-height: 220px;
+          border-right: 0;
+          border-bottom: 1px solid #d5e0dc;
+        }
+
+        .content {
+          padding: 14px;
+        }
+
+        .page {
+          padding: 20px 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar">
+        <span class="scope-chip">Scoped Website</span>
+        <h1 class="brand">Notely Web</h1>
+        <p class="brand-subtle">${escapeHtml(webPreviewScopeLabel)} Website</p>
+        ${navigationHtml}
+      </aside>
+      <main class="content">
+        <div class="content-topbar">
+          <h2>Knowledge Site</h2>
+        </div>
+        <article class="page">
+          ${bodyHtml}
+        </article>
+      </main>
+    </div>
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+
+      mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "base" });
+      const blocks = Array.from(document.querySelectorAll("pre code.language-mermaid"));
+      for (const block of blocks) {
+        const source = block.textContent || "";
+        const container = document.createElement("div");
+        container.className = "mermaid";
+        container.textContent = source;
+        block.parentElement.replaceWith(container);
+      }
+      await mermaid.run({ querySelector: ".mermaid" });
+
+      const tabGroups = Array.from(document.querySelectorAll("[data-tabs]"));
+      for (const group of tabGroups) {
+        const buttons = Array.from(group.querySelectorAll("[data-tab-target]"));
+        const panels = Array.from(group.querySelectorAll("[data-tab-panel]"));
+        buttons.forEach((button) => {
+          button.addEventListener("click", () => {
+            const target = button.getAttribute("data-tab-target") || "";
+            buttons.forEach((item) => item.classList.toggle("active", item === button));
+            panels.forEach((panel) => {
+              panel.classList.toggle("active", panel.getAttribute("data-tab-panel") === target);
+            });
+          });
+        });
+      }
+    </script>
+  </body>
+</html>`;
+}
+
+function buildNavigationHtml(activeRelPath = "") {
+  const docs = listMarkdownRelativePaths();
+  const links = docs.map((docPath) => {
+    const href = `/view/${encodePathForUrl(docPath)}`;
+    const activeClass = docPath === activeRelPath ? " class=\"active\"" : "";
+    return `<li><a${activeClass} href="${href}">${escapeHtml(docPath)}</a></li>`;
+  }).join("");
+
+  return `<ul class="nav-list"><li><a href="/">Home</a></li>${links}</ul>`;
+}
+
+function renderRootWebsitePage() {
+  const docs = listMarkdownRelativePaths();
+  const body = docs.length
+    ? `<div class="doc-hero"><h1>Notes Website</h1><p class="doc-path">Select a note from the left navigation, or use one of the quick links below.</p></div><ul>${docs
+      .slice(0, 25)
+      .map((docPath) => `<li><a href="/view/${encodePathForUrl(docPath)}">${escapeHtml(docPath)}</a></li>`)
+      .join("")}</ul>`
+    : "<div class=\"doc-hero\"><h1>Notes Website</h1><p class=\"doc-path\">No markdown files were found in this project folder.</p></div>";
+
+  return buildWebsiteHtml({
+    title: "Notely Website",
+    bodyHtml: body,
+    navigationHtml: buildNavigationHtml("")
+  });
+}
+
+function renderMarkdownWebsitePage(relMdPath, rawContent) {
+  const markdown = buildWebsiteMarkdownRenderer();
+  const parsed = parseDocument(rawContent, relMdPath);
+  const hasTabbedSections = parsed.hasRawNotes || parsed.hasCleansed;
+
+  let bodyHtml = markdown.render(rawContent, { relMdPath });
+  if (hasTabbedSections) {
+    const headerHtml = parsed.header
+      ? `<section class="doc-meta">${markdown.render(parsed.header, { relMdPath })}</section>`
+      : "";
+    const rawHtml = parsed.rawNotes
+      ? markdown.render(parsed.rawNotes, { relMdPath })
+      : `<p class="tab-empty">No raw notes captured yet.</p>`;
+    const cleansedHtml = parsed.cleansed
+      ? markdown.render(parsed.cleansed, { relMdPath })
+      : `<p class="tab-empty">No cleansed notes captured yet.</p>`;
+
+    bodyHtml = `
+      <div class="doc-hero">
+        <h1>${escapeHtml(parsed.title || path.basename(relMdPath, ".md"))}</h1>
+        <p class="doc-path">${escapeHtml(relMdPath)}</p>
+      </div>
+      ${headerHtml}
+      <section data-tabs>
+        <div class="tab-switcher" role="tablist" aria-label="Note sections">
+          <button class="tab-btn active" type="button" role="tab" data-tab-target="raw">Raw Notes</button>
+          <button class="tab-btn" type="button" role="tab" data-tab-target="cleansed">Cleansed</button>
+        </div>
+        <section class="tab-panel active" data-tab-panel="raw">
+          ${rawHtml}
+        </section>
+        <section class="tab-panel" data-tab-panel="cleansed">
+          ${cleansedHtml}
+        </section>
+      </section>
+    `;
+  }
+
+  return buildWebsiteHtml({
+    title: path.basename(relMdPath, ".md"),
+    bodyHtml,
+    navigationHtml: buildNavigationHtml(relMdPath)
+  });
+}
+
+function contentTypeForFile(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  const map = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".svg": "image/svg+xml",
+    ".json": "application/json; charset=utf-8",
+    ".txt": "text/plain; charset=utf-8",
+    ".pdf": "application/pdf"
+  };
+  return map[ext] || "application/octet-stream";
+}
+
+function writeHtmlResponse(res, html, statusCode = 200) {
+  res.writeHead(statusCode, {
+    "Content-Type": "text/html; charset=utf-8",
+    "Cache-Control": "no-store"
+  });
+  res.end(html);
+}
+
+function writeTextResponse(res, text, statusCode = 400) {
+  res.writeHead(statusCode, {
+    "Content-Type": "text/plain; charset=utf-8",
+    "Cache-Control": "no-store"
+  });
+  res.end(text);
+}
+
+function handleWebPreviewRequest(req, res) {
+  const requestUrl = new URL(req.url || "/", "http://127.0.0.1");
+  const pathname = requestUrl.pathname || "/";
+
+  if (pathname === "/" || pathname === "/index.html") {
+    const noteQuery = requestUrl.searchParams.get("note");
+    if (noteQuery) {
+      const redirectPath = `/view/${encodePathForUrl(noteQuery)}`;
+      res.writeHead(302, { Location: redirectPath });
+      res.end();
+      return;
+    }
+
+    writeHtmlResponse(res, renderRootWebsitePage());
+    return;
+  }
+
+  if (pathname.startsWith("/view/")) {
+    const relMdPath = normalizeToPosix(decodeUrlPath(pathname, "/view/"));
+    const resolved = resolveRelativeToNotesRoot(relMdPath);
+    if (!resolved || path.extname(resolved.resolved).toLowerCase() !== ".md" || !fs.existsSync(resolved.resolved)) {
+      writeTextResponse(res, "Note not found.", 404);
+      return;
+    }
+
+    const rawContent = webPreviewContentOverrides.get(resolved.resolved)
+      || fs.readFileSync(resolved.resolved, "utf8");
+    writeHtmlResponse(res, renderMarkdownWebsitePage(resolved.normalized, rawContent));
+    return;
+  }
+
+  if (pathname.startsWith("/raw/")) {
+    const relPath = normalizeToPosix(decodeUrlPath(pathname, "/raw/"));
+    const resolved = resolveRelativeToNotesRoot(relPath);
+    if (!resolved || !fs.existsSync(resolved.resolved) || fs.statSync(resolved.resolved).isDirectory()) {
+      writeTextResponse(res, "Asset not found.", 404);
+      return;
+    }
+
+    res.writeHead(200, {
+      "Content-Type": contentTypeForFile(resolved.resolved),
+      "Cache-Control": "no-store"
+    });
+    fs.createReadStream(resolved.resolved).pipe(res);
+    return;
+  }
+
+  writeTextResponse(res, "Not found.", 404);
+}
+
+async function ensureWebPreviewServer() {
+  if (webPreviewServer && webPreviewPort) {
+    return `http://127.0.0.1:${webPreviewPort}`;
+  }
+
+  await new Promise((resolve, reject) => {
+    const server = http.createServer((req, res) => {
+      try {
+        handleWebPreviewRequest(req, res);
+      } catch {
+        writeTextResponse(res, "Unable to render website preview.", 500);
+      }
+    });
+
+    server.once("error", (error) => {
+      reject(error);
+    });
+
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        reject(new Error("Unable to determine web preview port."));
+        return;
+      }
+      webPreviewServer = server;
+      webPreviewPort = address.port;
+      resolve();
+    });
+  });
+
+  return `http://127.0.0.1:${webPreviewPort}`;
+}
+
+function tryOpenInChrome(targetUrl) {
+
+  if (process.platform !== "win32") {
+    return false;
+  }
+
+  const candidates = [
+    path.join(process.env.PROGRAMFILES || "", "Google", "Chrome", "Application", "chrome.exe"),
+    path.join(process.env["PROGRAMFILES(X86)"] || "", "Google", "Chrome", "Application", "chrome.exe"),
+    path.join(process.env.LOCALAPPDATA || "", "Google", "Chrome", "Application", "chrome.exe")
+  ].filter(Boolean);
+
+  for (const chromePath of candidates) {
+    if (!chromePath || !fs.existsSync(chromePath)) {
+      continue;
+    }
+
+    try {
+      const child = spawn(chromePath, ["--new-window", targetUrl], {
+        detached: true,
+        stdio: "ignore"
+      });
+      child.unref();
+      return true;
+    } catch {
+      // Try next candidate.
+    }
+  }
+
+  return false;
 }
 
 function listRootEntries(rootDir) {
@@ -564,6 +1289,17 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
+app.on("before-quit", () => {
+  if (webPreviewServer) {
+    webPreviewServer.close();
+    webPreviewServer = null;
+    webPreviewPort = 0;
+  }
+  webPreviewContentOverrides.clear();
+  webPreviewScopeRoot = "";
+  webPreviewScopeLabel = "Project";
+});
+
 app.on("browser-window-focus", (_event, win) => {
   const context = win?.__menuContext || { screen: "landing", viewMode: "tile", dirty: false, canCreateFolder: true };
   Menu.setApplicationMenu(buildAppMenu(win, context));
@@ -780,6 +1516,44 @@ ipcMain.handle("documents:open-in-editor", async (_event, filePath) => {
     }
     return { openedWith: "default" };
   }
+});
+
+ipcMain.handle("documents:open-web-view", async (_event, payload) => {
+  webPreviewScopeRoot = getWebPreviewScopeRoot();
+  webPreviewScopeLabel = getWebPreviewScopeLabel();
+
+  let relPath = "";
+  if (payload?.filePath) {
+    const resolved = path.resolve(String(payload.filePath || ""));
+    const isValidMarkdownPath =
+      filePathWithin(notesRoot, resolved)
+      && path.extname(resolved).toLowerCase() === ".md"
+      && fs.existsSync(resolved)
+      && filePathWithin(webPreviewScopeRoot, resolved);
+
+    if (isValidMarkdownPath) {
+      if (typeof payload?.content === "string") {
+        webPreviewContentOverrides.set(resolved, payload.content);
+      }
+
+      relPath = normalizeToPosix(path.relative(webPreviewScopeRoot, resolved));
+    }
+  }
+
+  const baseUrl = await ensureWebPreviewServer();
+  const previewUrl = relPath
+    ? `${baseUrl}/?note=${encodeURIComponent(relPath)}`
+    : `${baseUrl}/`;
+  const openedWithChrome = tryOpenInChrome(previewUrl);
+
+  if (!openedWithChrome) {
+    await shell.openExternal(previewUrl);
+  }
+
+  return {
+    openedWith: openedWithChrome ? "chrome" : "default",
+    previewUrl
+  };
 });
 
 ipcMain.handle("documents:read-version", (_event, payload) => {
