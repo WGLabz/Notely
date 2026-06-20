@@ -1,17 +1,20 @@
 import { useEffect, useState } from "react";
 import mermaid from "mermaid";
-import { FolderPlus, LayoutGrid, NotebookPen, Rows3, X } from "lucide-react";
+import { FolderOpen, FolderPlus, LayoutGrid, NotebookPen, Rows3, X } from "lucide-react";
 import { DocumentList } from "./components/DocumentList";
 import { DocumentDetail } from "./components/DocumentDetail";
 import {
-  createDocument,
   createProject,
+  createDocument,
+  getNotesRootSetting,
   listProjects,
   listDocuments,
   onMenuAction,
+  pickFolder,
   openInEditor,
   readDocument,
   saveDocument as saveDocumentApi,
+  setNotesRootSetting,
   setActiveProject,
   getHistory,
   updateMenuContext,
@@ -53,13 +56,14 @@ export default function App() {
   const [toasts, setToasts] = useState([]);
   const [projects, setProjects] = useState([]);
   const [activeProject, setActiveProjectState] = useState(null);
-  const [newProjectName, setNewProjectName] = useState("");
-  const [creatingProject, setCreatingProject] = useState(false);
+  const [creatingFolder, setCreatingFolder] = useState(false);
   const [newNoteTitle, setNewNoteTitle] = useState("");
   const [creatingNote, setCreatingNote] = useState(false);
   const [notesViewMode, setNotesViewMode] = useState(initialViewMode);
-  const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [noteDialogOpen, setNoteDialogOpen] = useState(false);
+  const [notesFolderDialogOpen, setNotesFolderDialogOpen] = useState(false);
+  const [notesFolderPath, setNotesFolderPath] = useState("");
+  const [savingNotesFolder, setSavingNotesFolder] = useState(false);
 
   const notify = (message, type = "info") => {
     const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -91,6 +95,8 @@ export default function App() {
       const projectState = await listProjects();
       applyProjectState(projectState);
       setDocuments(await listDocuments());
+      const notesSetting = await getNotesRootSetting();
+      setNotesFolderPath(notesSetting?.notesRoot || "");
     } catch (err) {
       setError(err?.message || "Unable to load documents.");
     } finally {
@@ -171,38 +177,12 @@ export default function App() {
     }
   }
 
-  async function handleCreateProject() {
-    const name = newProjectName.trim();
-    if (!name) {
-      notify("Enter a project name first.", "warning");
+  async function handleCreateNote() {
+    if (activeProject?.isRoot) {
+      notify("Cannot create notes in root. Open a project folder first.", "warning");
       return;
     }
 
-    if (current && dirty) {
-      const confirmed = window.confirm("You have unsaved changes. Create and switch project anyway?");
-      if (!confirmed) return;
-    }
-
-    setCreatingProject(true);
-    setError("");
-    try {
-      const result = await createProject(name);
-      applyProjectState(result);
-      setCurrent(null);
-      setHistory([]);
-      setDocuments(await listDocuments());
-      setNewProjectName("");
-      setProjectDialogOpen(false);
-      notify("Project created.", "success");
-    } catch (err) {
-      setError(err?.message || "Unable to create project.");
-      notify(err?.message || "Unable to create project.", "error");
-    } finally {
-      setCreatingProject(false);
-    }
-  }
-
-  async function handleCreateNote() {
     const title = newNoteTitle.trim();
     if (!title) {
       notify("Enter a note title first.", "warning");
@@ -240,6 +220,72 @@ export default function App() {
     }
   }
 
+  async function handleCreateFolder() {
+    if (!activeProject?.isRoot) {
+      notify("New folders can be created only in root.", "warning");
+      return;
+    }
+
+    const name = window.prompt("Enter new folder name");
+    if (name == null) return;
+
+    const trimmed = name.trim();
+    if (!trimmed) {
+      notify("Folder name is required.", "warning");
+      return;
+    }
+
+    setCreatingFolder(true);
+    setError("");
+    try {
+      const result = await createProject(trimmed);
+      applyProjectState(result);
+      setDocuments(await listDocuments());
+      notify("Folder created.", "success");
+    } catch (err) {
+      setError(err?.message || "Unable to create folder.");
+      notify(err?.message || "Unable to create folder.", "error");
+    } finally {
+      setCreatingFolder(false);
+    }
+  }
+
+  async function handlePickNotesFolder() {
+    try {
+      const selectedPath = await pickFolder();
+      if (!selectedPath) return;
+      setNotesFolderPath(selectedPath);
+    } catch (err) {
+      notify(err?.message || "Unable to open folder picker.", "error");
+    }
+  }
+
+  async function handleSaveNotesFolder() {
+    const nextPath = notesFolderPath.trim();
+    if (!nextPath) {
+      notify("Please provide a notes folder path.", "warning");
+      return;
+    }
+
+    setSavingNotesFolder(true);
+    try {
+      const result = await setNotesRootSetting(nextPath);
+      if (result?.ignoredByEnv) {
+        notify("Path saved, but NOTES_ROOT env override is active. Remove it to use this path.", "warning");
+      } else {
+        await loadDocumentsData();
+        setCurrent(null);
+        setHistory([]);
+        notify("Notes folder saved and loaded.", "success");
+      }
+      setNotesFolderDialogOpen(false);
+    } catch (err) {
+      notify(err?.message || "Unable to save notes folder.", "error");
+    } finally {
+      setSavingNotesFolder(false);
+    }
+  }
+
   function handleGoHome() {
     if (current && dirty) {
       const confirmed = window.confirm("You have unsaved changes. Go back to notes and discard unsaved changes?");
@@ -265,6 +311,17 @@ export default function App() {
     }
   }
 
+  async function handleOpenListItem(item) {
+    if (!item) return;
+    if (item.entryType === "folder") {
+      await handleSwitchProject(item.slug);
+      return;
+    }
+    if (item.entryType === "file") {
+      await openDocument(item.filePath);
+    }
+  }
+
   useEffect(() => {
     loadDocumentsData();
   }, []);
@@ -282,25 +339,28 @@ export default function App() {
       screen: current ? "document" : "landing",
       viewMode: notesViewMode,
       dirty,
+      canCreateFolder: !current && Boolean(activeProject?.isRoot),
     });
-  }, [current, notesViewMode, dirty]);
+  }, [current, notesViewMode, dirty, activeProject]);
 
   useEffect(() => {
     return onMenuAction((action) => {
       if (action === "new-note") {
-        setProjectDialogOpen(false);
+        if (activeProject?.isRoot) {
+          notify("Cannot create notes in root. Open a project folder first.", "warning");
+          return;
+        }
         setNoteDialogOpen(true);
-        return;
-      }
-
-      if (action === "new-project") {
-        setNoteDialogOpen(false);
-        setProjectDialogOpen(true);
         return;
       }
 
       if (action === "view-tile") {
         setNotesViewMode("tile");
+        return;
+      }
+
+      if (action === "new-project") {
+        handleCreateFolder();
         return;
       }
 
@@ -323,7 +383,7 @@ export default function App() {
         handleOpenCurrentInEditor();
       }
     });
-  }, [current, dirty]);
+  }, [current, dirty, activeProject]);
 
   return (
     <div className="app-shell">
@@ -339,7 +399,7 @@ export default function App() {
         <>
           <section className="project-toolbar">
             <div className="project-toolbar-left">
-              <span className="project-toolbar-label">Project</span>
+              <span className="project-toolbar-label">Folder</span>
               <select
                 className="project-select"
                 value={activeProject?.slug || ""}
@@ -347,7 +407,7 @@ export default function App() {
               >
                 {(projects || []).map((project) => (
                   <option key={project.slug} value={project.slug}>
-                    {project.name}
+                    {project.isRoot ? "Root" : project.name}
                   </option>
                 ))}
               </select>
@@ -355,32 +415,36 @@ export default function App() {
             <div className="project-toolbar-right">
               <button
                 className="small-button"
-                onClick={() => {
-                  setProjectDialogOpen(false);
-                  setNoteDialogOpen(true);
-                }}
-                disabled={creatingNote}
+                onClick={() => setNotesFolderDialogOpen(true)}
+                disabled={savingNotesFolder}
               >
-                <NotebookPen size={14} />
-                New Note
+                <FolderOpen size={14} />
+                Notes Folder
+              </button>
+              <button
+                className="small-button"
+                onClick={handleCreateFolder}
+                disabled={creatingFolder || !activeProject?.isRoot}
+              >
+                <FolderPlus size={14} />
+                New Folder
               </button>
               <button
                 className="small-button"
                 onClick={() => {
-                  setNoteDialogOpen(false);
-                  setProjectDialogOpen(true);
+                  setNoteDialogOpen(true);
                 }}
-                disabled={creatingProject}
+                disabled={creatingNote || activeProject?.isRoot}
               >
-                <FolderPlus size={14} />
-                Create Project
+                <NotebookPen size={14} />
+                New Note
               </button>
             </div>
           </section>
           <header className="landing-header">
             <div>
-              <p>{activeProject?.name || "Project"}</p>
-              <h1>{activeProject?.name ? `${activeProject.name} Notes` : "Meeting Notes"}</h1>
+              <p>{activeProject?.isRoot ? "Root" : activeProject?.name || "Folder"}</p>
+              <h1>{activeProject?.isRoot ? "Root Notes Browser" : `${activeProject?.name || "Folder"} Notes`}</h1>
             </div>
             <div className="landing-header-actions">
               <span>
@@ -409,7 +473,7 @@ export default function App() {
           </header>
           <DocumentList
             documents={documents}
-            onOpen={openDocument}
+            onOpen={handleOpenListItem}
             loading={loading}
             viewMode={notesViewMode}
           />
@@ -466,34 +530,41 @@ export default function App() {
         </div>
       ) : null}
 
-      {projectDialogOpen ? (
-        <div className="overlay-dialog" role="dialog" aria-modal="true" aria-label="Create project">
+      {notesFolderDialogOpen ? (
+        <div className="overlay-dialog" role="dialog" aria-modal="true" aria-label="Configure notes folder">
           <div className="overlay-dialog-card">
             <div className="overlay-dialog-header">
-              <h2>New Project</h2>
+              <h2>Notes Folder</h2>
               <button
                 className="icon-button"
-                onClick={() => setProjectDialogOpen(false)}
+                onClick={() => setNotesFolderDialogOpen(false)}
                 type="button"
-                aria-label="Close new project dialog"
+                aria-label="Close notes folder dialog"
               >
                 <X size={16} />
               </button>
             </div>
             <label className="overlay-dialog-field">
-              <span>Project title</span>
+              <span>Location</span>
               <input
                 type="text"
-                value={newProjectName}
-                onChange={(event) => setNewProjectName(event.target.value)}
-                placeholder="Enter project title"
-                autoFocus
+                value={notesFolderPath}
+                onChange={(event) => setNotesFolderPath(event.target.value)}
+                placeholder="Select notes folder path"
               />
             </label>
-            <div className="overlay-dialog-actions">
-              <button className="primary-button" onClick={handleCreateProject} disabled={creatingProject} type="button">
-                <FolderPlus size={14} />
-                {creatingProject ? "Creating..." : "Create Project"}
+            <div className="overlay-dialog-actions split">
+              <button className="small-button" onClick={handlePickNotesFolder} type="button">
+                <FolderOpen size={14} />
+                Browse
+              </button>
+              <button
+                className="primary-button"
+                onClick={handleSaveNotesFolder}
+                disabled={savingNotesFolder}
+                type="button"
+              >
+                {savingNotesFolder ? "Saving..." : "Save"}
               </button>
             </div>
           </div>

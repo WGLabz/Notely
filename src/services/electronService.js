@@ -27,6 +27,30 @@ export function updateMenuContext(context) {
   api.updateMenuContext(context || {});
 }
 
+export async function getNotesRootSetting() {
+  const api = getNotesApi();
+  if (typeof api.getNotesRootSetting !== "function") {
+    throw new Error("Notes folder settings are unavailable. Please restart the app.");
+  }
+  return api.getNotesRootSetting();
+}
+
+export async function setNotesRootSetting(notesRoot) {
+  const api = getNotesApi();
+  if (typeof api.setNotesRootSetting !== "function") {
+    throw new Error("Notes folder settings are unavailable. Please restart the app.");
+  }
+  return api.setNotesRootSetting({ notesRoot });
+}
+
+export async function pickFolder() {
+  const api = getNotesApi();
+  if (typeof api.pickFolder !== "function") {
+    throw new Error("Folder picker is unavailable. Please restart the app.");
+  }
+  return api.pickFolder();
+}
+
 export async function listDocuments() {
   const api = getNotesApi();
   return api.listDocuments();

@@ -199,6 +199,10 @@ button {
   justify-content: flex-end;
 }
 
+.overlay-dialog-actions.split {
+  justify-content: space-between;
+}
+
 .landing-header {
   display: flex;
   align-items: end;

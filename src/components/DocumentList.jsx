@@ -6,7 +6,7 @@ export function DocumentList({ documents, onOpen, loading, viewMode = "tile" }) 
   }
 
   if (!documents.length) {
-    return <div className="empty-state">No markdown files found in this project.</div>;
+    return <div className="empty-state">No folders or markdown files found in this location.</div>;
   }
 
   if (viewMode === "table") {
@@ -15,18 +15,22 @@ export function DocumentList({ documents, onOpen, loading, viewMode = "tile" }) 
         <table className="document-table">
           <thead>
             <tr>
-              <th>Title</th>
+              <th>Name</th>
+              <th>Type</th>
               <th>Metadata</th>
               <th>Updated</th>
             </tr>
           </thead>
           <tbody>
             {documents.map((doc) => (
-              <tr key={doc.filePath} onClick={() => onOpen(doc.filePath)}>
-                <td>{doc.title}</td>
+              <tr key={doc.filePath} onClick={() => onOpen(doc)}>
+                <td>{doc.entryType === "folder" ? `/${doc.title}` : doc.title}</td>
+                <td>{doc.entryType === "folder" ? "Folder" : "Markdown"}</td>
                 <td>
-                  {[doc.metadata?.time, doc.metadata?.location].filter(Boolean).join(" - ") ||
-                    "No meeting metadata"}
+                  {doc.entryType === "folder"
+                    ? "-"
+                    : ([doc.metadata?.time, doc.metadata?.location].filter(Boolean).join(" - ") ||
+                      "No meeting metadata")}
                 </td>
                 <td>{formatDate(doc.updatedAt)}</td>
               </tr>
@@ -40,11 +44,13 @@ export function DocumentList({ documents, onOpen, loading, viewMode = "tile" }) 
   return (
     <div className="document-grid">
       {documents.map((doc) => (
-        <button className="document-card" key={doc.filePath} onClick={() => onOpen(doc.filePath)}>
-          <span className="document-title">{doc.title}</span>
+        <button className="document-card" key={doc.filePath} onClick={() => onOpen(doc)}>
+          <span className="document-title">{doc.entryType === "folder" ? `/${doc.title}` : doc.title}</span>
           <span className="document-meta">
-            {[doc.metadata?.time, doc.metadata?.location].filter(Boolean).join(" - ") ||
-              "No meeting metadata"}
+            {doc.entryType === "folder"
+              ? "Folder"
+              : ([doc.metadata?.time, doc.metadata?.location].filter(Boolean).join(" - ") ||
+                "No meeting metadata")}
           </span>
           <span className="document-updated">Updated {formatDate(doc.updatedAt)}</span>
         </button>

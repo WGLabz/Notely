@@ -11,6 +11,9 @@ contextBridge.exposeInMainWorld("notesApi", {
     return () => ipcRenderer.removeListener("app-menu:action", listener);
   },
   updateMenuContext: (payload) => ipcRenderer.send("app-menu:update-context", payload),
+  getNotesRootSetting: () => ipcRenderer.invoke("settings:get-notes-root"),
+  setNotesRootSetting: (payload) => ipcRenderer.invoke("settings:set-notes-root", payload),
+  pickFolder: () => ipcRenderer.invoke("settings:pick-folder"),
   listProjects: () => ipcRenderer.invoke("projects:list"),
   createProject: (payload) => ipcRenderer.invoke("projects:create", payload),
   setActiveProject: (payload) => ipcRenderer.invoke("projects:set-active", payload),

@@ -1,24 +1,66 @@
-const { app, BrowserWindow, ipcMain, Menu, shell } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, Menu, shell } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
 
 const rendererUrl = process.env.ELECTRON_RENDERER_URL;
 const projectRoot = app.getAppPath();
-const notesRoot = process.env.NOTES_ROOT || path.join(projectRoot, "notes");
-const appDataDir = path.join(notesRoot, ".notes-app");
-const projectsRoot = path.join(notesRoot, "projects");
-const projectsRegistryPath = path.join(appDataDir, "projects.json");
-const versionsRoot = path.join(projectRoot, ".versions");
-
-const DEFAULT_PROJECT = {
-  slug: "default",
-  name: "Default",
-  rootPath: notesRoot
-};
+const userConfigPath = path.join(app.getPath("userData"), "settings.json");
+let notesRoot = "";
+let appDataDir = "";
+let versionsRoot = "";
+const ROOT_PROJECT_SLUG = "__root__";
+let activeProjectSlug = ROOT_PROJECT_SLUG;
+let mainWindow = null;
 
 function ensureDir(dirPath) {
+  if (!dirPath || typeof dirPath !== "string") {
+    throw new Error("Invalid directory path.");
+  }
   fs.mkdirSync(dirPath, { recursive: true });
+}
+
+function readUserSettings() {
+  if (!fs.existsSync(userConfigPath)) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(fs.readFileSync(userConfigPath, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+function writeUserSettings(nextSettings) {
+  ensureDir(path.dirname(userConfigPath));
+  fs.writeFileSync(userConfigPath, JSON.stringify(nextSettings, null, 2), "utf8");
+}
+
+function resolveInitialNotesRoot() {
+  const envNotesRoot = process.env.NOTES_ROOT;
+  if (envNotesRoot && envNotesRoot.trim()) {
+    return path.resolve(envNotesRoot.trim());
+  }
+
+  const settings = readUserSettings();
+  if (settings?.notesRoot && typeof settings.notesRoot === "string") {
+    return path.resolve(settings.notesRoot);
+  }
+
+  return path.join(app.getPath("documents"), "Notely Notes");
+}
+
+function applyNotesRoot(nextRootPath) {
+  notesRoot = path.resolve(nextRootPath);
+  appDataDir = path.join(notesRoot, ".notes-app");
+  versionsRoot = path.join(appDataDir, "versions");
+
+  ensureDir(notesRoot);
+  ensureDir(versionsRoot);
+
+  metadataStore = new MetadataStore();
+  activeProjectSlug = ROOT_PROJECT_SLUG;
 }
 
 function slugify(value) {
@@ -53,91 +95,60 @@ function filePathWithin(rootDir, targetPath) {
   return normalizedTarget.startsWith(normalizedRoot);
 }
 
-function makeProjectSlug(name, projects) {
-  const base = slugify(String(name || "project"));
-  const existing = new Set((projects || []).map((item) => item.slug));
-  let candidate = base;
-  let index = 2;
-
-  while (existing.has(candidate)) {
-    candidate = `${base}-${index}`;
-    index += 1;
-  }
-
-  return candidate;
-}
-
-function normalizeProjectEntry(entry) {
-  const slug = slugify(entry?.slug || entry?.name || "project");
-  const name = String(entry?.name || slug || "Project").trim() || "Project";
-  const rootPath = path.resolve(entry?.rootPath || path.join(projectsRoot, slug));
-  return { slug, name, rootPath };
-}
-
-function loadProjectRegistry() {
-  ensureDir(appDataDir);
-  ensureDir(projectsRoot);
-
-  let state = null;
-  if (fs.existsSync(projectsRegistryPath)) {
-    try {
-      const parsed = JSON.parse(fs.readFileSync(projectsRegistryPath, "utf8"));
-      const projects = Array.isArray(parsed?.projects)
-        ? parsed.projects.map(normalizeProjectEntry).filter((item) => item.slug)
-        : [];
-      state = {
-        projects,
-        activeProjectSlug: parsed?.activeProjectSlug || ""
-      };
-    } catch {
-      state = null;
-    }
-  }
-
-  if (!state) {
-    state = {
-      projects: [{ ...DEFAULT_PROJECT }],
-      activeProjectSlug: DEFAULT_PROJECT.slug
-    };
-  }
-
-  if (!state.projects.some((item) => item.slug === DEFAULT_PROJECT.slug)) {
-    state.projects.unshift({ ...DEFAULT_PROJECT });
-  }
-
-  if (!state.activeProjectSlug || !state.projects.some((item) => item.slug === state.activeProjectSlug)) {
-    state.activeProjectSlug = DEFAULT_PROJECT.slug;
-  }
-
-  for (const item of state.projects) {
-    ensureDir(item.rootPath);
-  }
-
-  fs.writeFileSync(projectsRegistryPath, JSON.stringify(state, null, 2), "utf8");
-  return state;
-}
-
 function listProjectsState() {
-  const activeProject = projectRegistry.projects.find((item) => item.slug === projectRegistry.activeProjectSlug)
-    || projectRegistry.projects[0]
-    || { ...DEFAULT_PROJECT };
+  ensureDir(notesRoot);
+  const projects = [
+    {
+      slug: ROOT_PROJECT_SLUG,
+      name: "Root",
+      rootPath: notesRoot,
+      isRoot: true
+    },
+    ...fs.readdirSync(notesRoot, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .filter((entry) => !entry.name.startsWith("."))
+      .filter((entry) => entry.name !== "images")
+      .map((entry) => ({
+        slug: entry.name,
+        name: entry.name,
+        rootPath: path.join(notesRoot, entry.name),
+        isRoot: false
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  ];
+
+  if (!projects.some((item) => item.slug === activeProjectSlug)) {
+    activeProjectSlug = ROOT_PROJECT_SLUG;
+  }
+
+  const activeProject = projects.find((item) => item.slug === activeProjectSlug)
+    || projects[0]
+    || {
+      slug: ROOT_PROJECT_SLUG,
+      name: "Root",
+      rootPath: notesRoot,
+      isRoot: true
+    };
+
   return {
-    projects: projectRegistry.projects.map((item) => ({
+    projects: projects.map((item) => ({
       slug: item.slug,
       name: item.name,
-      rootPath: item.rootPath
+      rootPath: item.rootPath,
+      isRoot: Boolean(item.isRoot)
     })),
     activeProject: {
       slug: activeProject.slug,
       name: activeProject.name,
-      rootPath: activeProject.rootPath
+      rootPath: activeProject.rootPath,
+      isRoot: Boolean(activeProject.isRoot)
     }
   };
 }
 
-function getActiveProjectRoot() {
+function getActiveProject() {
   const state = listProjectsState();
-  return state.activeProject.rootPath;
+  return state.activeProject;
 }
 
 function parseDocument(content, filePath) {
@@ -204,6 +215,50 @@ function listMarkdownFiles(rootDir) {
       };
     })
     .sort((a, b) => a.title.localeCompare(b.title));
+}
+
+function listRootEntries(rootDir) {
+  ensureDir(rootDir);
+  return fs.readdirSync(rootDir, { withFileTypes: true })
+    .filter((entry) => {
+      if (entry.isDirectory()) {
+        return !entry.name.startsWith(".") && entry.name !== "images";
+      }
+      return entry.isFile() && entry.name.toLowerCase().endsWith(".md");
+    })
+    .map((entry) => {
+      const entryPath = path.join(rootDir, entry.name);
+      const stat = fs.statSync(entryPath);
+
+      if (entry.isDirectory()) {
+        return {
+          entryType: "folder",
+          slug: entry.name,
+          filePath: entryPath,
+          title: entry.name,
+          metadata: {},
+          updatedAt: stat.mtime.toISOString()
+        };
+      }
+
+      const content = fs.readFileSync(entryPath, "utf8");
+      const parsed = parseDocument(content, entryPath);
+      return {
+        entryType: "file",
+        filePath: entryPath,
+        fileName: parsed.fileName,
+        title: parsed.title,
+        metadata: parsed.metadata,
+        updatedAt: stat.mtime.toISOString(),
+        hash: parsed.hash
+      };
+    })
+    .sort((a, b) => {
+      if (a.entryType !== b.entryType) {
+        return a.entryType === "folder" ? -1 : 1;
+      }
+      return a.title.localeCompare(b.title);
+    });
 }
 
 function createDocumentInProject(rootDir, payload) {
@@ -305,7 +360,6 @@ class MetadataStore {
 }
 
 let metadataStore;
-let projectRegistry;
 
 function sendMenuAction(win, action) {
   if (!win || win.isDestroyed()) return;
@@ -316,6 +370,7 @@ function buildAppMenu(win, context = {}) {
   const screen = context?.screen === "document" ? "document" : "landing";
   const viewMode = context?.viewMode === "table" ? "table" : "tile";
   const dirty = Boolean(context?.dirty);
+  const canCreateFolder = Boolean(context?.canCreateFolder);
 
   const fileSubmenu = screen === "document"
     ? [
@@ -342,9 +397,9 @@ function buildAppMenu(win, context = {}) {
           click: () => sendMenuAction(win, "new-note")
         },
         {
-          label: "New Project",
+          label: "New Folder",
           accelerator: "CmdOrCtrl+Shift+N",
-          click: () => sendMenuAction(win, "new-project")
+          enabled: false
         },
         { type: "separator" },
         { role: "quit" }
@@ -356,8 +411,9 @@ function buildAppMenu(win, context = {}) {
           click: () => sendMenuAction(win, "new-note")
         },
         {
-          label: "New Project",
+          label: "New Folder",
           accelerator: "CmdOrCtrl+Shift+N",
+          enabled: canCreateFolder,
           click: () => sendMenuAction(win, "new-project")
         },
         { type: "separator" },
@@ -425,10 +481,33 @@ function createWindow() {
     }
   });
 
+  let hasShown = false;
+
+  const showWindow = () => {
+    if (win.isDestroyed()) return;
+    if (!hasShown) {
+      hasShown = true;
+      win.center();
+      win.show();
+    }
+    win.focus();
+  };
+
   win.once("ready-to-show", () => {
     win.center();
-    win.show();
-    win.focus();
+    showWindow();
+  });
+
+  // Fallback for packaged/runtime load timing issues where ready-to-show may not fire.
+  setTimeout(() => {
+    if (!hasShown) {
+      showWindow();
+    }
+  }, 3000);
+
+  win.webContents.on("did-fail-load", (_event, code, desc, url) => {
+    console.error("Renderer failed to load:", { code, desc, url });
+    showWindow();
   });
 
   if (rendererUrl) {
@@ -437,16 +516,44 @@ function createWindow() {
     win.loadFile(path.join(projectRoot, "dist", "index.html"));
   }
 
-  win.__menuContext = { screen: "landing", viewMode: "tile", dirty: false };
+  win.__menuContext = { screen: "landing", viewMode: "tile", dirty: false, canCreateFolder: true };
   Menu.setApplicationMenu(buildAppMenu(win, win.__menuContext));
+  mainWindow = win;
+
+  win.on("closed", () => {
+    if (mainWindow === win) {
+      mainWindow = null;
+    }
+  });
+}
+
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      createWindow();
+      return;
+    }
+
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore();
+    }
+    mainWindow.show();
+    mainWindow.focus();
+  });
 }
 
 app.whenReady().then(() => {
-  ensureDir(notesRoot);
-  ensureDir(versionsRoot);
-  metadataStore = new MetadataStore();
-  projectRegistry = loadProjectRegistry();
-  createWindow();
+  applyNotesRoot(resolveInitialNotesRoot());
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow();
+  } else {
+    mainWindow.show();
+    mainWindow.focus();
+  }
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -458,7 +565,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("browser-window-focus", (_event, win) => {
-  const context = win?.__menuContext || { screen: "landing", viewMode: "tile", dirty: false };
+  const context = win?.__menuContext || { screen: "landing", viewMode: "tile", dirty: false, canCreateFolder: true };
   Menu.setApplicationMenu(buildAppMenu(win, context));
 });
 
@@ -469,47 +576,118 @@ ipcMain.on("app-menu:update-context", (event, context) => {
   win.__menuContext = {
     screen: context?.screen === "document" ? "document" : "landing",
     viewMode: context?.viewMode === "table" ? "table" : "tile",
-    dirty: Boolean(context?.dirty)
+    dirty: Boolean(context?.dirty),
+    canCreateFolder: Boolean(context?.canCreateFolder)
   };
 
   Menu.setApplicationMenu(buildAppMenu(win, win.__menuContext));
 });
 
+ipcMain.handle("settings:get-notes-root", () => ({
+  notesRoot,
+  notesRootSource: process.env.NOTES_ROOT ? "env" : "config"
+}));
+
+ipcMain.handle("settings:pick-folder", async () => {
+  const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+  const result = await dialog.showOpenDialog(win, {
+    properties: ["openDirectory", "createDirectory"],
+    title: "Select notes folder"
+  });
+
+  if (result.canceled || !result.filePaths?.length) {
+    return null;
+  }
+
+  return result.filePaths[0];
+});
+
+ipcMain.handle("settings:set-notes-root", (_event, payload) => {
+  const nextPath = String(payload?.notesRoot || "").trim();
+  if (!nextPath) {
+    throw new Error("Notes folder path is required.");
+  }
+
+  const resolved = path.resolve(nextPath);
+  ensureDir(resolved);
+
+  const settings = readUserSettings();
+  settings.notesRoot = resolved;
+  writeUserSettings(settings);
+
+  if (!process.env.NOTES_ROOT) {
+    applyNotesRoot(resolved);
+  }
+
+  return {
+    notesRoot: resolved,
+    restartRequired: Boolean(process.env.NOTES_ROOT),
+    ignoredByEnv: Boolean(process.env.NOTES_ROOT)
+  };
+});
+
 ipcMain.handle("projects:list", () => listProjectsState());
 
 ipcMain.handle("projects:create", (_event, payload) => {
-  const name = String(payload?.name || "").trim();
-  if (!name) {
-    throw new Error("Project name is required.");
+  const activeProject = getActiveProject();
+  if (!activeProject?.isRoot) {
+    throw new Error("New folders can be created only in root.");
   }
 
-  const slug = makeProjectSlug(name, projectRegistry.projects);
-  const rootPath = path.join(projectsRoot, slug);
-  ensureDir(rootPath);
+  const requestedName = String(payload?.name || "").trim();
+  if (!requestedName) {
+    throw new Error("Folder name is required.");
+  }
 
-  projectRegistry.projects.push({ slug, name, rootPath });
-  projectRegistry.activeProjectSlug = slug;
-  fs.writeFileSync(projectsRegistryPath, JSON.stringify(projectRegistry, null, 2), "utf8");
+  const safeName = requestedName
+    .replace(/[<>:"/\\|?*]+/g, "-")
+    .replace(/[.\s]+$/g, "")
+    .trim();
 
+  if (!safeName) {
+    throw new Error("Folder name is invalid.");
+  }
+
+  const folderPath = path.join(notesRoot, safeName);
+  if (fs.existsSync(folderPath)) {
+    throw new Error("A folder with this name already exists.");
+  }
+
+  ensureDir(folderPath);
+  activeProjectSlug = safeName;
   return listProjectsState();
 });
 
 ipcMain.handle("projects:set-active", (_event, payload) => {
   const slug = String(payload?.slug || "").trim();
-  const exists = projectRegistry.projects.some((item) => item.slug === slug);
+  const exists = listProjectsState().projects.some((item) => item.slug === slug);
   if (!exists) {
     throw new Error("Project not found.");
   }
 
-  projectRegistry.activeProjectSlug = slug;
-  fs.writeFileSync(projectsRegistryPath, JSON.stringify(projectRegistry, null, 2), "utf8");
+  activeProjectSlug = slug;
   return listProjectsState();
 });
 
-ipcMain.handle("documents:list", () => listMarkdownFiles(getActiveProjectRoot()));
+ipcMain.handle("documents:list", () => {
+  const activeProject = getActiveProject();
+  if (activeProject?.isRoot) {
+    return listRootEntries(notesRoot);
+  }
+
+  return listMarkdownFiles(activeProject.rootPath).map((entry) => ({
+    ...entry,
+    entryType: "file"
+  }));
+});
 
 ipcMain.handle("documents:create", (_event, payload) => {
-  const rootDir = getActiveProjectRoot();
+  const activeProject = getActiveProject();
+  if (activeProject?.isRoot) {
+    throw new Error("Cannot create notes in root. Open a project folder first.");
+  }
+
+  const rootDir = activeProject.rootPath;
   return createDocumentInProject(rootDir, payload);
 });
 

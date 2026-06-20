@@ -1,5 +1,8 @@
 node_modules/
 dist/
 .versions/
+.notes-app/
+build/
+.artifacts/
 notes/
 notes/.notes-app/
