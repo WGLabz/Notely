@@ -33,6 +33,8 @@ export function P2PStatusPanel({
   const [manualPort, setManualPort] = useState("");
   const [keyPolicyDraft, setKeyPolicyDraft] = useState("30");
   const [busyAction, setBusyAction] = useState("");
+  const [showDebugDetails, setShowDebugDetails] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
 
   const currentStatus = status || {};
   const peers = Array.isArray(currentStatus.peers) ? currentStatus.peers : [];
@@ -84,6 +86,13 @@ export function P2PStatusPanel({
     }
   }
 
+  const tabItems = [
+    { id: "overview", label: "Overview" },
+    { id: "connect", label: "Connect" },
+    { id: "peers", label: "Peers" },
+    { id: "sync", label: "Sync" },
+  ];
+
   return (
     <div className="p2p-status-wrap">
       <div className="p2p-status-actions">
@@ -125,389 +134,432 @@ export function P2PStatusPanel({
         </div>
       </div>
 
-      <div className="p2p-status-meta">
-        <p>
-          <span>Generated</span>
-          <strong>{formatDateTime(currentStatus.generatedAt)}</strong>
-        </p>
-        <p>
-          <span>Session</span>
-          <strong>{currentStatus.self?.peerId || currentStatus.sessionId || "N/A"}</strong>
-        </p>
-        <p>
-          <span>Listen Port</span>
-          <strong>{currentStatus.self?.listenPort || "N/A"}</strong>
-        </p>
-        <p>
-          <span>Source</span>
-          <strong>{currentStatus.source || "N/A"}</strong>
-        </p>
+      <div className="p2p-status-strip" role="status" aria-live="polite">
+        <span><strong>Generated:</strong> {formatDateTime(currentStatus.generatedAt)}</span>
+        <span><strong>Session:</strong> {currentStatus.self?.peerId || currentStatus.sessionId || "N/A"}</span>
+        <span><strong>Port:</strong> {currentStatus.self?.listenPort || "N/A"}</span>
+        <span><strong>Source:</strong> {currentStatus.source || "N/A"}</span>
       </div>
 
-      <div className="p2p-status-meta">
-        <p>
-          <span>Key Policy</span>
-          <strong>{currentStatus?.keyPolicyDays || 30} day(s)</strong>
-        </p>
-        <p>
-          <span>Revoked Peers</span>
-          <strong>{security?.revokedPeerCount || 0}</strong>
-        </p>
-        <p>
-          <span>Keys Expiring Soon</span>
-          <strong>{security?.expiringSoonCount || 0}</strong>
-        </p>
-        <p>
-          <span>Expired Keys</span>
-          <strong className={(security?.expiredCount || 0) > 0 ? "offline" : ""}>{security?.expiredCount || 0}</strong>
-        </p>
-      </div>
-
-      <div className="p2p-control-grid">
-        <div className="p2p-control-card">
-          <h3>Device</h3>
-          <label>
-            <span>Device Name</span>
-            <input
-              type="text"
-              value={deviceNameDraft}
-              onChange={(event) => setDeviceNameDraft(event.target.value)}
-              placeholder="Your peer name"
-            />
-          </label>
-          <button
-            className="small-button"
-            type="button"
-            disabled={busyAction === "name" || !deviceNameDraft.trim()}
-            onClick={() => runAction("name", () => onSetDeviceName(deviceNameDraft))}
-          >
-            Save Name
-          </button>
+      <section className="p2p-tab-shell" aria-label="P2P status tabs">
+        <div className="p2p-tab-bar" role="tablist" aria-label="P2P status sections">
+          {tabItems.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              className={`p2p-tab-btn${activeTab === tab.id ? " active" : ""}`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        <div className="p2p-control-card">
-          <h3>Key Policy</h3>
-          <label>
-            <span>Expiry (Days)</span>
-            <input
-              type="number"
-              min="1"
-              max="365"
-              value={keyPolicyDraft}
-              onChange={(event) => setKeyPolicyDraft(event.target.value)}
-            />
-          </label>
-          <button
-            className="small-button"
-            type="button"
-            disabled={busyAction === "key-policy" || !String(keyPolicyDraft || "").trim()}
-            onClick={() => runAction("key-policy", () => onSetKeyPolicyDays(Number(keyPolicyDraft)))}
-          >
-            Save Key Policy
-          </button>
-        </div>
+        <div className="p2p-tab-panel">
+        {activeTab === "overview" ? (
+          <>
+            <div className="p2p-status-meta">
+              <p>
+                <span>Key Policy</span>
+                <strong>{currentStatus?.keyPolicyDays || 30} day(s)</strong>
+              </p>
+              <p>
+                <span>Revoked Peers</span>
+                <strong>{security?.revokedPeerCount || 0}</strong>
+              </p>
+              <p>
+                <span>Keys Expiring Soon</span>
+                <strong>{security?.expiringSoonCount || 0}</strong>
+              </p>
+              <p>
+                <span>Expired Keys</span>
+                <strong className={(security?.expiredCount || 0) > 0 ? "offline" : ""}>{security?.expiredCount || 0}</strong>
+              </p>
+            </div>
 
-        <div className="p2p-control-card">
-          <h3>Create Invite</h3>
-          <label>
-            <span>Target Peer (Optional)</span>
-            <select value={invitePeerId} onChange={(event) => setInvitePeerId(event.target.value)}>
-              <option value="">Any discovered peer</option>
-              {sortedDiscovered.map((peer) => (
-                <option key={peer.peerId} value={peer.peerId}>{peer.name} ({peer.peerId})</option>
-              ))}
-            </select>
-          </label>
-          <button
-            className="small-button"
-            type="button"
-            disabled={busyAction === "invite"}
-            onClick={() => runAction("invite", () => onCreateInvite(invitePeerId || null))}
-          >
-            Generate Invite Code
-          </button>
-        </div>
+            <div className="p2p-status-peer-table-wrap">
+              <h3 className="p2p-section-title">Initial Sync Progress</h3>
+              <table className="p2p-status-peer-table">
+                <thead>
+                  <tr>
+                    <th>Peer</th>
+                    <th>Phase</th>
+                    <th>Queued</th>
+                    <th>Total</th>
+                    <th>Remaining</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {!fullSyncRows.length ? (
+                    <tr>
+                      <td colSpan={6} className="p2p-status-table-empty">No initial sync progress yet.</td>
+                    </tr>
+                  ) : fullSyncRows.map((row) => (
+                    <tr key={row.peerId}>
+                      <td className="mono-cell" title={row.peerId}>{row.peerId}</td>
+                      <td>{row.phase || "unknown"}</td>
+                      <td>{Number(row.queuedFiles || 0)}</td>
+                      <td>{Number(row.totalFiles || 0)}</td>
+                      <td>{Number(row.remainingFiles || 0)}</td>
+                      <td className={row.failed ? "p2p-test-fail" : (row.completed ? "p2p-test-pass" : "")}>
+                        {row.failed ? (row.error || "failed") : (row.completed ? "completed" : "in-progress")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        ) : null}
 
-        <div className="p2p-control-card">
-          <h3>Pair With Code</h3>
-          <label>
-            <span>Peer</span>
-            <select value={pairPeerId} onChange={(event) => setPairPeerId(event.target.value)}>
-              <option value="">Select discovered peer</option>
-              {sortedDiscovered.map((peer) => (
-                <option key={peer.peerId} value={peer.peerId}>{peer.name} ({peer.peerId})</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>Invite Code</span>
-            <input
-              type="text"
-              value={pairCode}
-              onChange={(event) => setPairCode(event.target.value)}
-              placeholder="amber-lotus-42-nova"
-            />
-          </label>
-          <button
-            className="small-button"
-            type="button"
-            disabled={busyAction === "pair" || !pairPeerId || !pairCode.trim()}
-            onClick={() => runAction("pair", () => onPairWithCode(pairPeerId, pairCode))}
-          >
-            Pair
-          </button>
-        </div>
+        {activeTab === "connect" ? (
+          <div className="p2p-control-grid">
+            <div className="p2p-control-card">
+              <h3>Device</h3>
+              <label>
+                <span>Device Name</span>
+                <input
+                  type="text"
+                  value={deviceNameDraft}
+                  onChange={(event) => setDeviceNameDraft(event.target.value)}
+                  placeholder="Your peer name"
+                />
+              </label>
+              <button
+                className="small-button"
+                type="button"
+                disabled={busyAction === "name" || !deviceNameDraft.trim()}
+                onClick={() => runAction("name", () => onSetDeviceName(deviceNameDraft))}
+              >
+                Save Name
+              </button>
+            </div>
 
-        <div className="p2p-control-card">
-          <h3>Manual Connect</h3>
-          <label>
-            <span>Address</span>
-            <input
-              type="text"
-              value={manualAddress}
-              onChange={(event) => setManualAddress(event.target.value)}
-              placeholder="127.0.0.1"
-            />
-          </label>
-          <label>
-            <span>Port</span>
-            <input
-              type="number"
-              value={manualPort}
-              onChange={(event) => setManualPort(event.target.value)}
-              placeholder="47501"
-            />
-          </label>
-          <button
-            className="small-button"
-            type="button"
-            disabled={busyAction === "connect" || !manualAddress.trim() || !manualPort.trim()}
-            onClick={() => runAction("connect", () => onManualConnect(manualAddress, manualPort))}
-          >
-            Connect
-          </button>
-          <button
-            className="small-button"
-            type="button"
-            disabled={busyAction === "rotate-all" || !trustedPeers.length}
-            onClick={() => runAction("rotate-all", () => onRotateWorkspaceKeys())}
-          >
-            Rotate All Keys
-          </button>
-        </div>
-      </div>
+            <div className="p2p-control-card">
+              <h3>Key Policy</h3>
+              <label>
+                <span>Expiry (Days)</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={keyPolicyDraft}
+                  onChange={(event) => setKeyPolicyDraft(event.target.value)}
+                />
+              </label>
+              <button
+                className="small-button"
+                type="button"
+                disabled={busyAction === "key-policy" || !String(keyPolicyDraft || "").trim()}
+                onClick={() => runAction("key-policy", () => onSetKeyPolicyDays(Number(keyPolicyDraft)))}
+              >
+                Save Key Policy
+              </button>
+            </div>
 
-      <div className="p2p-status-peer-table-wrap">
-        <h3 className="p2p-section-title">Initial Sync Progress</h3>
-        <table className="p2p-status-peer-table">
-          <thead>
-            <tr>
-              <th>Peer</th>
-              <th>Phase</th>
-              <th>Queued</th>
-              <th>Total</th>
-              <th>Remaining</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {!fullSyncRows.length ? (
-              <tr>
-                <td colSpan={6} className="p2p-status-table-empty">No initial sync progress yet.</td>
-              </tr>
-            ) : fullSyncRows.map((row) => (
-              <tr key={row.peerId}>
-                <td className="mono-cell" title={row.peerId}>{row.peerId}</td>
-                <td>{row.phase || "unknown"}</td>
-                <td>{Number(row.queuedFiles || 0)}</td>
-                <td>{Number(row.totalFiles || 0)}</td>
-                <td>{Number(row.remainingFiles || 0)}</td>
-                <td className={row.failed ? "p2p-test-fail" : (row.completed ? "p2p-test-pass" : "")}>
-                  {row.failed ? (row.error || "failed") : (row.completed ? "completed" : "in-progress")}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            <div className="p2p-control-card">
+              <h3>Create Invite</h3>
+              <label>
+                <span>Target Peer (Optional)</span>
+                <select value={invitePeerId} onChange={(event) => setInvitePeerId(event.target.value)}>
+                  <option value="">Any discovered peer</option>
+                  {sortedDiscovered.map((peer) => (
+                    <option key={peer.peerId} value={peer.peerId}>{peer.name} ({peer.peerId})</option>
+                  ))}
+                </select>
+              </label>
+              <button
+                className="small-button"
+                type="button"
+                disabled={busyAction === "invite"}
+                onClick={() => runAction("invite", () => onCreateInvite(invitePeerId || null))}
+              >
+                Generate Invite Code
+              </button>
+            </div>
 
-      <div className="p2p-status-peer-table-wrap">
-        <h3 className="p2p-section-title">Active Invite Codes</h3>
-        <table className="p2p-status-peer-table">
-          <thead>
-            <tr>
-              <th>Code</th>
-              <th>Target</th>
-              <th>Expires</th>
-            </tr>
-          </thead>
-          <tbody>
-            {!invites.length ? (
-              <tr>
-                <td colSpan={3} className="p2p-status-table-empty">No active invites.</td>
-              </tr>
-            ) : invites.map((invite) => (
-              <tr key={invite.inviteId}>
-                <td className="mono-cell">{invite.code}</td>
-                <td>{invite.targetPeerId || "Any"}</td>
-                <td>{formatDateTime(invite.expiresAt)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            <div className="p2p-control-card">
+              <h3>Pair With Code</h3>
+              <label>
+                <span>Peer</span>
+                <select value={pairPeerId} onChange={(event) => setPairPeerId(event.target.value)}>
+                  <option value="">Select discovered peer</option>
+                  {sortedDiscovered.map((peer) => (
+                    <option key={peer.peerId} value={peer.peerId}>{peer.name} ({peer.peerId})</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Invite Code</span>
+                <input
+                  type="text"
+                  value={pairCode}
+                  onChange={(event) => setPairCode(event.target.value)}
+                  placeholder="amber-lotus-42-nova"
+                />
+              </label>
+              <button
+                className="small-button"
+                type="button"
+                disabled={busyAction === "pair" || !pairPeerId || !pairCode.trim()}
+                onClick={() => runAction("pair", () => onPairWithCode(pairPeerId, pairCode))}
+              >
+                Pair
+              </button>
+            </div>
 
-      <div className="p2p-status-peer-table-wrap">
-        <h3 className="p2p-section-title">Discovered Peers</h3>
-        <table className="p2p-status-peer-table">
-          <thead>
-            <tr>
-              <th>Peer</th>
-              <th>Peer ID</th>
-              <th>Address</th>
-              <th>Port</th>
-              <th>Last Seen</th>
-              <th>Trusted</th>
-            </tr>
-          </thead>
-          <tbody>
-            {!sortedDiscovered.length ? (
-              <tr>
-                <td colSpan={6} className="p2p-status-table-empty">No peers discovered yet.</td>
-              </tr>
-            ) : sortedDiscovered.map((peer) => (
-              <tr key={peer.peerId}>
-                <td>{peer.name}</td>
-                <td className="mono-cell" title={peer.peerId}>{peer.peerId}</td>
-                <td className="mono-cell">{peer.address}</td>
-                <td>{peer.listenPort || "N/A"}</td>
-                <td>{formatDateTime(peer.lastSeenAt)}</td>
-                <td>{peer.trusted ? "Yes" : "No"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="p2p-status-peer-table-wrap">
-        <h3 className="p2p-section-title">Trusted Peers</h3>
-        <table className="p2p-status-peer-table">
-          <thead>
-            <tr>
-              <th>Peer</th>
-              <th>Peer ID</th>
-              <th>Address</th>
-              <th>Port</th>
-              <th>Paired</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {!trustedPeers.length ? (
-              <tr>
-                <td colSpan={6} className="p2p-status-table-empty">No trusted peers yet.</td>
-              </tr>
-            ) : (
-              trustedPeers.map((peer) => (
-                <tr key={peer.peerId}>
-                  <td>{peer.name}</td>
-                  <td className="mono-cell" title={peer.peerId}>{peer.peerId}</td>
-                  <td className="mono-cell">{peer.address || "N/A"}</td>
-                  <td>{peer.listenPort || "N/A"}</td>
-                  <td>{formatDateTime(peer.pairedAt)}</td>
-                  <td>
-                    <button
-                      className="small-button"
-                      type="button"
-                      disabled={busyAction === `remove-${peer.peerId}`}
-                      onClick={() => runAction(`remove-${peer.peerId}`, () => onRemoveTrustedPeer(peer.peerId))}
-                    >
-                      Remove
-                    </button>
-                    <button
-                      className="small-button"
-                      type="button"
-                      disabled={busyAction === `rotate-${peer.peerId}`}
-                      onClick={() => runAction(`rotate-${peer.peerId}`, () => onRotateWorkspaceKeys(peer.peerId))}
-                    >
-                      Rotate Key
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {peers.length ? (
-        <div className="p2p-status-meta p2p-status-legacy-block">
-          <p>
-            <span>Legacy Harness Rows</span>
-            <strong>{peers.length}</strong>
-          </p>
-        </div>
-      ) : null}
-
-      {syncStats ? (
-        <div className="p2p-status-peer-table-wrap">
-          <h3 className="p2p-section-title">Sync Reliability</h3>
-          <div className="p2p-status-meta">
-            <p><span>Queued</span><strong>{syncStats.queued || 0}</strong></p>
-            <p><span>Sent</span><strong>{syncStats.sent || 0}</strong></p>
-            <p><span>Acked</span><strong>{syncStats.acked || 0}</strong></p>
-            <p><span>Retried</span><strong>{syncStats.retried || 0}</strong></p>
-            <p><span>Dropped</span><strong>{syncStats.dropped || 0}</strong></p>
-            <p><span>Outbox</span><strong>{syncOutboxCount}</strong></p>
-            <p><span>Last Ack</span><strong>{syncStats.lastAckAt ? formatDateTime(syncStats.lastAckAt) : "None"}</strong></p>
-            <p><span>Last Error</span><strong className={syncStats.lastError ? "offline" : ""}>{syncStats.lastError || "None"}</strong></p>
+            <div className="p2p-control-card">
+              <h3>Manual Connect</h3>
+              <label>
+                <span>Address</span>
+                <input
+                  type="text"
+                  value={manualAddress}
+                  onChange={(event) => setManualAddress(event.target.value)}
+                  placeholder="127.0.0.1"
+                />
+              </label>
+              <label>
+                <span>Port</span>
+                <input
+                  type="number"
+                  value={manualPort}
+                  onChange={(event) => setManualPort(event.target.value)}
+                  placeholder="47501"
+                />
+              </label>
+              <button
+                className="small-button"
+                type="button"
+                disabled={busyAction === "connect" || !manualAddress.trim() || !manualPort.trim()}
+                onClick={() => runAction("connect", () => onManualConnect(manualAddress, manualPort))}
+              >
+                Connect
+              </button>
+              <button
+                className="small-button"
+                type="button"
+                disabled={busyAction === "rotate-all" || !trustedPeers.length}
+                onClick={() => runAction("rotate-all", () => onRotateWorkspaceKeys())}
+              >
+                Rotate All Keys
+              </button>
+            </div>
           </div>
-          {peerSyncMeta.length ? (
-            <table className="p2p-status-peer-table">
-              <thead>
-                <tr>
-                  <th>Peer ID</th>
-                  <th>Last Ack</th>
-                  <th>Last Error</th>
-                </tr>
-              </thead>
-              <tbody>
-                {peerSyncMeta.map((meta) => (
-                  <tr key={meta.peerId}>
-                    <td className="mono-cell" title={meta.peerId}>{meta.peerId}</td>
-                    <td>{meta.lastAckAt ? formatDateTime(meta.lastAckAt) : "None"}</td>
-                    <td className={meta.lastError ? "p2p-test-fail" : ""}>{meta.lastError || "OK"}</td>
+        ) : null}
+
+        {activeTab === "peers" ? (
+          <>
+            <div className="p2p-status-peer-table-wrap">
+              <h3 className="p2p-section-title">Trusted Peers</h3>
+              <table className="p2p-status-peer-table">
+                <thead>
+                  <tr>
+                    <th>Peer</th>
+                    <th>Peer ID</th>
+                    <th>Address</th>
+                    <th>Port</th>
+                    <th>Paired</th>
+                    <th>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : null}
-          {syncTrend.length ? (
-            <table className="p2p-status-peer-table p2p-trend-table">
-              <thead>
-                <tr>
-                  <th>Time</th>
-                  <th>Outbox</th>
-                  <th>Acked</th>
-                  <th>Failed</th>
-                  <th>Dropped</th>
-                </tr>
-              </thead>
-              <tbody>
-                {syncTrend.slice(-10).map((point, index) => (
-                  <tr key={`${point.at}-${index}`}>
-                    <td>{formatDateTime(point.at)}</td>
-                    <td>{Number(point.outboxCount || 0)}</td>
-                    <td>{Number(point.acked || 0)}</td>
-                    <td>{Number(point.failed || 0)}</td>
-                    <td>{Number(point.dropped || 0)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : null}
+                </thead>
+                <tbody>
+                  {!trustedPeers.length ? (
+                    <tr>
+                      <td colSpan={6} className="p2p-status-table-empty">No trusted peers yet.</td>
+                    </tr>
+                  ) : (
+                    trustedPeers.map((peer) => (
+                      <tr key={peer.peerId}>
+                        <td>{peer.name}</td>
+                        <td className="mono-cell" title={peer.peerId}>{peer.peerId}</td>
+                        <td className="mono-cell">{peer.address || "N/A"}</td>
+                        <td>{peer.listenPort || "N/A"}</td>
+                        <td>{formatDateTime(peer.pairedAt)}</td>
+                        <td className="p2p-status-actions-cell">
+                          <button
+                            className="small-button"
+                            type="button"
+                            disabled={busyAction === `remove-${peer.peerId}`}
+                            onClick={() => runAction(`remove-${peer.peerId}`, () => onRemoveTrustedPeer(peer.peerId))}
+                          >
+                            Remove
+                          </button>
+                          <button
+                            className="small-button"
+                            type="button"
+                            disabled={busyAction === `rotate-${peer.peerId}`}
+                            onClick={() => runAction(`rotate-${peer.peerId}`, () => onRotateWorkspaceKeys(peer.peerId))}
+                          >
+                            Rotate Key
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <details className="p2p-collapsible">
+              <summary className="p2p-collapsible-summary">Discovered Peers ({sortedDiscovered.length})</summary>
+              <div className="p2p-status-peer-table-wrap">
+                <table className="p2p-status-peer-table">
+                  <thead>
+                    <tr>
+                      <th>Peer</th>
+                      <th>Peer ID</th>
+                      <th>Address</th>
+                      <th>Port</th>
+                      <th>Last Seen</th>
+                      <th>Trusted</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {!sortedDiscovered.length ? (
+                      <tr>
+                        <td colSpan={6} className="p2p-status-table-empty">No peers discovered yet.</td>
+                      </tr>
+                    ) : sortedDiscovered.map((peer) => (
+                      <tr key={peer.peerId}>
+                        <td>{peer.name}</td>
+                        <td className="mono-cell" title={peer.peerId}>{peer.peerId}</td>
+                        <td className="mono-cell">{peer.address}</td>
+                        <td>{peer.listenPort || "N/A"}</td>
+                        <td>{formatDateTime(peer.lastSeenAt)}</td>
+                        <td>{peer.trusted ? "Yes" : "No"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+
+            <details className="p2p-collapsible">
+              <summary className="p2p-collapsible-summary">Active Invite Codes ({invites.length})</summary>
+              <div className="p2p-status-peer-table-wrap">
+                <table className="p2p-status-peer-table">
+                  <thead>
+                    <tr>
+                      <th>Code</th>
+                      <th>Target</th>
+                      <th>Expires</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {!invites.length ? (
+                      <tr>
+                        <td colSpan={3} className="p2p-status-table-empty">No active invites.</td>
+                      </tr>
+                    ) : invites.map((invite) => (
+                      <tr key={invite.inviteId}>
+                        <td className="mono-cell">{invite.code}</td>
+                        <td>{invite.targetPeerId || "Any"}</td>
+                        <td>{formatDateTime(invite.expiresAt)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          </>
+        ) : null}
+
+        {activeTab === "sync" ? (
+          <>
+            {syncStats ? (
+              <details className="p2p-collapsible" open>
+                <summary className="p2p-collapsible-summary">Sync Reliability</summary>
+                <div className="p2p-status-peer-table-wrap">
+                  <div className="p2p-status-meta">
+                    <p><span>Queued</span><strong>{syncStats.queued || 0}</strong></p>
+                    <p><span>Sent</span><strong>{syncStats.sent || 0}</strong></p>
+                    <p><span>Acked</span><strong>{syncStats.acked || 0}</strong></p>
+                    <p><span>Retried</span><strong>{syncStats.retried || 0}</strong></p>
+                    <p><span>Dropped</span><strong>{syncStats.dropped || 0}</strong></p>
+                    <p><span>Outbox</span><strong>{syncOutboxCount}</strong></p>
+                    <p><span>Last Ack</span><strong>{syncStats.lastAckAt ? formatDateTime(syncStats.lastAckAt) : "None"}</strong></p>
+                    <p><span>Last Error</span><strong className={syncStats.lastError ? "offline" : ""}>{syncStats.lastError || "None"}</strong></p>
+                  </div>
+                  {peerSyncMeta.length ? (
+                    <table className="p2p-status-peer-table">
+                      <thead>
+                        <tr>
+                          <th>Peer ID</th>
+                          <th>Last Ack</th>
+                          <th>Last Error</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {peerSyncMeta.map((meta) => (
+                          <tr key={meta.peerId}>
+                            <td className="mono-cell" title={meta.peerId}>{meta.peerId}</td>
+                            <td>{meta.lastAckAt ? formatDateTime(meta.lastAckAt) : "None"}</td>
+                            <td className={meta.lastError ? "p2p-test-fail" : ""}>{meta.lastError || "OK"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : null}
+                  {syncTrend.length ? (
+                    <table className="p2p-status-peer-table p2p-trend-table">
+                      <thead>
+                        <tr>
+                          <th>Time</th>
+                          <th>Outbox</th>
+                          <th>Acked</th>
+                          <th>Failed</th>
+                          <th>Dropped</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {syncTrend.slice(-10).map((point, index) => (
+                          <tr key={`${point.at}-${index}`}>
+                            <td>{formatDateTime(point.at)}</td>
+                            <td>{Number(point.outboxCount || 0)}</td>
+                            <td>{Number(point.acked || 0)}</td>
+                            <td>{Number(point.failed || 0)}</td>
+                            <td>{Number(point.dropped || 0)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : null}
+                </div>
+              </details>
+            ) : (
+              <div className="p2p-status-empty">
+                <p>No sync telemetry available yet.</p>
+              </div>
+            )}
+
+            {peers.length ? (
+              <div className="p2p-debug-toggle-wrap">
+                <button
+                  className="small-button"
+                  type="button"
+                  onClick={() => setShowDebugDetails((currentValue) => !currentValue)}
+                >
+                  {showDebugDetails ? "Hide Debug" : "Show Debug"}
+                </button>
+              </div>
+            ) : null}
+
+            {peers.length && showDebugDetails ? (
+              <div className="p2p-status-meta p2p-status-legacy-block">
+                <p>
+                  <span>Legacy Harness Rows</span>
+                  <strong>{peers.length}</strong>
+                </p>
+              </div>
+            ) : null}
+          </>
+        ) : null}
         </div>
-      ) : null}
+      </section>
     </div>
   );
 }
