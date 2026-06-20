@@ -296,9 +296,15 @@ function getWebPreviewScopeLabel() {
   return activeProject.isRoot ? "Root" : activeProject.name;
 }
 
+const WALK_EXCLUDE_DIRS = new Set([
+  ".notes-app", ".versions", "node_modules", ".git", ".svn", ".hg",
+  "dist", "build", ".artifacts", ".cache", "__pycache__",
+  ".venv", "venv", ".next", ".nuxt", "coverage"
+]);
+
 function listMarkdownRelativePaths() {
   const scopeRoot = webPreviewScopeRoot || getWebPreviewScopeRoot();
-  return walkFiles(scopeRoot, { excludeDirs: [".notes-app"] })
+  return walkFiles(scopeRoot, { excludeDirs: Array.from(WALK_EXCLUDE_DIRS) })
     .filter((item) => path.extname(item).toLowerCase() === ".md")
     .map((item) => normalizeToPosix(path.relative(scopeRoot, item)))
     .sort((a, b) => a.localeCompare(b));
@@ -309,6 +315,11 @@ function resolveRelativeToNotesRoot(relPath) {
   const normalized = normalizeToPosix(String(relPath || "")).replace(/^\/+/, "");
   const resolved = path.resolve(scopeRoot, normalized);
   if (!filePathWithin(scopeRoot, resolved)) {
+    return null;
+  }
+  // Block access inside excluded directories
+  const relNorm = normalizeToPosix(path.relative(scopeRoot, resolved));
+  if (relNorm.split("/").some((part) => WALK_EXCLUDE_DIRS.has(part))) {
     return null;
   }
   return {
@@ -412,288 +423,582 @@ function buildWebsiteHtml({ title, bodyHtml, navigationHtml = "" }) {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>${escapeHtml(title)}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;1,14..32,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
     <style>
       :root {
-        color: #1b2a2f;
-        background: #eff4f2;
-        font-family: "Segoe UI", "SF Pro Text", Tahoma, sans-serif;
-        --accent: #0f5f78;
-        --accent-soft: #e6f3f8;
-        --ink-soft: #546870;
+        --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
+        --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+        --bg: #f6f8f9;
+        --surface: #ffffff;
+        --surface2: #f0f4f6;
+        --border: #dde5ea;
+        --border-strong: #c8d5dc;
+        --accent: #0a6b8a;
+        --accent-hover: #075a75;
+        --accent-soft: #e3f3f8;
+        --ink: #0d1f26;
+        --ink-2: #2c4a54;
+        --ink-3: #4e6a75;
+        --ink-4: #7a9aaa;
+        --sidebar-w: 272px;
+        --toc-w: 220px;
+        --radius: 10px;
       }
 
-      * {
-        box-sizing: border-box;
-      }
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      html { scroll-behavior: smooth; }
 
       body {
-        margin: 0;
+        font-family: var(--font-sans);
+        font-size: 14.5px;
+        line-height: 1.7;
+        color: var(--ink);
+        background: var(--bg);
         min-height: 100vh;
-        background: radial-gradient(circle at top right, #d7e7e1 0%, #eff4f2 38%, #f9fbfa 100%);
       }
 
-      .layout {
+      /* ── Shell ─────────────────────────────────────────────── */
+      .shell {
         display: grid;
-        grid-template-columns: 300px minmax(0, 1fr);
+        grid-template-columns: var(--sidebar-w) 1fr;
+        grid-template-rows: 52px 1fr;
         min-height: 100vh;
       }
 
-      .sidebar {
-        border-right: 1px solid #d5e0dc;
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(248, 251, 249, 0.95) 100%);
-        padding: 16px 14px;
-        overflow: auto;
+      /* ── Top bar ───────────────────────────────────────────── */
+      .topbar {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 20px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        position: sticky;
+        top: 0;
+        z-index: 100;
       }
 
-      .scope-chip {
-        display: inline-flex;
+      .topbar-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: calc(var(--sidebar-w) - 20px);
+        text-decoration: none;
+        color: inherit;
+      }
+
+      .topbar-logo {
+        width: 28px;
+        height: 28px;
+        border-radius: 7px;
+        background: linear-gradient(135deg, #0a6b8a 0%, #0d9ec2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 14px;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+        flex-shrink: 0;
+      }
+
+      .topbar-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--ink);
+        white-space: nowrap;
+      }
+
+      .topbar-scope {
+        font-size: 12px;
+        color: var(--ink-4);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .topbar-search {
+        margin-left: auto;
+        display: flex;
         align-items: center;
         gap: 6px;
-        min-height: 24px;
-        border: 1px solid #cfe0e8;
-        border-radius: 999px;
-        background: #f1f7fa;
-        color: #305662;
-        padding: 0 10px;
+        padding: 5px 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface2);
+        color: var(--ink-3);
+        font-size: 13px;
+        font-weight: 500;
+        text-decoration: none;
+        transition: background 0.14s, color 0.14s, border-color 0.14s;
+      }
+
+      .topbar-search:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--border-strong); }
+
+      .topbar-search kbd {
+        padding: 1px 5px;
+        border: 1px solid var(--border-strong);
+        border-radius: 4px;
+        font-family: var(--font-sans);
         font-size: 11px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
+        color: var(--ink-4);
+        background: var(--surface);
       }
 
-      .brand {
-        margin: 0 0 6px;
-        font-size: 20px;
-        color: #0d2a32;
-        letter-spacing: 0.01em;
+      .topbar-divider {
+        color: var(--border-strong);
       }
 
-      .brand-subtle {
-        margin: 0 0 14px;
-        color: var(--ink-soft);
-        font-size: 12px;
+      /* ── Left sidebar ──────────────────────────────────────── */
+      .nav-sidebar {
+        border-right: 1px solid var(--border);
+        background: var(--surface);
+        padding: 14px 10px;
+        overflow-y: auto;
+        position: sticky;
+        top: 52px;
+        height: calc(100vh - 52px);
+      }
+
+      .nav-group-label {
+        padding: 4px 8px 6px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--ink-4);
         text-transform: uppercase;
-        letter-spacing: 0.06em;
+        letter-spacing: 0.07em;
       }
 
       .nav-list {
         list-style: none;
-        margin: 0;
-        padding: 0;
         display: flex;
         flex-direction: column;
-        gap: 5px;
+        gap: 1px;
       }
 
       .nav-list a {
         display: block;
-        text-decoration: none;
-        color: #1d4953;
-        padding: 8px 9px;
-        border-radius: 8px;
+        padding: 7px 8px;
+        border-radius: 7px;
         font-size: 13px;
-        overflow-wrap: anywhere;
-        border: 1px solid transparent;
-        transition: all 0.18s ease;
+        font-weight: 450;
+        color: var(--ink-2);
+        text-decoration: none;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        transition: background 0.14s, color 0.14s;
       }
 
-      .nav-list a:hover,
+      .nav-list a:hover { background: var(--surface2); color: var(--ink); }
       .nav-list a.active {
-        background: #e8f4f7;
-        border-color: #cae2eb;
-        color: #0f4c60;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-weight: 600;
       }
 
-      .content {
-        padding: 22px 26px;
-      }
-
-      .content-topbar {
-        margin-bottom: 12px;
+      .nav-search-link {
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        gap: 7px;
+        padding: 7px 9px;
+        margin-bottom: 10px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--surface2);
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--ink-3);
+        text-decoration: none;
+        transition: background 0.14s, color 0.14s, border-color 0.14s;
       }
 
-      .content-topbar h2 {
-        margin: 0;
-        font-size: 14px;
-        color: #3f636d;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-      }
-
-      .page {
-        width: min(980px, 100%);
-        margin: 0;
-        background: #ffffff;
-        border: 1px solid #d4dfe3;
-        border-radius: 14px;
-        box-shadow: 0 18px 42px rgba(16, 39, 46, 0.11);
-        padding: 28px 30px;
-      }
-
-      h1, h2, h3, h4, h5, h6 {
-        color: #123943;
-        scroll-margin-top: 24px;
-      }
-
-      p, li {
-        line-height: 1.65;
-      }
-
-      a {
+      .nav-search-link:hover {
+        background: var(--accent-soft);
         color: var(--accent);
+        border-color: var(--border-strong);
       }
 
-      code {
-        background: #edf4f7;
-        border: 1px solid #d5e4ea;
+      .nav-home {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 8px;
+        border-radius: 7px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--ink-2);
+        text-decoration: none;
+        margin-bottom: 8px;
+        background: var(--surface2);
+      }
+
+      .nav-home:hover { background: var(--accent-soft); color: var(--accent); }
+
+      /* ── Content area ──────────────────────────────────────── */
+      .content-area {
+        display: grid;
+        grid-template-columns: 1fr var(--toc-w);
+        gap: 0;
+        min-width: 0;
+        align-items: start;
+      }
+
+      .doc-main {
+        min-width: 0;
+        padding: 28px 28px 48px;
+      }
+
+      /* ── Right TOC ─────────────────────────────────────────── */
+      .toc-panel {
+        padding: 28px 14px 24px 0;
+        position: sticky;
+        top: 52px;
+        max-height: calc(100vh - 52px);
+        overflow-y: auto;
+      }
+
+      .toc-label {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--ink-4);
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        padding: 0 0 8px 2px;
+      }
+
+      .toc-list {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+      }
+
+      .toc-list a {
+        display: block;
+        font-size: 12px;
+        color: var(--ink-3);
+        text-decoration: none;
+        padding: 4px 6px;
+        border-radius: 5px;
+        border-left: 2px solid transparent;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        transition: color 0.13s, border-color 0.13s, background 0.13s;
+      }
+
+      .toc-list a:hover { color: var(--accent); background: var(--accent-soft); }
+      .toc-list a.toc-active {
+        color: var(--accent);
+        border-left-color: var(--accent);
+        background: var(--accent-soft);
+        font-weight: 500;
+      }
+
+      .toc-list li[data-level="3"] a { padding-left: 16px; font-size: 11.5px; }
+      .toc-list li[data-level="4"] a { padding-left: 24px; font-size: 11px; }
+
+      /* ── Document card ─────────────────────────────────────── */
+      .doc-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: 0 2px 12px rgba(10, 30, 40, 0.07);
+        overflow: hidden;
+      }
+
+      .doc-hero {
+        padding: 24px 28px 18px;
+        border-bottom: 1px solid var(--border);
+        background: linear-gradient(120deg, #f4f9fb 0%, #ffffff 100%);
+      }
+
+      .doc-hero h1 {
+        font-size: 26px;
+        font-weight: 700;
+        color: var(--ink);
+        line-height: 1.2;
+      }
+
+      .doc-breadcrumb {
+        margin-top: 6px;
+        font-size: 12px;
+        color: var(--ink-4);
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+
+      .doc-body {
+        padding: 24px 28px 28px;
+      }
+
+      /* ── Meta block ────────────────────────────────────────── */
+      .doc-meta {
+        margin-bottom: 20px;
+        padding: 12px 16px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface2);
+        font-size: 13px;
+        color: var(--ink-2);
+      }
+
+      .doc-meta p { margin: 0 0 4px; }
+      .doc-meta p:last-child { margin: 0; }
+
+      /* ── Section tabs ──────────────────────────────────────── */
+      .section-tabs {
+        display: flex;
+        gap: 2px;
+        border-bottom: 2px solid var(--border);
+        margin-bottom: 20px;
+        padding: 0;
+      }
+
+      .tab-btn {
+        padding: 8px 16px;
+        border: none;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        background: transparent;
+        color: var(--ink-3);
+        font-family: var(--font-sans);
+        font-size: 13.5px;
+        font-weight: 500;
+        cursor: pointer;
+        border-radius: 6px 6px 0 0;
+        transition: color 0.15s, border-color 0.15s, background 0.15s;
+      }
+
+      .tab-btn:hover { color: var(--ink); background: var(--surface2); }
+
+      .tab-btn.active {
+        color: var(--accent);
+        border-bottom-color: var(--accent);
+        font-weight: 600;
+        background: transparent;
+      }
+
+      .tab-panel { display: none; }
+      .tab-panel.active { display: block; }
+      .tab-empty { color: var(--ink-4); font-style: italic; padding: 12px 0; }
+
+      /* ── Markdown content ──────────────────────────────────── */
+      .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+        color: var(--ink);
+        scroll-margin-top: 72px;
+        line-height: 1.3;
+        font-weight: 650;
+      }
+
+      .prose h1 { font-size: 22px; margin: 28px 0 10px; }
+      .prose h2 { font-size: 18px; margin: 24px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+      .prose h3 { font-size: 15.5px; margin: 20px 0 6px; }
+      .prose h4 { font-size: 13.5px; margin: 16px 0 4px; color: var(--ink-2); }
+      .prose h1:first-child, .prose h2:first-child, .prose h3:first-child { margin-top: 0; }
+
+      .prose p { margin: 0 0 14px; }
+      .prose p:last-child { margin-bottom: 0; }
+
+      .prose ul, .prose ol { margin: 0 0 14px 20px; }
+      .prose li { margin: 4px 0; }
+
+      .prose a { color: var(--accent); text-decoration: none; }
+      .prose a:hover { text-decoration: underline; }
+
+      .prose code {
+        font-family: var(--font-mono);
+        font-size: 12.5px;
+        background: #eef4f7;
+        border: 1px solid #d5e2e8;
         border-radius: 4px;
         padding: 1px 5px;
+        color: #0a4a5f;
       }
 
-      pre {
-        background: #0f2227;
-        color: #e7f2ef;
+      .prose pre {
+        background: #0d2029;
+        color: #d6eaf0;
         border-radius: 8px;
-        padding: 14px;
-        overflow: auto;
+        padding: 16px 18px;
+        overflow-x: auto;
+        margin: 0 0 16px;
+        font-size: 13px;
+        line-height: 1.55;
       }
 
-      pre code {
+      .prose pre code {
         background: transparent;
         border: 0;
         padding: 0;
         color: inherit;
+        font-size: inherit;
       }
 
-      img {
-        max-width: 100%;
-        height: auto;
-        border-radius: 8px;
-      }
-
-      blockquote {
-        margin: 0;
-        padding-left: 12px;
-        border-left: 4px solid #b9d6e0;
-        color: #49626a;
-      }
-
-      .doc-hero {
-        padding-bottom: 12px;
-        border-bottom: 1px solid #e5ecef;
-        margin-bottom: 16px;
-      }
-
-      .doc-hero h1 {
-        margin: 0;
-        font-size: 28px;
-      }
-
-      .doc-path {
-        margin: 8px 0 0;
-        color: var(--ink-soft);
-        font-size: 13px;
-      }
-
-      .doc-meta {
-        margin-bottom: 16px;
-        padding: 12px 14px;
-        border: 1px solid #dbe7eb;
-        border-radius: 10px;
-        background: #f8fbfc;
-      }
-
-      .doc-meta p:last-child {
-        margin-bottom: 0;
-      }
-
-      .tab-switcher {
-        display: inline-flex;
-        gap: 6px;
-        padding: 5px;
-        border-radius: 10px;
-        border: 1px solid #d3e0e6;
-        background: #f2f7f9;
-      }
-
-      .tab-btn {
-        border: 1px solid transparent;
-        border-radius: 8px;
-        min-height: 34px;
-        padding: 0 14px;
-        color: #2a4e59;
-        background: transparent;
-        font-size: 13px;
-        font-weight: 700;
-        cursor: pointer;
-      }
-
-      .tab-btn.active {
-        border-color: #c5dce6;
-        background: #ffffff;
-        color: #0f4c60;
-      }
-
-      .tab-panel {
-        display: none;
-        margin-top: 16px;
-      }
-
-      .tab-panel.active {
-        display: block;
-      }
-
-      .tab-empty {
-        margin: 16px 0;
-        color: var(--ink-soft);
+      .prose blockquote {
+        border-left: 3px solid var(--accent);
+        padding-left: 14px;
+        margin: 14px 0;
+        color: var(--ink-2);
         font-style: italic;
       }
 
-      @media (max-width: 980px) {
-        .layout {
-          grid-template-columns: 1fr;
-        }
+      .prose img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+        display: block;
+        margin: 12px 0;
+        border: 1px solid var(--border);
+      }
 
-        .sidebar {
-          max-height: 220px;
-          border-right: 0;
-          border-bottom: 1px solid #d5e0dc;
-        }
+      .prose table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 0 0 16px;
+        font-size: 13.5px;
+      }
 
-        .content {
-          padding: 14px;
-        }
+      .prose th {
+        background: var(--surface2);
+        font-weight: 600;
+        border: 1px solid var(--border);
+        padding: 8px 12px;
+        text-align: left;
+      }
 
-        .page {
-          padding: 20px 16px;
-        }
+      .prose td {
+        border: 1px solid var(--border);
+        padding: 7px 12px;
+      }
+
+      .prose tr:nth-child(even) td { background: #fafcfd; }
+
+      .prose hr {
+        border: 0;
+        border-top: 1px solid var(--border);
+        margin: 24px 0;
+      }
+
+      /* ── Home page cards ───────────────────────────────────── */
+      .home-hero {
+        margin-bottom: 24px;
+      }
+
+      .home-hero h1 {
+        font-size: 28px;
+        font-weight: 700;
+        color: var(--ink);
+        margin-bottom: 6px;
+      }
+
+      .home-hero p { color: var(--ink-3); }
+
+      .note-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+
+      .note-card {
+        display: block;
+        text-decoration: none;
+        padding: 14px 16px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+        color: var(--ink);
+        transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+      }
+
+      .note-card:hover {
+        border-color: var(--accent);
+        box-shadow: 0 4px 16px rgba(10, 107, 138, 0.12);
+        transform: translateY(-1px);
+      }
+
+      .note-card-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--ink);
+        margin-bottom: 4px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .note-card-path {
+        font-size: 11px;
+        color: var(--ink-4);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      /* ── Responsive ────────────────────────────────────────── */
+      @media (max-width: 1100px) {
+        :root { --toc-w: 0px; }
+        .toc-panel { display: none; }
+        .content-area { grid-template-columns: 1fr; }
+      }
+
+      @media (max-width: 760px) {
+        :root { --sidebar-w: 0px; }
+        .nav-sidebar { display: none; }
+        .shell { grid-template-columns: 1fr; }
+        .doc-main { padding: 16px; }
+        .doc-hero, .doc-body { padding: 16px; }
       }
     </style>
   </head>
   <body>
-    <div class="layout">
-      <aside class="sidebar">
-        <span class="scope-chip">Scoped Website</span>
-        <h1 class="brand">Notely Web</h1>
-        <p class="brand-subtle">${escapeHtml(webPreviewScopeLabel)} Website</p>
+    <div class="shell">
+      <header class="topbar">
+        <a href="/" class="topbar-brand">
+          <span class="topbar-logo">N</span>
+          <span class="topbar-title">Notely</span>
+        </a>
+        <span class="topbar-divider">/</span>
+        <span class="topbar-scope">${escapeHtml(webPreviewScopeLabel)}</span>
+        <a href="/search" class="topbar-search">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          Search
+          <kbd>Ctrl+K</kbd>
+        </a>
+      </header>
+
+      <nav class="nav-sidebar" aria-label="Notes navigation">
+        <a href="/" class="nav-home">&#8962; All Notes</a>
+        <p class="nav-group-label">In This Project</p>
         ${navigationHtml}
-      </aside>
-      <main class="content">
-        <div class="content-topbar">
-          <h2>Knowledge Site</h2>
-        </div>
-        <article class="page">
-          ${bodyHtml}
-        </article>
-      </main>
+      </nav>
+
+      <div class="content-area">
+        <main class="doc-main">
+          <div class="doc-card">
+            ${bodyHtml}
+          </div>
+        </main>
+        <aside class="toc-panel" id="toc-panel" aria-label="On this page">
+          <p class="toc-label">On This Page</p>
+          <ul class="toc-list" id="toc-list"></ul>
+        </aside>
+      </div>
     </div>
+
     <script type="module">
       import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
 
-      mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "base" });
+      mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "base",
+        themeVariables: { primaryColor: "#e6f3f8", primaryBorderColor: "#0a6b8a", primaryTextColor: "#0d1f26", lineColor: "#4e6a75" }
+      });
       const blocks = Array.from(document.querySelectorAll("pre code.language-mermaid"));
       for (const block of blocks) {
         const source = block.textContent || "";
@@ -704,20 +1009,73 @@ function buildWebsiteHtml({ title, bodyHtml, navigationHtml = "" }) {
       }
       await mermaid.run({ querySelector: ".mermaid" });
 
+      // ── Ctrl/Cmd+K → search ───────────────────────────────
+      document.addEventListener("keydown", (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+          e.preventDefault();
+          const si = document.getElementById("search-input");
+          if (si) si.focus();
+          else location.href = "/search";
+        }
+      });
+
+      // ── Section tabs ──────────────────────────────────────
       const tabGroups = Array.from(document.querySelectorAll("[data-tabs]"));
       for (const group of tabGroups) {
         const buttons = Array.from(group.querySelectorAll("[data-tab-target]"));
         const panels = Array.from(group.querySelectorAll("[data-tab-panel]"));
-        buttons.forEach((button) => {
-          button.addEventListener("click", () => {
-            const target = button.getAttribute("data-tab-target") || "";
-            buttons.forEach((item) => item.classList.toggle("active", item === button));
-            panels.forEach((panel) => {
-              panel.classList.toggle("active", panel.getAttribute("data-tab-panel") === target);
-            });
-          });
+        const activate = (target) => {
+          buttons.forEach((b) => b.classList.toggle("active", b.getAttribute("data-tab-target") === target));
+          panels.forEach((p) => p.classList.toggle("active", p.getAttribute("data-tab-panel") === target));
+          buildToc();
+        };
+        buttons.forEach((b) => b.addEventListener("click", () => activate(b.getAttribute("data-tab-target"))));
+        // honour URL hash for tab
+        const hash = location.hash.slice(1);
+        const hashMatch = buttons.find((b) => b.getAttribute("data-tab-target") === hash);
+        if (hashMatch) activate(hash);
+      }
+
+      // ── Heading TOC ───────────────────────────────────────
+      function buildToc() {
+        const tocList = document.getElementById("toc-list");
+        if (!tocList) return;
+        const panel = document.querySelector(".tab-panel.active") || document.querySelector(".doc-body") || document.body;
+        const headings = Array.from(panel.querySelectorAll("h1, h2, h3, h4"));
+        tocList.innerHTML = "";
+        if (headings.length < 2) {
+          document.getElementById("toc-panel").style.visibility = "hidden";
+          return;
+        }
+        document.getElementById("toc-panel").style.visibility = "visible";
+        headings.forEach((h) => {
+          if (!h.id) {
+            h.id = (h.textContent || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "section";
+          }
+          const li = document.createElement("li");
+          li.setAttribute("data-level", h.tagName[1]);
+          const a = document.createElement("a");
+          a.href = "#" + h.id;
+          a.textContent = h.textContent;
+          li.appendChild(a);
+          tocList.appendChild(li);
         });
       }
+
+      buildToc();
+
+      // ── Active TOC highlight on scroll ───────────────────
+      const observer = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const id = entry.target.id;
+          document.querySelectorAll("#toc-list a").forEach((a) => {
+            a.classList.toggle("toc-active", a.getAttribute("href") === "#" + id);
+          });
+        }
+      }, { rootMargin: "-20% 0px -75% 0px" });
+
+      document.querySelectorAll("h1[id], h2[id], h3[id], h4[id]").forEach((h) => observer.observe(h));
     </script>
   </body>
 </html>`;
@@ -727,24 +1085,41 @@ function buildNavigationHtml(activeRelPath = "") {
   const docs = listMarkdownRelativePaths();
   const links = docs.map((docPath) => {
     const href = `/view/${encodePathForUrl(docPath)}`;
+    const title = path.basename(docPath, ".md");
     const activeClass = docPath === activeRelPath ? " class=\"active\"" : "";
-    return `<li><a${activeClass} href="${href}">${escapeHtml(docPath)}</a></li>`;
+    return `<li><a${activeClass} href="${href}" title="${escapeHtml(docPath)}">${escapeHtml(title)}</a></li>`;
   }).join("");
 
-  return `<ul class="nav-list"><li><a href="/">Home</a></li>${links}</ul>`;
+  return `<a href="/search" class="nav-search-link">
+      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      Search notes
+    </a>
+    <ul class="nav-list">${links}</ul>`;
 }
 
 function renderRootWebsitePage() {
   const docs = listMarkdownRelativePaths();
-  const body = docs.length
-    ? `<div class="doc-hero"><h1>Notes Website</h1><p class="doc-path">Select a note from the left navigation, or use one of the quick links below.</p></div><ul>${docs
-      .slice(0, 25)
-      .map((docPath) => `<li><a href="/view/${encodePathForUrl(docPath)}">${escapeHtml(docPath)}</a></li>`)
-      .join("")}</ul>`
-    : "<div class=\"doc-hero\"><h1>Notes Website</h1><p class=\"doc-path\">No markdown files were found in this project folder.</p></div>";
+  const cards = docs
+    .map((docPath) => {
+      const title = path.basename(docPath, ".md");
+      const href = `/view/${encodePathForUrl(docPath)}`;
+      return `<a href="${href}" class="note-card"><div class="note-card-title">${escapeHtml(title)}</div><div class="note-card-path">${escapeHtml(docPath)}</div></a>`;
+    })
+    .join("");
+
+  const body = `
+    <div class="doc-hero">
+      <div class="home-hero">
+        <h1>${escapeHtml(webPreviewScopeLabel)}</h1>
+        <p>${docs.length} note${docs.length !== 1 ? "s" : ""} in this project</p>
+      </div>
+    </div>
+    <div class="doc-body">
+      ${docs.length ? `<div class="note-grid">${cards}</div>` : "<p class=\"tab-empty\">No markdown files were found in this project folder.</p>"}
+    </div>`;
 
   return buildWebsiteHtml({
-    title: "Notely Website",
+    title: `${webPreviewScopeLabel} \u2014 Notely`,
     bodyHtml: body,
     navigationHtml: buildNavigationHtml("")
   });
@@ -755,10 +1130,10 @@ function renderMarkdownWebsitePage(relMdPath, rawContent) {
   const parsed = parseDocument(rawContent, relMdPath);
   const hasTabbedSections = parsed.hasRawNotes || parsed.hasCleansed;
 
-  let bodyHtml = markdown.render(rawContent, { relMdPath });
+  let bodyHtml = `<div class="doc-hero"><h1>${escapeHtml(parsed.title || path.basename(relMdPath, ".md"))}</h1><p class="doc-breadcrumb">${escapeHtml(relMdPath)}</p></div><div class="doc-body prose">${markdown.render(rawContent, { relMdPath })}</div>`;
   if (hasTabbedSections) {
     const headerHtml = parsed.header
-      ? `<section class="doc-meta">${markdown.render(parsed.header, { relMdPath })}</section>`
+      ? `<section class="doc-meta prose">${markdown.render(parsed.header, { relMdPath })}</section>`
       : "";
     const rawHtml = parsed.rawNotes
       ? markdown.render(parsed.rawNotes, { relMdPath })
@@ -770,21 +1145,23 @@ function renderMarkdownWebsitePage(relMdPath, rawContent) {
     bodyHtml = `
       <div class="doc-hero">
         <h1>${escapeHtml(parsed.title || path.basename(relMdPath, ".md"))}</h1>
-        <p class="doc-path">${escapeHtml(relMdPath)}</p>
+        <p class="doc-breadcrumb"><span>&#8962; Home</span> <span>/</span> <span>${escapeHtml(relMdPath)}</span></p>
       </div>
-      ${headerHtml}
-      <section data-tabs>
-        <div class="tab-switcher" role="tablist" aria-label="Note sections">
-          <button class="tab-btn active" type="button" role="tab" data-tab-target="raw">Raw Notes</button>
-          <button class="tab-btn" type="button" role="tab" data-tab-target="cleansed">Cleansed</button>
-        </div>
-        <section class="tab-panel active" data-tab-panel="raw">
-          ${rawHtml}
+      <div class="doc-body">
+        ${headerHtml}
+        <section data-tabs>
+          <div class="section-tabs" role="tablist" aria-label="Note sections">
+            <button class="tab-btn active" type="button" role="tab" data-tab-target="raw">Raw Notes</button>
+            <button class="tab-btn" type="button" role="tab" data-tab-target="cleansed">Cleansed</button>
+          </div>
+          <section class="tab-panel prose active" data-tab-panel="raw">
+            ${rawHtml}
+          </section>
+          <section class="tab-panel prose" data-tab-panel="cleansed">
+            ${cleansedHtml}
+          </section>
         </section>
-        <section class="tab-panel" data-tab-panel="cleansed">
-          ${cleansedHtml}
-        </section>
-      </section>
+      </div>
     `;
   }
 
@@ -827,6 +1204,129 @@ function writeTextResponse(res, text, statusCode = 400) {
   res.end(text);
 }
 
+function buildSearchIndex() {
+  const scopeRoot = webPreviewScopeRoot || getWebPreviewScopeRoot();
+  return listMarkdownRelativePaths().map((relMdPath) => {
+    try {
+      const resolved = path.resolve(scopeRoot, relMdPath);
+      const raw = fs.readFileSync(resolved, "utf8");
+      const parsed = parseDocument(raw, resolved);
+      const text = [parsed.header || "", parsed.rawNotes || "", parsed.cleansed || ""]
+        .join(" ").replace(/[#*_`>\[\]()]/g, " ").replace(/\s+/g, " ").trim().slice(0, 4000);
+      return { path: relMdPath, title: parsed.title || path.basename(relMdPath, ".md"), text };
+    } catch {
+      return null;
+    }
+  }).filter(Boolean);
+}
+
+function renderSearchPage() {
+  const bodyHtml = `
+    <div class="doc-hero">
+      <h1>Search</h1>
+      <p class="doc-breadcrumb">Full-text search across all notes in this project</p>
+    </div>
+    <div class="doc-body">
+      <div class="search-box-wrap">
+        <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="search-input" type="search" class="search-input" placeholder="Type to search notes\u2026" autofocus spellcheck="false" />
+      </div>
+      <div id="search-status" class="search-status"></div>
+      <div id="search-results" class="search-results" aria-live="polite"></div>
+    </div>`;
+
+  // Build script as a plain string to avoid backtick/regex escaping conflicts
+  const scriptContent = [
+    "const resp = await fetch('/search-index.json');",
+    "const index = await resp.json();",
+    "const input = document.getElementById('search-input');",
+    "const results = document.getElementById('search-results');",
+    "const status = document.getElementById('search-status');",
+    "document.addEventListener('keydown', function(e) {",
+    "  if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); input.focus(); }",
+    "});",
+    "function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }",
+    "function escRe(s) { return s.replace(/[.*+?^${}()|[\\]\\\\]/g,'\\\\$&'); }",
+    "function highlight(text, tokens) {",
+    "  var out = esc(text);",
+    "  for (var i = 0; i < tokens.length; i++) {",
+    "    var re = new RegExp(escRe(tokens[i]), 'gi');",
+    "    out = out.replace(re, function(m) { return '<mark>' + m + '</mark>'; });",
+    "  }",
+    "  return out;",
+    "}",
+    "function search(query) {",
+    "  var q = query.trim().toLowerCase();",
+    "  if (!q) { results.innerHTML = ''; status.textContent = ''; return; }",
+    "  var tokens = q.split(/\\s+/).filter(Boolean);",
+    "  var hits = index.map(function(doc) {",
+    "    var haystack = (doc.title + ' ' + doc.text).toLowerCase();",
+    "    var score = tokens.reduce(function(acc, t) {",
+    "      var cnt = (haystack.match(new RegExp(escRe(t), 'g')) || []).length;",
+    "      return acc + (doc.title.toLowerCase().indexOf(t) >= 0 ? cnt * 5 : cnt);",
+    "    }, 0);",
+    "    return Object.assign({}, doc, { score: score });",
+    "  }).filter(function(d) { return d.score > 0; })",
+    "   .sort(function(a, b) { return b.score - a.score; })",
+    "   .slice(0, 25);",
+    "  status.textContent = hits.length ? hits.length + ' result' + (hits.length !== 1 ? 's' : '') : '';",
+    "  if (!hits.length) {",
+    "    results.innerHTML = '<p class=\"search-empty\">No notes matched <strong>' + esc(query) + '</strong>.</p>';",
+    "    return;",
+    "  }",
+    "  results.innerHTML = hits.map(function(doc) {",
+    "    var lc = doc.text.toLowerCase();",
+    "    var pos = tokens.reduce(function(best, t) { var i = lc.indexOf(t); return i >= 0 && (best < 0 || i < best) ? i : best; }, -1);",
+    "    var start = Math.max(0, (pos >= 0 ? pos : 0) - 60);",
+    "    var snippet = doc.text.slice(start, start + 220);",
+    "    var href = '/view/' + encodeURIComponent(doc.path).replace(/%2F/gi, '/');",
+    "    return '<a href=\"' + href + '\" class=\"search-hit\">'",
+    "      + '<div class=\"search-hit-title\">' + highlight(doc.title, tokens) + '</div>'",
+    "      + '<div class=\"search-hit-path\">' + esc(doc.path) + '</div>'",
+    "      + '<div class=\"search-hit-snippet\">\u2026' + highlight(snippet, tokens) + '\u2026</div>'",
+    "      + '</a>';",
+    "  }).join('');",
+    "}",
+    "var timer;",
+    "input.addEventListener('input', function(e) { clearTimeout(timer); timer = setTimeout(function() { search(e.target.value); }, 120); });"
+  ].join("\n");
+
+  const style = `<style>
+      .search-box-wrap { position: relative; margin-bottom: 16px; display: flex; align-items: center; }
+      .search-icon { position: absolute; left: 14px; color: var(--ink-4); pointer-events: none; }
+      .search-input {
+        width: 100%; min-height: 46px; padding: 0 16px 0 42px;
+        border: 1.5px solid var(--border-strong); border-radius: 12px;
+        font-family: var(--font-sans); font-size: 15px; color: var(--ink);
+        background: var(--surface); outline: none;
+        transition: border-color 0.15s, box-shadow 0.15s;
+      }
+      .search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+      .search-status { font-size: 12px; color: var(--ink-4); margin-bottom: 10px; min-height: 18px; }
+      .search-results { display: flex; flex-direction: column; gap: 8px; }
+      .search-hit {
+        display: block; text-decoration: none; padding: 14px 16px;
+        border: 1px solid var(--border); border-radius: var(--radius);
+        background: var(--surface); color: var(--ink);
+        transition: border-color 0.15s, box-shadow 0.15s, transform 0.12s;
+      }
+      .search-hit:hover { border-color: var(--accent); box-shadow: 0 4px 14px rgba(10,107,138,0.12); transform: translateY(-1px); }
+      .search-hit-title { font-size: 14.5px; font-weight: 600; color: var(--ink); margin-bottom: 2px; }
+      .search-hit-path { font-size: 11px; color: var(--ink-4); margin-bottom: 6px; font-family: var(--font-mono); }
+      .search-hit-snippet { font-size: 13px; color: var(--ink-3); line-height: 1.55; }
+      mark { background: #fff176; color: var(--ink); border-radius: 2px; padding: 0 1px; }
+      .search-empty { color: var(--ink-3); font-style: italic; padding: 12px 0; }
+    </style>`;
+
+  const injection = style + "\n    <script type=\"module\">\n" + scriptContent + "\n    </script>";
+
+  return buildWebsiteHtml({
+    title: "Search \u2014 Notely",
+    bodyHtml,
+    navigationHtml: buildNavigationHtml("")
+  }).replace("</body>", injection + "\n  </body>");
+}
+
 function handleWebPreviewRequest(req, res) {
   const requestUrl = new URL(req.url || "/", "http://127.0.0.1");
   const pathname = requestUrl.pathname || "/";
@@ -841,6 +1341,17 @@ function handleWebPreviewRequest(req, res) {
     }
 
     writeHtmlResponse(res, renderRootWebsitePage());
+    return;
+  }
+
+  if (pathname === "/search") {
+    writeHtmlResponse(res, renderSearchPage());
+    return;
+  }
+
+  if (pathname === "/search-index.json") {
+    res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
+    res.end(JSON.stringify(buildSearchIndex()));
     return;
   }
 
