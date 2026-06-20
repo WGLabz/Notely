@@ -294,7 +294,15 @@ button {
 
 .p2p-status-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.p2p-status-actions-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .p2p-status-summary-grid {
@@ -371,6 +379,64 @@ button {
   border-radius: 8px;
   background: #ffffff;
   overflow: auto;
+}
+
+.p2p-section-title {
+  margin: 0;
+  padding: 10px 12px;
+  border-bottom: 1px solid #e8efec;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #5a7076;
+}
+
+.p2p-control-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.p2p-control-card {
+  border: 1px solid #d9e2de;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.p2p-control-card h3 {
+  margin: 0;
+  font-size: 13px;
+  color: #22393f;
+}
+
+.p2p-control-card label {
+  display: grid;
+  gap: 6px;
+}
+
+.p2p-control-card label span {
+  color: #56666b;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.p2p-control-card input,
+.p2p-control-card select {
+  min-height: 34px;
+  border: 1px solid #d9dedb;
+  border-radius: 8px;
+  padding: 0 10px;
+  font-size: 13px;
+  background: #ffffff;
+}
+
+.p2p-status-legacy-block {
+  opacity: 0.8;
 }
 
 .p2p-status-peer-table {
@@ -562,6 +628,10 @@ button {
 @media (max-width: 920px) {
   .p2p-status-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .p2p-control-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .p2p-status-meta {

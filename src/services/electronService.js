@@ -112,6 +112,62 @@ export async function getP2PStatus() {
   return api.getP2PStatus();
 }
 
+export async function startP2PDiscovery() {
+  const api = getNotesApi();
+  if (typeof api.startP2PDiscovery !== "function") {
+    throw new Error("P2P discovery unavailable. Please restart the app.");
+  }
+  return api.startP2PDiscovery();
+}
+
+export async function stopP2PDiscovery() {
+  const api = getNotesApi();
+  if (typeof api.stopP2PDiscovery !== "function") {
+    throw new Error("P2P discovery unavailable. Please restart the app.");
+  }
+  return api.stopP2PDiscovery();
+}
+
+export async function setP2PDeviceName(name) {
+  const api = getNotesApi();
+  if (typeof api.setP2PDeviceName !== "function") {
+    throw new Error("P2P device naming unavailable. Please restart the app.");
+  }
+  return api.setP2PDeviceName({ name });
+}
+
+export async function createP2PInvite(peerId) {
+  const api = getNotesApi();
+  if (typeof api.createP2PInvite !== "function") {
+    throw new Error("P2P invite unavailable. Please restart the app.");
+  }
+  return api.createP2PInvite({ peerId });
+}
+
+export async function pairP2PWithCode(peerId, code) {
+  const api = getNotesApi();
+  if (typeof api.pairP2PWithCode !== "function") {
+    throw new Error("P2P pairing unavailable. Please restart the app.");
+  }
+  return api.pairP2PWithCode({ peerId, code });
+}
+
+export async function manualP2PConnect(address, listenPort) {
+  const api = getNotesApi();
+  if (typeof api.manualP2PConnect !== "function") {
+    throw new Error("P2P manual connect unavailable. Please restart the app.");
+  }
+  return api.manualP2PConnect({ address, listenPort });
+}
+
+export async function removeTrustedP2PPeer(peerId) {
+  const api = getNotesApi();
+  if (typeof api.removeTrustedP2PPeer !== "function") {
+    throw new Error("P2P trust management unavailable. Please restart the app.");
+  }
+  return api.removeTrustedP2PPeer({ peerId });
+}
+
 export async function getWorkspaceActivity(limit = 200) {
   const api = getNotesApi();
   if (typeof api.getWorkspaceActivity !== "function") {

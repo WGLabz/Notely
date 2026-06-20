@@ -8,6 +8,7 @@ const http = require("node:http");
 const { spawn } = require("node:child_process");
 const pty = require("node-pty");
 const MarkdownIt = require("markdown-it");
+const { P2PLiveService } = require("./p2pLive.cjs");
 
 const rendererUrl = process.env.ELECTRON_RENDERER_URL;
 const projectRoot = app.getAppPath();
@@ -25,6 +26,7 @@ let webPreviewScopeRoot = "";
 let webPreviewScopeLabel = "Project";
 const terminalSessions = new Map();
 let nextTerminalSessionId = 1;
+let p2pService = null;
 
 function ensureDir(dirPath) {
   if (!dirPath || typeof dirPath !== "string") {
@@ -73,6 +75,13 @@ function applyNotesRoot(nextRootPath) {
   ensureDir(versionsRoot);
 
   metadataStore = new MetadataStore();
+
+  if (p2pService) {
+    p2pService.shutdown();
+  }
+  p2pService = new P2PLiveService({ storageDir: appDataDir });
+  p2pService.init();
+
   activeProjectSlug = ROOT_PROJECT_SLUG;
 }
 
@@ -2517,6 +2526,11 @@ app.on("before-quit", () => {
   webPreviewContentOverrides.clear();
   webPreviewScopeRoot = "";
   webPreviewScopeLabel = "Project";
+
+  if (p2pService) {
+    p2pService.shutdown();
+    p2pService = null;
+  }
 });
 
 app.on("browser-window-focus", (_event, win) => {
@@ -2798,7 +2812,71 @@ ipcMain.handle("projects:set-active", (_event, payload) => {
   return listProjectsState();
 });
 
-ipcMain.handle("p2p:get-status", () => readP2PStatusSnapshot());
+ipcMain.handle("p2p:start-discovery", () => {
+  if (!p2pService) {
+    throw new Error("P2P service unavailable.");
+  }
+  p2pService.startDiscovery();
+  return p2pService.getStatus();
+});
+
+ipcMain.handle("p2p:stop-discovery", () => {
+  if (!p2pService) {
+    throw new Error("P2P service unavailable.");
+  }
+  p2pService.stopDiscovery();
+  return p2pService.getStatus();
+});
+
+ipcMain.handle("p2p:set-device-name", (_event, payload) => {
+  if (!p2pService) {
+    throw new Error("P2P service unavailable.");
+  }
+  p2pService.setDeviceName(payload?.name);
+  return p2pService.getStatus();
+});
+
+ipcMain.handle("p2p:create-invite", (_event, payload) => {
+  if (!p2pService) {
+    throw new Error("P2P service unavailable.");
+  }
+  return p2pService.createInvite({ targetPeerId: payload?.peerId });
+});
+
+ipcMain.handle("p2p:pair-with-code", async (_event, payload) => {
+  if (!p2pService) {
+    throw new Error("P2P service unavailable.");
+  }
+  return await p2pService.pairWithCode({
+    peerId: payload?.peerId,
+    code: payload?.code
+  });
+});
+
+ipcMain.handle("p2p:manual-connect", async (_event, payload) => {
+  if (!p2pService) {
+    throw new Error("P2P service unavailable.");
+  }
+  return await p2pService.manualConnect({
+    address: payload?.address,
+    listenPort: payload?.listenPort
+  });
+});
+
+ipcMain.handle("p2p:remove-trusted-peer", (_event, payload) => {
+  if (!p2pService) {
+    throw new Error("P2P service unavailable.");
+  }
+  p2pService.removeTrustedPeer(payload?.peerId);
+  return p2pService.getStatus();
+});
+
+ipcMain.handle("p2p:get-status", () => {
+  if (p2pService) {
+    return p2pService.getStatus();
+  }
+  return readP2PStatusSnapshot();
+});
 
 ipcMain.handle("activity:get-workspace", (_event, payload) => {
   const activeProject = getActiveProject();

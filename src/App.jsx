@@ -24,6 +24,13 @@ import {
   setActiveProject,
   getHistory,
   getP2PStatus,
+  startP2PDiscovery,
+  stopP2PDiscovery,
+  setP2PDeviceName,
+  createP2PInvite,
+  pairP2PWithCode,
+  manualP2PConnect,
+  removeTrustedP2PPeer,
   getWorkspaceActivity,
   updateMenuContext,
 } from "./services/electronService";
@@ -544,6 +551,103 @@ export default function App() {
     }
   }
 
+  async function refreshP2PStatus() {
+    const snapshot = await getP2PStatus();
+    setP2PStatus(snapshot);
+  }
+
+  async function handleStartP2PDiscovery() {
+    try {
+      setP2PStatusLoading(true);
+      await startP2PDiscovery();
+      await refreshP2PStatus();
+      notify("P2P discovery started.", "success");
+    } catch (err) {
+      notify(err?.message || "Unable to start P2P discovery.", "error");
+    } finally {
+      setP2PStatusLoading(false);
+    }
+  }
+
+  async function handleStopP2PDiscovery() {
+    try {
+      setP2PStatusLoading(true);
+      await stopP2PDiscovery();
+      await refreshP2PStatus();
+      notify("P2P discovery stopped.", "success");
+    } catch (err) {
+      notify(err?.message || "Unable to stop P2P discovery.", "error");
+    } finally {
+      setP2PStatusLoading(false);
+    }
+  }
+
+  async function handleSetP2PDeviceName(name) {
+    try {
+      setP2PStatusLoading(true);
+      await setP2PDeviceName(String(name || "").trim());
+      await refreshP2PStatus();
+      notify("P2P device name updated.", "success");
+    } catch (err) {
+      notify(err?.message || "Unable to update P2P device name.", "error");
+    } finally {
+      setP2PStatusLoading(false);
+    }
+  }
+
+  async function handleCreateP2PInvite(peerId) {
+    try {
+      setP2PStatusLoading(true);
+      const result = await createP2PInvite(peerId || undefined);
+      await refreshP2PStatus();
+      const code = result?.invite?.code;
+      notify(code ? `Invite code: ${code}` : "P2P invite created.", "success");
+    } catch (err) {
+      notify(err?.message || "Unable to create P2P invite.", "error");
+    } finally {
+      setP2PStatusLoading(false);
+    }
+  }
+
+  async function handlePairP2PWithCode(peerId, code) {
+    try {
+      setP2PStatusLoading(true);
+      await pairP2PWithCode(peerId, String(code || "").trim());
+      await refreshP2PStatus();
+      notify("Peer paired successfully.", "success");
+    } catch (err) {
+      notify(err?.message || "Unable to pair with code.", "error");
+    } finally {
+      setP2PStatusLoading(false);
+    }
+  }
+
+  async function handleManualP2PConnect(address, listenPort) {
+    try {
+      setP2PStatusLoading(true);
+      await manualP2PConnect(String(address || "").trim(), Number(listenPort));
+      await refreshP2PStatus();
+      notify("Manual connect request sent.", "success");
+    } catch (err) {
+      notify(err?.message || "Unable to connect to peer.", "error");
+    } finally {
+      setP2PStatusLoading(false);
+    }
+  }
+
+  async function handleRemoveTrustedP2PPeer(peerId) {
+    try {
+      setP2PStatusLoading(true);
+      await removeTrustedP2PPeer(peerId);
+      await refreshP2PStatus();
+      notify("Trusted peer removed.", "success");
+    } catch (err) {
+      notify(err?.message || "Unable to remove trusted peer.", "error");
+    } finally {
+      setP2PStatusLoading(false);
+    }
+  }
+
   useEffect(() => {
     loadDocumentsData();
   }, []);
@@ -904,7 +1008,18 @@ export default function App() {
                 <X size={16} />
               </button>
             </div>
-            <P2PStatusPanel status={p2pStatus} loading={p2pStatusLoading} onRefresh={handleOpenP2PStatus} />
+            <P2PStatusPanel
+              status={p2pStatus}
+              loading={p2pStatusLoading}
+              onRefresh={handleOpenP2PStatus}
+              onStartDiscovery={handleStartP2PDiscovery}
+              onStopDiscovery={handleStopP2PDiscovery}
+              onSetDeviceName={handleSetP2PDeviceName}
+              onCreateInvite={handleCreateP2PInvite}
+              onPairWithCode={handlePairP2PWithCode}
+              onManualConnect={handleManualP2PConnect}
+              onRemoveTrustedPeer={handleRemoveTrustedP2PPeer}
+            />
           </div>
         </div>
       ) : null}
