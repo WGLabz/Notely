@@ -1778,6 +1778,63 @@ function createDocumentInProject(rootDir, payload) {
   return parseDocument(initialContent, filePath);
 }
 
+function updateDocumentHeaderTitle(header, nextTitle) {
+  const trimmedTitle = String(nextTitle || "").trim();
+  const normalizedHeader = String(header || "").trim();
+
+  if (!trimmedTitle) {
+    return normalizedHeader;
+  }
+
+  if (!normalizedHeader) {
+    return `Title: ${trimmedTitle}`;
+  }
+
+  if (/^title\s*:/im.test(normalizedHeader)) {
+    return normalizedHeader.replace(/^title\s*:.*$/im, `Title: ${trimmedTitle}`);
+  }
+
+  return `Title: ${trimmedTitle}\n${normalizedHeader}`;
+}
+
+function renameDocumentFile(filePath, payload) {
+  const resolved = path.resolve(String(filePath || ""));
+  if (!filePathWithin(notesRoot, resolved) || path.extname(resolved).toLowerCase() !== ".md") {
+    throw new Error("Invalid document path.");
+  }
+  if (!fs.existsSync(resolved)) {
+    throw new Error("Document file does not exist.");
+  }
+
+  const requestedTitle = String(payload?.title || "").trim();
+  if (!requestedTitle) {
+    throw new Error("Note title is required.");
+  }
+
+  const nextFileName = `${slugify(requestedTitle)}.md`;
+  const nextResolved = path.join(path.dirname(resolved), nextFileName);
+  const currentContent = fs.readFileSync(resolved, "utf8");
+  const parsed = parseDocument(currentContent, resolved);
+  const nextHeader = updateDocumentHeaderTitle(parsed.header, requestedTitle);
+  const nextContent = buildDocumentContent({
+    ...parsed,
+    header: nextHeader,
+  });
+
+  const isSamePath = resolved.toLowerCase() === nextResolved.toLowerCase();
+  if (!isSamePath && fs.existsSync(nextResolved)) {
+    throw new Error("A note with that file name already exists.");
+  }
+
+  if (!isSamePath) {
+    fs.renameSync(resolved, nextResolved);
+    metadataStore.renameHistoryFilePath(resolved, nextResolved);
+  }
+
+  fs.writeFileSync(nextResolved, nextContent, "utf8");
+  return parseDocument(nextContent, nextResolved);
+}
+
 class MetadataStore {
   constructor() {
     ensureDir(appDataDir);
@@ -1845,6 +1902,24 @@ class MetadataStore {
     this.state.history = this.state.history.filter(
       (entry) => !(entry.filePath === filePath && entry.versionPath === versionPath)
     );
+    fs.writeFileSync(this.jsonPath, JSON.stringify(this.state, null, 2));
+  }
+
+  renameHistoryFilePath(previousFilePath, nextFilePath) {
+    if (this.db) {
+      this.db.prepare(`
+        UPDATE history_entries
+        SET file_path = ?
+        WHERE file_path = ?
+      `).run(nextFilePath, previousFilePath);
+      return;
+    }
+
+    this.state.history = this.state.history.map((entry) => (
+      entry.filePath === previousFilePath
+        ? { ...entry, filePath: nextFilePath }
+        : entry
+    ));
     fs.writeFileSync(this.jsonPath, JSON.stringify(this.state, null, 2));
   }
 }
@@ -2169,6 +2244,10 @@ ipcMain.handle("documents:create", (_event, payload) => {
   const activeProject = getActiveProject();
   const rootDir = activeProject.rootPath;
   return createDocumentInProject(rootDir, payload);
+});
+
+ipcMain.handle("documents:rename", (_event, payload) => {
+  return renameDocumentFile(payload?.filePath, payload);
 });
 
 ipcMain.handle("documents:read", (_event, filePath) => {

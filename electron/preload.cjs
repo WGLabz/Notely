@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld("notesApi", {
   setActiveProject: (payload) => ipcRenderer.invoke("projects:set-active", payload),
   listDocuments: () => ipcRenderer.invoke("documents:list"),
   createDocument: (payload) => ipcRenderer.invoke("documents:create", payload),
+  renameDocument: (payload) => ipcRenderer.invoke("documents:rename", payload),
   readDocument: (filePath) => ipcRenderer.invoke("documents:read", filePath),
   saveDocument: (payload) => ipcRenderer.invoke("documents:save", payload),
   getHistory: (filePath) => ipcRenderer.invoke("documents:history", filePath),

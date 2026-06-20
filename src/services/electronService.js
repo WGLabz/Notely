@@ -64,6 +64,14 @@ export async function createDocument(title) {
   return api.createDocument({ title });
 }
 
+export async function renameDocument(filePath, title) {
+  const api = getNotesApi();
+  if (typeof api.renameDocument !== "function") {
+    throw new Error("Rename note action unavailable. Please restart the app.");
+  }
+  return api.renameDocument({ filePath, title });
+}
+
 export async function listProjects() {
   const api = getNotesApi();
   if (typeof api.listProjects !== "function") {

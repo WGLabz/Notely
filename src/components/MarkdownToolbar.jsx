@@ -217,12 +217,12 @@ export function MarkdownToolbar({
   const hasValidWebLinkUrl = isValidHttpUrl(webLinkUrl);
   const validationSummary =
     validationStatus === "checking"
-      ? "Last check: Checking..."
+      ? "Checking"
       : validationStatus === "error"
-        ? "Last check: Error"
+        ? "Error"
         : validationIssues.length
-          ? `Last check: Issues ${validationIssues.length}`
-          : "Last check: OK";
+          ? `${validationIssues.length} issue${validationIssues.length === 1 ? "" : "s"}`
+          : "No issues";
 
   function openTableBuilder() {
     const shouldOpen = !showTableBuilder;

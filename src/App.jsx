@@ -13,6 +13,7 @@ import {
   openInEditor,
   openWebView,
   readDocument,
+  renameDocument as renameDocumentApi,
   saveDocument as saveDocumentApi,
   setNotesRootSetting,
   setActiveProject,
@@ -103,7 +104,7 @@ export default function App() {
     }
   }
 
-  async function openDocument(filePath) {
+  async function openDocument(filePath, options = {}) {
     setError("");
     const doc = await readDocument(filePath);
     setCurrent(doc);
@@ -114,8 +115,63 @@ export default function App() {
         cleansed: doc.cleansed,
       })
     );
-    setActiveTab("raw");
+    if (!options.preserveActiveTab) {
+      setActiveTab("raw");
+    }
     setHistory(await getHistory(filePath));
+  }
+
+  async function handleReloadCurrentFromDisk() {
+    if (!current?.filePath) return;
+
+    if (dirty) {
+      const confirmed = window.confirm(
+        "Reload this note from disk and discard unsaved changes?"
+      );
+      if (!confirmed) return;
+    }
+
+    try {
+      await openDocument(current.filePath, { preserveActiveTab: true });
+      notify("Reloaded latest file from disk.", "success");
+    } catch (err) {
+      setError(err?.message || "Unable to reload document.");
+      notify(err?.message || "Unable to reload document.", "error");
+    }
+  }
+
+  async function handleRenameCurrentDocument(title) {
+    if (!current?.filePath) return false;
+
+    const nextTitle = String(title || "").trim();
+    if (!nextTitle) {
+      notify("Enter a note title first.", "warning");
+      return false;
+    }
+
+    try {
+      if (dirty) {
+        await saveDocument({ reason: "rename-save", silent: true });
+      }
+
+      const renamed = await renameDocumentApi(current.filePath, nextTitle);
+      setCurrent(renamed);
+      setSavedHash(
+        JSON.stringify({
+          header: renamed.header,
+          rawNotes: renamed.rawNotes,
+          cleansed: renamed.cleansed,
+        })
+      );
+      setHistory(await getHistory(renamed.filePath));
+      await loadDocumentsData();
+      notify("Note renamed.", "success");
+      return true;
+    } catch (err) {
+      setError(err?.message || "Unable to rename note.");
+      notify(err?.message || "Unable to rename note.", "error");
+      return false;
+    }
   }
 
   async function saveDocument(options = {}) {
@@ -456,7 +512,9 @@ export default function App() {
           mode={mode}
           setMode={setMode}
           onChange={setCurrent}
+          onRenameDocument={handleRenameCurrentDocument}
           onSave={saveDocument}
+          onReloadFromDisk={handleReloadCurrentFromDisk}
           onRefreshHistory={async () => setHistory(await getHistory(current.filePath))}
           saving={saving}
           dirty={dirty}

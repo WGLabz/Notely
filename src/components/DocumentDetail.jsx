@@ -3,7 +3,6 @@ import {
   Home,
   Save,
   RotateCcw,
-  ChevronLeft,
   ChevronRight,
   FolderOpen,
   FileText,
@@ -189,7 +188,9 @@ export function DocumentDetail({
   mode,
   setMode,
   onChange,
+  onRenameDocument,
   onSave,
+  onReloadFromDisk,
   onRefreshHistory,
   saving,
   dirty,
@@ -199,12 +200,15 @@ export function DocumentDetail({
   const MAX_EDITOR_HISTORY = 200;
   const textareaRef = useRef(null);
   const pdfPopoverRef = useRef(null);
+  const historyPopoverRef = useRef(null);
+  const renamePopoverRef = useRef(null);
   const historyStateRef = useRef({
     raw: { undo: [], redo: [] },
     cleansed: { undo: [], redo: [] },
   });
   const applyingHistoryRef = useRef(false);
-  const [isHistoryPanelCollapsed, setIsHistoryPanelCollapsed] = useState(false);
+  const [showHistoryPopover, setShowHistoryPopover] = useState(false);
+  const [showRenamePopover, setShowRenamePopover] = useState(false);
   const [compareModalOpen, setCompareModalOpen] = useState(false);
   const [compareLoading, setCompareLoading] = useState(false);
   const [compareMeta, setCompareMeta] = useState(null);
@@ -232,6 +236,8 @@ export function DocumentDetail({
   const [findMatchIndex, setFindMatchIndex] = useState(-1);
   const [findMatchTotal, setFindMatchTotal] = useState(0);
   const [isOutlineCollapsed, setIsOutlineCollapsed] = useState(false);
+  const [renameTitle, setRenameTitle] = useState(document.title || "");
+  const [renaming, setRenaming] = useState(false);
 
   useEffect(() => {
     if (!pdfOptionsOpen || typeof globalThis?.document === "undefined") return;
@@ -249,6 +255,61 @@ export function DocumentDetail({
       }
     };
   }, [pdfOptionsOpen]);
+
+  useEffect(() => {
+    if (!showHistoryPopover || typeof globalThis?.document === "undefined") return;
+
+    const handleClickOutside = (event) => {
+      if (historyPopoverRef.current && !historyPopoverRef.current.contains(event.target)) {
+        setShowHistoryPopover(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        setShowHistoryPopover(false);
+      }
+    };
+
+    globalThis.document.addEventListener("mousedown", handleClickOutside);
+    globalThis.document.addEventListener("keydown", handleEscape);
+    return () => {
+      if (typeof globalThis?.document !== "undefined") {
+        globalThis.document.removeEventListener("mousedown", handleClickOutside);
+        globalThis.document.removeEventListener("keydown", handleEscape);
+      }
+    };
+  }, [showHistoryPopover]);
+
+  useEffect(() => {
+    if (!showRenamePopover || typeof globalThis?.document === "undefined") return;
+
+    const handleClickOutside = (event) => {
+      if (renamePopoverRef.current && !renamePopoverRef.current.contains(event.target)) {
+        setShowRenamePopover(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        setShowRenamePopover(false);
+      }
+    };
+
+    globalThis.document.addEventListener("mousedown", handleClickOutside);
+    globalThis.document.addEventListener("keydown", handleEscape);
+    return () => {
+      if (typeof globalThis?.document !== "undefined") {
+        globalThis.document.removeEventListener("mousedown", handleClickOutside);
+        globalThis.document.removeEventListener("keydown", handleEscape);
+      }
+    };
+  }, [showRenamePopover]);
+
+  useEffect(() => {
+    setRenameTitle(document.title || "");
+    setShowRenamePopover(false);
+  }, [document.filePath, document.title]);
   const content = activeTab === "raw" ? document.rawNotes : document.cleansed;
   const mediaContent = `${document.rawNotes || ""}\n\n${document.cleansed || ""}`.trim();
 
@@ -567,6 +628,24 @@ export function DocumentDetail({
     setPdfOptionsOpen(true);
   };
 
+  const handleRenameSubmit = async () => {
+    const nextTitle = renameTitle.trim();
+    if (!nextTitle) {
+      onNotify?.("Enter a note title first.", "warning");
+      return;
+    }
+
+    setRenaming(true);
+    try {
+      const renamed = await onRenameDocument?.(nextTitle);
+      if (renamed !== false) {
+        setShowRenamePopover(false);
+      }
+    } finally {
+      setRenaming(false);
+    }
+  };
+
   const handleConfirmPdfExport = async () => {
     const includeRawNotes = pdfExportMode === "raw" || pdfExportMode === "both";
     const includeCleansed = pdfExportMode === "formal" || pdfExportMode === "both";
@@ -674,11 +753,56 @@ export function DocumentDetail({
           <FolderOpen size={18} />
           Open
         </button>
+        <div className="topbar-action-wrap" ref={renamePopoverRef}>
+          <button
+            className={`text-button ${showRenamePopover ? "active" : ""}`}
+            onClick={() => setShowRenamePopover((value) => !value)}
+            title="Rename note file"
+            type="button"
+          >
+            <PenLine size={18} />
+            Rename
+          </button>
+          {showRenamePopover ? (
+            <div className="topbar-popover" role="dialog" aria-label="Rename note">
+              <div className="topbar-popover-header">
+                <strong>Rename Note</strong>
+                <button className="small-button" onClick={() => setShowRenamePopover(false)} type="button" title="Close rename">
+                  <X size={16} />
+                </button>
+              </div>
+              <label className="topbar-popover-field">
+                <span>File name</span>
+                <input
+                  type="text"
+                  value={renameTitle}
+                  onChange={(event) => setRenameTitle(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      handleRenameSubmit();
+                    }
+                  }}
+                  autoFocus
+                />
+              </label>
+              <div className="topbar-popover-actions">
+                <button className="primary-button" onClick={handleRenameSubmit} disabled={renaming} type="button">
+                  {renaming ? "Renaming..." : "Rename"}
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
         <button className="text-button" onClick={handleOpenWebsite} title="Open website in browser">
           <Globe size={18} />
           Website
         </button>
-        <div style={{ position: "relative" }}>
+        <button className="text-button" onClick={onReloadFromDisk} title="Reload file from disk" type="button">
+          <RotateCcw size={18} />
+          Reload
+        </button>
+        <div className="topbar-action-wrap">
           <button
             className="text-button"
             onClick={handleDownloadPdf}
@@ -689,33 +813,31 @@ export function DocumentDetail({
             {pdfExporting ? "Exporting..." : "Export PDF"}
           </button>
           {pdfOptionsOpen ? (
-            <div ref={pdfPopoverRef} className="pdf-popover" style={{ position: "absolute", top: "100%", right: 0, marginTop: "8px", zIndex: 1000 }}>
-              <div style={{ background: "#ffffff", border: "1px solid #dde5ea", borderRadius: "8px", padding: "12px 16px", boxShadow: "0 2px 8px rgba(0,0,0,0.1)", minWidth: "200px" }}>
+            <div ref={pdfPopoverRef} className="topbar-popover topbar-popover-right" role="dialog" aria-label="Export PDF">
+              <div className="topbar-popover-header">
+                <strong>Export PDF</strong>
+                <button className="small-button" onClick={() => setPdfOptionsOpen(false)} type="button" title="Close export options">
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="topbar-popover-field">
+                <span>Content</span>
                 <select
                   value={pdfExportMode}
                   onChange={(event) => setPdfExportMode(event.target.value)}
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    padding: "8px 12px",
-                    border: "1px solid #d7e0e6",
-                    borderRadius: "6px",
-                    fontSize: "14px",
-                    fontFamily: "inherit",
-                    marginBottom: "10px",
-                    boxSizing: "border-box"
-                  }}
+                  className="topbar-popover-select"
                 >
                   <option value="formal">Formal Notes</option>
                   <option value="raw">Raw Notes</option>
                   <option value="both">Both Raw and Formal</option>
                 </select>
+              </div>
+              <div className="topbar-popover-actions">
                 <button
                   className="primary-button"
                   onClick={handleConfirmPdfExport}
                   disabled={pdfExporting}
                   type="button"
-                  style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
                 >
                   <FileDown size={14} />
                   {pdfExporting ? "Exporting..." : "Export"}
@@ -775,71 +897,7 @@ export function DocumentDetail({
         </div>
       </header>
 
-      <div className={`workspace ${isHistoryPanelCollapsed ? "history-panel-collapsed" : ""} ${isOutlineCollapsed ? "outline-panel-collapsed" : ""}`}>
-        <aside className={`history-panel ${isHistoryPanelCollapsed ? "collapsed" : ""}`}>
-          {isHistoryPanelCollapsed ? (
-            <div className="history-collapsed-actions">
-              <button
-                className="small-button"
-                onClick={() => setIsHistoryPanelCollapsed(false)}
-                title="Expand versions panel"
-                aria-expanded="false"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          ) : (
-            <>
-              <div className="panel-title-row">
-                <h2>Versions</h2>
-                <div className="panel-actions">
-                  <button className="small-button" onClick={onRefreshHistory} title="Refresh history">
-                    <RotateCcw size={16} />
-                  </button>
-                  <button
-                    className="small-button"
-                    onClick={() => setIsHistoryPanelCollapsed(true)}
-                    title="Collapse versions panel"
-                    aria-expanded="true"
-                  >
-                    <ChevronLeft size={16} />
-                  </button>
-                </div>
-              </div>
-              {history.length ? (
-                <div className="history-list">
-                  {history.map((entry) => (
-                    <div className="history-item" key={entry.versionPath}>
-                      <strong>{formatDate(entry.createdAt)}</strong>
-                      <span>{entry.reason}</span>
-                      <div className="history-item-actions">
-                        <button
-                          className="small-button"
-                          onClick={() => handleCompareVersion(entry)}
-                          title="Compare with latest"
-                        >
-                          <GitCompare size={14} />
-                          Compare
-                        </button>
-                        <button
-                          className="small-button"
-                          onClick={() => handleDeleteVersion(entry)}
-                          title="Delete this version"
-                        >
-                          <Trash2 size={14} />
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="muted">Versions appear after the first save.</p>
-              )}
-            </>
-          )}
-        </aside>
-
+      <div className={`workspace ${isOutlineCollapsed ? "outline-panel-collapsed" : ""}`}>
         <main className="editor-panel">
           <div className="tab-row">
             <div className="tabs">
@@ -869,6 +927,70 @@ export function DocumentDetail({
               </button>
             </div>
             <div className="mode-switch">
+              <div className="versions-popover-wrap" ref={historyPopoverRef}>
+                <button
+                  className={showHistoryPopover ? "active" : ""}
+                  type="button"
+                  title="Toggle versions"
+                  onClick={() => setShowHistoryPopover((value) => !value)}
+                  aria-expanded={showHistoryPopover}
+                >
+                  <Clock size={16} />
+                  <span>Versions</span>
+                </button>
+                {showHistoryPopover ? (
+                  <div className="versions-popover topbar-popover" role="dialog" aria-label="Versions">
+                    <div className="panel-title-row versions-popover-header">
+                      <h2>Versions</h2>
+                      <div className="panel-actions">
+                        <button className="small-button" onClick={onRefreshHistory} title="Refresh history" type="button">
+                          <RotateCcw size={16} />
+                        </button>
+                        <button
+                          className="small-button"
+                          onClick={() => setShowHistoryPopover(false)}
+                          title="Close versions"
+                          type="button"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    </div>
+                    {history.length ? (
+                      <div className="history-list">
+                        {history.map((entry) => (
+                          <div className="history-item" key={entry.versionPath}>
+                            <strong>{formatDate(entry.createdAt)}</strong>
+                            <span>{entry.reason}</span>
+                            <div className="history-item-actions">
+                              <button
+                                className="small-button"
+                                onClick={() => handleCompareVersion(entry)}
+                                title="Compare with latest"
+                                type="button"
+                              >
+                                <GitCompare size={14} />
+                                Compare
+                              </button>
+                              <button
+                                className="small-button"
+                                onClick={() => handleDeleteVersion(entry)}
+                                title="Delete this version"
+                                type="button"
+                              >
+                                <Trash2 size={14} />
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="muted">Versions appear after the first save.</p>
+                    )}
+                  </div>
+                ) : null}
+              </div>
               <button
                 className={showFindReplace ? "active" : ""}
                 type="button"
@@ -891,7 +1013,6 @@ export function DocumentDetail({
                 { key: "edit", label: "Edit", icon: PenLine },
                 { key: "split", label: "Split", icon: SplitSquareHorizontal },
                 { key: "preview", label: "Preview", icon: Eye },
-                { key: "web", label: "Web", icon: Globe },
               ].map((item) => (
                 <button
                   className={mode === item.key ? "active" : ""}
@@ -954,10 +1075,31 @@ export function DocumentDetail({
         </main>
 
         <aside className={`outline-panel ${isOutlineCollapsed ? "collapsed" : ""}`}>
-          {isOutlineCollapsed ? null : (
+          {isOutlineCollapsed ? (
+            <div className="outline-collapsed-actions">
+              <button
+                className="small-button"
+                onClick={() => setIsOutlineCollapsed(false)}
+                title="Open outline panel"
+                aria-expanded="false"
+              >
+                <ListTree size={16} />
+              </button>
+            </div>
+          ) : (
             <>
               <div className="panel-title-row">
                 <h2>Outline</h2>
+                <div className="panel-actions">
+                  <button
+                    className="small-button"
+                    onClick={() => setIsOutlineCollapsed(true)}
+                    title="Close outline panel"
+                    aria-expanded="true"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
               </div>
               {outlineHeadings.length ? (
                 <div className="outline-list">

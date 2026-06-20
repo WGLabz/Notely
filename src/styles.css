@@ -28,7 +28,7 @@ button {
 
 .app-shell {
   min-height: 100vh;
-  padding: 20px;
+  padding: 14px;
 }
 
 .toast-stack {
@@ -81,7 +81,7 @@ button {
 
 .project-toolbar {
   margin-bottom: 12px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border: 1px solid #d9dedb;
   border-radius: 8px;
   background: #ffffff;
@@ -108,7 +108,7 @@ button {
 
 .project-select,
 .project-toolbar input {
-  min-height: 32px;
+  min-height: 30px;
   border: 1px solid #d9dedb;
   border-radius: 6px;
   background: #ffffff;
@@ -136,7 +136,7 @@ button {
 
 .overlay-dialog-card {
   width: min(440px, calc(100vw - 32px));
-  padding: 16px;
+  padding: 14px;
   border: 1px solid #cfd8d4;
   border-radius: 10px;
   background: #ffffff;
@@ -152,8 +152,8 @@ button {
 }
 
 .icon-button {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border: 1px solid #d9dedb;
   border-radius: 8px;
   background: #ffffff;
@@ -207,9 +207,9 @@ button {
   display: flex;
   align-items: end;
   justify-content: space-between;
-  gap: 24px;
+  gap: 18px;
   margin-bottom: 16px;
-  padding: 14px 16px;
+  padding: 12px 14px;
   border: 1px solid #d9dedb;
   border-radius: 8px;
   background: #ffffff;
@@ -226,7 +226,7 @@ button {
 
 .landing-header h1 {
   margin: 0;
-  font-size: 24px;
+  font-size: 22px;
   line-height: 1.1;
 }
 
@@ -297,7 +297,7 @@ button {
 
 .document-table th,
 .document-table td {
-  padding: 10px 12px;
+  padding: 8px 10px;
   border-bottom: 1px solid #e7ece9;
   text-align: left;
   font-size: 13px;
@@ -320,7 +320,7 @@ button {
 
 .document-card {
   min-height: 108px;
-  padding: 14px;
+  padding: 12px;
   border: 1px solid #d9dedb;
   border-radius: 8px;
   background: #ffffff;
@@ -360,10 +360,10 @@ button {
 
 .detail-shell {
   display: flex;
-  height: calc(100vh - 40px);
+  height: calc(100vh - 28px);
   min-height: 0;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   overflow: hidden;
 }
 
@@ -375,8 +375,9 @@ button {
 }
 
 .detail-topbar {
-  gap: 12px;
-  min-height: 36px;
+  gap: 8px;
+  min-height: 32px;
+  flex-wrap: wrap;
 }
 
 .crumb {
@@ -400,25 +401,25 @@ button {
 .tabs button,
 .mode-switch button,
 .back-button {
-  min-height: 32px;
+  min-height: 30px;
   border: 1px solid #cfc8bd;
   border-radius: 6px;
   background: #ffffff;
   color: #172326;
-  padding: 0 13px;
+  padding: 0 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  font-size: 13px;
+  gap: 6px;
+  font-size: 12px;
   font-weight: 500;
   transition: all 0.2s ease;
 }
 
 .small-button,
 .back-button {
-  padding: 6px 10px;
-  min-height: 28px;
+  padding: 4px 8px;
+  min-height: 26px;
 }
 
 .primary-button {
@@ -477,7 +478,7 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 8px 10px;
+  padding: 7px 9px;
   border: 1px solid #d8d6b0;
   border-radius: 8px;
   background: #fffbe8;
@@ -493,8 +494,8 @@ button {
 .doc-header {
   display: grid;
   grid-template-columns: minmax(260px, 0.9fr) minmax(0, 2.2fr);
-  gap: 16px;
-  padding: 14px 16px;
+  gap: 12px;
+  padding: 12px 14px;
   border: 1px solid #d9dedb;
   border-radius: 8px;
   background: #ffffff;
@@ -502,7 +503,7 @@ button {
 
 .doc-header h1 {
   margin: 0;
-  font-size: 22px;
+  font-size: 20px;
   line-height: 1.2;
 }
 
@@ -519,8 +520,8 @@ button {
 }
 
 .metadata-grid div {
-  min-height: 54px;
-  padding: 9px 10px;
+  min-height: 48px;
+  padding: 7px 9px;
   border: 1px solid #e0e5e2;
   border-radius: 6px;
   background: #f9faf9;
@@ -550,23 +551,14 @@ button {
   display: grid;
   min-height: 0;
   flex: 1;
-  grid-template-columns: 230px minmax(0, 1fr) 250px;
-  gap: 10px;
-}
-
-.workspace.history-panel-collapsed {
-  grid-template-columns: 44px minmax(0, 1fr) 250px;
+  grid-template-columns: minmax(0, 1fr) 190px;
+  gap: 8px;
 }
 
 .workspace.outline-panel-collapsed {
-  grid-template-columns: 230px minmax(0, 1fr) 0;
+  grid-template-columns: minmax(0, 1fr) 34px;
 }
 
-.workspace.history-panel-collapsed.outline-panel-collapsed {
-  grid-template-columns: 44px minmax(0, 1fr) 0;
-}
-
-.history-panel,
 .editor-panel,
 .outline-panel {
   border: 1px solid #d9dedb;
@@ -574,43 +566,32 @@ button {
   background: #ffffff;
 }
 
-.history-panel {
-  padding: 12px;
-  overflow: auto;
-}
-
-.history-panel.collapsed {
-  padding: 8px 6px;
-}
-
-.history-collapsed-actions {
+.outline-collapsed-actions {
   display: flex;
   justify-content: center;
 }
 
-.history-panel.collapsed .small-button {
-  min-height: 30px;
-  min-width: 30px;
+.outline-panel.collapsed .small-button {
+  min-height: 24px;
+  min-width: 24px;
   padding: 0;
 }
 
 .outline-panel {
-  padding: 12px;
-  overflow: auto;
+  padding: 8px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .outline-panel.collapsed {
-  border: 0;
-  padding: 0;
-  width: 0;
-  overflow: hidden;
+  padding: 4px;
 }
 
 .outline-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-top: 10px;
+  gap: 4px;
+  margin-top: 6px;
 }
 
 .outline-item {
@@ -618,12 +599,13 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 7px 8px;
+  gap: 6px;
+  padding: 5px 6px;
   border: 1px solid #e0e5e2;
   border-radius: 6px;
   background: #f9faf9;
   text-align: left;
+  font-size: 12px;
 }
 
 .outline-item:hover {
@@ -633,22 +615,22 @@ button {
 
 .outline-item em {
   color: #6e7f84;
-  font-size: 11px;
+  font-size: 10px;
   font-style: normal;
 }
 
 .outline-item.level-2 {
-  margin-left: 8px;
+  padding-left: 12px;
 }
 
 .outline-item.level-3 {
-  margin-left: 16px;
+  padding-left: 18px;
 }
 
 .outline-item.level-4,
 .outline-item.level-5,
 .outline-item.level-6 {
-  margin-left: 22px;
+  padding-left: 22px;
 }
 
 .sidebar-heading {
@@ -716,6 +698,83 @@ button {
   gap: 6px;
 }
 
+.topbar-action-wrap {
+  position: relative;
+}
+
+.topbar-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 1200;
+  width: min(320px, 72vw);
+  max-height: min(420px, 65vh);
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid #d9dedb;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 18px 48px rgba(9, 18, 21, 0.18);
+}
+
+.topbar-popover-right {
+  right: 0;
+  left: auto;
+}
+
+.topbar-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.topbar-popover-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.topbar-popover-field span {
+  color: #56666b;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.topbar-popover-field input,
+.topbar-popover-select {
+  width: 100%;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid #d7e0e6;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #172326;
+  font: inherit;
+}
+
+.topbar-popover-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.versions-popover-wrap {
+  position: relative;
+}
+
+.versions-popover {
+  width: min(360px, 72vw);
+  max-height: min(480px, 65vh);
+}
+
+.versions-popover-header {
+  margin-bottom: 10px;
+}
+
 .small-button {
   min-height: 30px;
   padding: 0 10px;
@@ -725,12 +784,12 @@ button {
 .history-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 10px;
+  gap: 6px;
+  margin-top: 8px;
 }
 
 .history-item {
-  padding: 8px;
+  padding: 7px;
   border: 1px solid #e0e5e2;
   border-radius: 6px;
   background: #f9faf9;
@@ -754,7 +813,7 @@ button {
 .history-item-actions {
   display: flex;
   gap: 6px;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .history-item-actions .small-button {
@@ -956,8 +1015,8 @@ button {
 
 .tab-row {
   justify-content: space-between;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: 8px;
+  padding: 6px 8px;
   border-bottom: 1px solid #d9dedb;
 }
 
@@ -965,13 +1024,13 @@ button {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 10px;
+  padding: 6px 8px;
   border-bottom: 1px solid #d9dedb;
   background: #f7f8f7;
 }
 
 .find-replace-panel input {
-  min-height: 30px;
+  min-height: 28px;
   border: 1px solid #d4ddda;
   border-radius: 6px;
   padding: 0 10px;
@@ -998,7 +1057,7 @@ button {
 .tabs,
 .mode-switch {
   display: flex;
-  gap: 6px;
+  gap: 5px;
 }
 
 .tabs button,
@@ -1044,8 +1103,8 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  min-height: 30px;
-  padding: 0 12px;
+  min-height: 28px;
+  padding: 0 10px;
   border-bottom: 1px solid #d9dedb;
   background: #f7f8f7;
   color: #56666b;
@@ -1066,15 +1125,15 @@ button {
 .pane-toolbar-row {
   display: flex;
   justify-content: flex-end;
-  padding: 4px 12px;
+  padding: 3px 10px;
   border-bottom: 1px solid #d9dedb;
   background: #f7f8f7;
 }
 
 .validation-banner {
-  min-height: 28px;
+  min-height: 26px;
   border-bottom: 1px solid #d9dedb;
-  padding: 5px 12px;
+  padding: 4px 10px;
   font-size: 12px;
   display: flex;
   align-items: center;
@@ -1103,7 +1162,7 @@ button {
 }
 
 .pane-toolbar-spacer {
-  min-height: 37px;
+  min-height: 33px;
   border-bottom: 1px solid #d9dedb;
   background: #f7f8f7;
 }
@@ -1117,27 +1176,27 @@ button {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  min-height: 420px;
+  min-height: 360px;
   border: 0;
 }
 
 .editor-toolbar {
   display: flex;
   position: relative;
-  min-height: 28px;
+  min-height: 26px;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   margin-left: auto;
-  padding: 2px 4px;
+  padding: 2px 3px;
   border: 1px solid #cfd8d4;
   border-radius: 6px;
   background: #f8faf9;
 }
 
 .editor-toolbar button {
-  min-width: 28px;
-  min-height: 24px;
-  padding: 0 6px;
+  min-width: 26px;
+  min-height: 22px;
+  padding: 0 5px;
   border: 1px solid #cfd8d4;
   border-radius: 5px;
   background: #ffffff;
