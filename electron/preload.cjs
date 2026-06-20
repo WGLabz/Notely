@@ -27,6 +27,8 @@ contextBridge.exposeInMainWorld("notesApi", {
   rotateP2PWorkspaceKeys: (payload) => ipcRenderer.invoke("p2p:rotate-workspace-keys", payload),
   runP2PSyncSelfTest: () => ipcRenderer.invoke("p2p:run-sync-self-test"),
   listP2PSyncConflicts: (payload) => ipcRenderer.invoke("sync:list-conflicts", payload),
+  readP2PConflictFiles: (payload) => ipcRenderer.invoke("sync:read-conflict-files", payload),
+  resolveP2PConflict: (payload) => ipcRenderer.invoke("sync:resolve-conflict", payload),
   onP2PSyncApplied: (callback) => {
     if (typeof callback !== "function") return () => {};
     const listener = (_event, payload) => callback(payload);

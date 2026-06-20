@@ -192,6 +192,27 @@ export async function listP2PSyncConflicts(limit = 200) {
   return api.listP2PSyncConflicts({ limit });
 }
 
+export async function readP2PConflictFiles(filePath, conflictPath) {
+  const api = getNotesApi();
+  if (typeof api.readP2PConflictFiles !== "function") {
+    throw new Error("Conflict file reader unavailable. Please restart the app.");
+  }
+  return api.readP2PConflictFiles({ filePath, conflictPath });
+}
+
+export async function resolveP2PConflict(filePath, conflictPath, resolution, mergedContent) {
+  const api = getNotesApi();
+  if (typeof api.resolveP2PConflict !== "function") {
+    throw new Error("Conflict resolution unavailable. Please restart the app.");
+  }
+  return api.resolveP2PConflict({
+    filePath,
+    conflictPath,
+    resolution: typeof resolution === "string" ? resolution : "merged",
+    mergedContent: typeof mergedContent === "string" ? mergedContent : undefined
+  });
+}
+
 export function onP2PSyncApplied(callback) {
   const api = getNotesApi();
   if (typeof api.onP2PSyncApplied !== "function") {

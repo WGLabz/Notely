@@ -86,6 +86,7 @@ class P2PLiveService {
     this.logger = logger;
     this.storageDir = storageDir;
     this.statePath = path.join(storageDir, "p2p-live-state.json");
+    this.outboxPath = path.join(storageDir, "p2p-outbox.json");
     this.onSyncEvent = typeof onSyncEvent === "function" ? onSyncEvent : null;
 
     this.discoverySocket = null;
@@ -126,6 +127,7 @@ class P2PLiveService {
   init() {
     ensureDir(this.storageDir);
     this.loadState();
+    this.loadPersistedOutbox();
     this.startPairServer();
     this.syncRetryTimer = setInterval(() => {
       this.drainSyncOutbox().catch((error) => {
@@ -149,6 +151,7 @@ class P2PLiveService {
       this.pairServer = null;
       this.listenPort = 0;
     }
+    this.persistOutbox();
     this.persistState();
   }
 
@@ -185,6 +188,57 @@ class P2PLiveService {
   persistState() {
     ensureDir(this.storageDir);
     fs.writeFileSync(this.statePath, JSON.stringify(this.state, null, 2), "utf8");
+  }
+
+  loadPersistedOutbox() {
+    if (!fs.existsSync(this.outboxPath)) {
+      return;
+    }
+
+    const parsed = safeJsonParse(fs.readFileSync(this.outboxPath, "utf8"));
+    if (!Array.isArray(parsed)) {
+      return;
+    }
+
+    const now = Date.now();
+    const restored = parsed
+      .filter((item) => item && typeof item === "object" && !item.done && (item.attempt || 0) < SYNC_MAX_ATTEMPTS)
+      .map((item) => ({
+        id: String(item.id || randomHex(8)),
+        peerId: String(item.peerId || ""),
+        eventId: String(item.eventId || ""),
+        syncEvent: item.syncEvent && typeof item.syncEvent === "object" ? item.syncEvent : null,
+        counter: Number(item.counter) || 0,
+        attempt: Math.max(0, Number(item.attempt || 0) - 1),
+        nextAttemptAt: now,
+        lastError: "",
+        done: false
+      }))
+      .filter((item) => item.peerId && item.syncEvent);
+
+    this.syncOutbox.push(...restored);
+    this.syncStats.queued += restored.length;
+    if (restored.length > 0) {
+      this.logger.log(`[p2p] restored ${restored.length} outbox item(s) from disk`);
+    }
+  }
+
+  persistOutbox() {
+    const toSave = this.syncOutbox
+      .filter((task) => !task.done)
+      .slice(0, 100)
+      .map((task) => ({
+        id: task.id,
+        peerId: task.peerId,
+        eventId: task.eventId,
+        syncEvent: task.syncEvent,
+        counter: task.counter,
+        attempt: task.attempt,
+        nextAttemptAt: task.nextAttemptAt
+      }));
+
+    ensureDir(this.storageDir);
+    fs.writeFileSync(this.outboxPath, JSON.stringify(toSave, null, 2), "utf8");
   }
 
   setDeviceName(name) {
@@ -239,6 +293,9 @@ class P2PLiveService {
           lastSeenAt: new Date().toISOString()
         };
         this.persistState();
+        if (this.syncOutbox.some((t) => !t.done && t.peerId === peerId)) {
+          setImmediate(() => this.drainSyncOutbox().catch(() => {}));
+        }
       }
     });
 
@@ -608,6 +665,10 @@ class P2PLiveService {
       trusted: this.state.trustedPeers.some((peer) => peer.peerId === peerId)
     });
 
+    if (this.syncOutbox.some((t) => !t.done && t.peerId === peerId)) {
+      setImmediate(() => this.drainSyncOutbox().catch(() => {}));
+    }
+
     return {
       ok: true,
       peerId,
@@ -717,18 +778,17 @@ class P2PLiveService {
     this.syncOutbox.push({
       id: randomHex(8),
       peerId: peer.peerId,
-      address: peer.address,
-      listenPort: peer.listenPort,
-      workspaceKey: peer.workspaceKey,
       eventId: syncEvent.eventId,
       syncEvent,
       counter,
       attempt: 0,
       nextAttemptAt: Date.now(),
-      lastError: ""
+      lastError: "",
+      done: false
     });
 
     this.syncStats.queued += 1;
+    this.persistOutbox();
   }
 
   async drainSyncOutbox() {
@@ -746,10 +806,18 @@ class P2PLiveService {
       }
 
       try {
-        const encrypted = encryptWithWorkspaceKey(task.workspaceKey, task.syncEvent);
+        const currentPeer = this.state.trustedPeers.find((p) => p.peerId === task.peerId);
+        if (!currentPeer || !currentPeer.workspaceKey || !currentPeer.listenPort) {
+          task.attempt += 1;
+          task.lastError = "Peer not reachable yet";
+          const waitMs = Math.min(30000, 2000 * Math.pow(2, task.attempt));
+          task.nextAttemptAt = Date.now() + waitMs;
+          continue;
+        }
+        const encrypted = encryptWithWorkspaceKey(currentPeer.workspaceKey, task.syncEvent);
         const response = await this.requestPeer({
-          address: task.address,
-          listenPort: task.listenPort,
+          address: currentPeer.address,
+          listenPort: currentPeer.listenPort,
           payload: {
             type: "sync-event",
             fromPeerId: this.state.deviceId,
@@ -804,6 +872,7 @@ class P2PLiveService {
     }
 
     this.syncOutbox = this.syncOutbox.filter((task) => !task.done);
+    this.persistOutbox();
   }
 
   async rotateWorkspaceKeys(peerId) {

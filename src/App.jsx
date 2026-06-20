@@ -6,6 +6,7 @@ import { DocumentDetail } from "./components/DocumentDetail";
 import { EmbeddedTerminal } from "./components/EmbeddedTerminal";
 import { P2PStatusPanel } from "./components/P2PStatusPanel";
 import { WorkspaceActivityPanel } from "./components/WorkspaceActivityPanel";
+import { ConflictResolutionPanel } from "./components/ConflictResolutionPanel";
 import {
   createFolder,
   createDocument,
@@ -110,6 +111,10 @@ export default function App() {
   const [conflictCenterOpen, setConflictCenterOpen] = useState(false);
   const [conflictCenterLoading, setConflictCenterLoading] = useState(false);
   const [conflictCenterData, setConflictCenterData] = useState(null);
+  const [conflictResolutionOpen, setConflictResolutionOpen] = useState(false);
+  const [conflictResolutionEntry, setConflictResolutionEntry] = useState(null);
+  const [conflictResolutionFiles, setConflictResolutionFiles] = useState(null);
+  const [conflictResolutionLoading, setConflictResolutionLoading] = useState(false);
 
   const terminalCwd = current?.filePath
     ? current.filePath.replace(/[\\/][^\\/]+$/, "")
@@ -710,6 +715,48 @@ export default function App() {
     }
   }
 
+  async function handleOpenConflictResolution(entry) {
+    setConflictResolutionEntry(entry);
+    setConflictResolutionOpen(true);
+    setConflictResolutionFiles(null);
+    setConflictResolutionLoading(true);
+    try {
+      const files = await readP2PConflictFiles(entry.filePath, entry.conflictPath);
+      setConflictResolutionFiles(files);
+    } catch (err) {
+      notify(err?.message || "Unable to load conflict files.", "error");
+      setConflictResolutionOpen(false);
+    } finally {
+      setConflictResolutionLoading(false);
+    }
+  }
+
+  async function handleResolveConflict(resolution) {
+    if (!conflictResolutionEntry) return;
+    setConflictResolutionLoading(true);
+    try {
+      const mergedContent = typeof resolution === "object" ? resolution.mergedContent : undefined;
+      const resolutionType = typeof resolution === "string" ? resolution : "merged";
+      await resolveP2PConflict(
+        conflictResolutionEntry.filePath,
+        conflictResolutionEntry.conflictPath,
+        resolutionType,
+        mergedContent
+      );
+      notify("Conflict resolved.", "success");
+      setConflictResolutionOpen(false);
+      setConflictResolutionEntry(null);
+      setConflictResolutionFiles(null);
+      const data = await listP2PSyncConflicts(250);
+      setConflictCenterData(data);
+      await loadDocumentsData();
+    } catch (err) {
+      notify(err?.message || "Unable to resolve conflict.", "error");
+    } finally {
+      setConflictResolutionLoading(false);
+    }
+  }
+
   useEffect(() => {
     loadDocumentsData();
   }, []);
@@ -1174,6 +1221,35 @@ export default function App() {
         </div>
       ) : null}
 
+      {conflictResolutionOpen && conflictResolutionEntry ? (
+        <div className="overlay-dialog" role="dialog" aria-modal="true" aria-label="Resolve sync conflict">
+          <div className="overlay-dialog-card conflict-resolve-dialog-card">
+            <div className="overlay-dialog-header">
+              <h2>Resolve Conflict</h2>
+              <button
+                className="icon-button"
+                onClick={() => setConflictResolutionOpen(false)}
+                type="button"
+                aria-label="Close conflict resolution"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            {conflictResolutionLoading && !conflictResolutionFiles ? (
+              <p className="p2p-status-table-empty">Loading files...</p>
+            ) : conflictResolutionFiles ? (
+              <ConflictResolutionPanel
+                localFile={conflictResolutionFiles.local}
+                conflictFile={conflictResolutionFiles.conflict}
+                relativePath={conflictResolutionEntry.relativePath || conflictResolutionEntry.filePath}
+                onResolve={handleResolveConflict}
+                loading={conflictResolutionLoading}
+              />
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       {syncSelfTestOpen ? (
         <div className="overlay-dialog" role="dialog" aria-modal="true" aria-label="P2P sync self-test">
           <div className="overlay-dialog-card">
@@ -1255,6 +1331,13 @@ export default function App() {
                           <button
                             className="small-button"
                             type="button"
+                            onClick={() => handleOpenConflictResolution(entry)}
+                          >
+                            Resolve
+                          </button>
+                          <button
+                            className="small-button"
+                            type="button"
                             onClick={() => handleOpenConflictFile(entry.filePath)}
                           >
                             Open Local
@@ -1273,6 +1356,35 @@ export default function App() {
                 </table>
               )}
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {conflictResolutionOpen && conflictResolutionEntry ? (
+        <div className="overlay-dialog" role="dialog" aria-modal="true" aria-label="Resolve sync conflict">
+          <div className="overlay-dialog-card conflict-resolve-dialog-card">
+            <div className="overlay-dialog-header">
+              <h2>Resolve Conflict</h2>
+              <button
+                className="icon-button"
+                onClick={() => setConflictResolutionOpen(false)}
+                type="button"
+                aria-label="Close conflict resolution"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            {conflictResolutionLoading && !conflictResolutionFiles ? (
+              <p className="p2p-status-table-empty">Loading files...</p>
+            ) : conflictResolutionFiles ? (
+              <ConflictResolutionPanel
+                localFile={conflictResolutionFiles.local}
+                conflictFile={conflictResolutionFiles.conflict}
+                relativePath={conflictResolutionEntry.relativePath || conflictResolutionEntry.filePath}
+                onResolve={handleResolveConflict}
+                loading={conflictResolutionLoading}
+              />
+            ) : null}
           </div>
         </div>
       ) : null}

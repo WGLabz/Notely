@@ -3249,6 +3249,86 @@ ipcMain.handle("sync:list-conflicts", (_event, payload) => {
   };
 });
 
+ipcMain.handle("sync:read-conflict-files", (_event, payload) => {
+  const localPath = path.resolve(String(payload?.filePath || ""));
+  const conflictPath = path.resolve(String(payload?.conflictPath || ""));
+
+  if (!filePathWithin(notesRoot, localPath)) {
+    throw new Error("Invalid file path.");
+  }
+  if (!fs.existsSync(localPath)) {
+    throw new Error("Local note file not found.");
+  }
+  if (!fs.existsSync(conflictPath)) {
+    throw new Error("Conflict file not found.");
+  }
+
+  const localContent = fs.readFileSync(localPath, "utf8");
+  const conflictContent = fs.readFileSync(conflictPath, "utf8");
+  const localDoc = parseDocument(localContent, localPath);
+  const conflictDoc = parseDocument(conflictContent, conflictPath);
+
+  return {
+    local: {
+      content: localContent,
+      header: localDoc.header,
+      rawNotes: localDoc.rawNotes,
+      cleansed: localDoc.cleansed
+    },
+    conflict: {
+      content: conflictContent,
+      header: conflictDoc.header,
+      rawNotes: conflictDoc.rawNotes,
+      cleansed: conflictDoc.cleansed
+    }
+  };
+});
+
+ipcMain.handle("sync:resolve-conflict", (_event, payload) => {
+  const localPath = path.resolve(String(payload?.filePath || ""));
+  const conflictPath = path.resolve(String(payload?.conflictPath || ""));
+  const resolution = String(payload?.resolution || "");
+  const mergedContent = payload?.mergedContent;
+
+  if (!filePathWithin(notesRoot, localPath)) {
+    throw new Error("Invalid file path.");
+  }
+  if (!fs.existsSync(localPath)) {
+    throw new Error("Local note file not found.");
+  }
+  if (!fs.existsSync(conflictPath)) {
+    throw new Error("Conflict file not found.");
+  }
+
+  if (resolution === "remote") {
+    const conflictContent = fs.readFileSync(conflictPath, "utf8");
+    const previous = fs.readFileSync(localPath, "utf8");
+    const backupPath = createVersionSnapshot(localPath, previous, "before-conflict-resolve");
+    fs.writeFileSync(localPath, conflictContent, "utf8");
+    metadataStore.addHistory({
+      filePath: localPath,
+      versionPath: backupPath,
+      fileHash: hashContent(previous),
+      reason: "conflict-resolved-remote",
+      createdAt: new Date().toISOString()
+    });
+  } else if (resolution === "merged" && typeof mergedContent === "string") {
+    const previous = fs.readFileSync(localPath, "utf8");
+    const backupPath = createVersionSnapshot(localPath, previous, "before-conflict-merge");
+    fs.writeFileSync(localPath, mergedContent, "utf8");
+    metadataStore.addHistory({
+      filePath: localPath,
+      versionPath: backupPath,
+      fileHash: hashContent(previous),
+      reason: "conflict-resolved-merged",
+      createdAt: new Date().toISOString()
+    });
+  }
+
+  const movedPath = moveFileToRemoved(conflictPath, "conflicts");
+  return { ok: true, movedPath };
+});
+
 ipcMain.handle("activity:get-workspace", (_event, payload) => {
   const activeProject = getActiveProject();
   const workspaceRoot = path.resolve(activeProject?.rootPath || notesRoot);
