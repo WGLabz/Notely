@@ -440,10 +440,12 @@ export default function App() {
   async function handleOpenWebsiteForCurrent() {
     if (!current?.filePath) return;
 
-    const content = activeTab === "cleansed" ? current.cleansed : current.rawNotes;
-
     try {
-      const result = await openWebView(current.filePath, content);
+      const result = await openWebView(current.filePath, {
+        header: current.header || "",
+        rawNotes: current.rawNotes || "",
+        cleansed: current.cleansed || "",
+      });
       if (result?.openedWith === "chrome") {
         notify("Opened website view in Chrome.", "success");
       } else {

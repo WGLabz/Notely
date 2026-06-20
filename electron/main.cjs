@@ -1219,10 +1219,18 @@ function renderRootWebsitePage() {
   });
 }
 
-function renderMarkdownWebsitePage(relMdPath, rawContent) {
+function renderMarkdownWebsitePage(relMdPath, rawContent, options = {}) {
   const markdown = buildWebsiteMarkdownRenderer();
   const parsed = parseDocument(rawContent, relMdPath);
   const hasTabbedSections = parsed.hasRawNotes || parsed.hasCleansed;
+  const requestedSection = options.section === "raw" ? "raw" : "cleansed";
+
+  let activeSection = requestedSection;
+  if (activeSection === "cleansed" && !parsed.hasCleansed && parsed.hasRawNotes) {
+    activeSection = "raw";
+  } else if (activeSection === "raw" && !parsed.hasRawNotes && parsed.hasCleansed) {
+    activeSection = "cleansed";
+  }
 
   let bodyHtml = `<div class="doc-hero"><h1>${escapeHtml(parsed.title || path.basename(relMdPath, ".md"))}</h1><p class="doc-breadcrumb">${escapeHtml(relMdPath)}</p></div><div class="doc-body prose">${markdown.render(rawContent, { relMdPath })}</div>`;
   if (hasTabbedSections) {
@@ -1245,14 +1253,14 @@ function renderMarkdownWebsitePage(relMdPath, rawContent) {
         ${headerHtml}
         <section data-tabs>
           <div class="section-tabs" role="tablist" aria-label="Note sections">
-            <button class="tab-btn active" type="button" role="tab" data-tab-target="raw">Raw Notes</button>
-            <button class="tab-btn" type="button" role="tab" data-tab-target="cleansed">Cleansed</button>
+            <button class="tab-btn${activeSection === "cleansed" ? " active" : ""}" type="button" role="tab" data-tab-target="cleansed">Cleansed</button>
+            <button class="tab-btn${activeSection === "raw" ? " active" : ""}" type="button" role="tab" data-tab-target="raw">Raw Notes</button>
           </div>
-          <section class="tab-panel prose active" data-tab-panel="raw">
-            ${rawHtml}
-          </section>
-          <section class="tab-panel prose" data-tab-panel="cleansed">
+          <section class="tab-panel prose${activeSection === "cleansed" ? " active" : ""}" data-tab-panel="cleansed">
             ${cleansedHtml}
+          </section>
+          <section class="tab-panel prose${activeSection === "raw" ? " active" : ""}" data-tab-panel="raw">
+            ${rawHtml}
           </section>
         </section>
       </div>
@@ -1266,8 +1274,21 @@ function renderMarkdownWebsitePage(relMdPath, rawContent) {
   });
 }
 
-function renderPdfNotePage(relMdPath, markdownContent) {
+function renderPdfNotePage(relMdPath, markdownContent, options = {}) {
   const markdown = buildWebsiteMarkdownRenderer();
+  const parsed = parseDocument(markdownContent || "", relMdPath);
+  const hasStructuredSections = parsed.hasRawNotes || parsed.hasCleansed;
+  const section = options.section === "raw" ? "raw" : "cleansed";
+
+  let contentToRender = markdownContent || "";
+  if (hasStructuredSections) {
+    contentToRender = section === "raw" ? parsed.rawNotes : parsed.cleansed;
+  }
+
+  const title = path.basename(relMdPath, ".md") || "Note";
+  const emptyMessage = section === "raw"
+    ? "No raw notes captured yet."
+    : "No cleansed notes captured yet.";
 
   return `<!doctype html>
 <html lang="en">
@@ -1345,7 +1366,7 @@ function renderPdfNotePage(relMdPath, markdownContent) {
   <body>
     <main class="page">
       <article class="content">
-        ${markdownContent ? markdown.render(markdownContent, { relMdPath }) : '<p class="empty">No cleansed notes captured yet.</p>'}
+        ${contentToRender ? markdown.render(contentToRender, { relMdPath }) : `<p class="empty">${emptyMessage}</p>`}
       </article>
     </main>
   </body>
@@ -1537,6 +1558,7 @@ function handleWebPreviewRequest(req, res) {
 
   if (pathname.startsWith("/view/")) {
     const relMdPath = normalizeToPosix(decodeUrlPath(pathname, "/view/"));
+    const section = requestUrl.searchParams.get("section") === "raw" ? "raw" : "cleansed";
     const resolved = resolveRelativeToNotesRoot(relMdPath);
     if (!resolved || path.extname(resolved.resolved).toLowerCase() !== ".md" || !fs.existsSync(resolved.resolved)) {
       writeTextResponse(res, "Note not found.", 404);
@@ -1545,13 +1567,14 @@ function handleWebPreviewRequest(req, res) {
 
     const rawContent = webPreviewContentOverrides.get(resolved.resolved)
       || fs.readFileSync(resolved.resolved, "utf8");
-    writeHtmlResponse(res, renderMarkdownWebsitePage(resolved.normalized, rawContent));
+    writeHtmlResponse(res, renderMarkdownWebsitePage(resolved.normalized, rawContent, { section }));
     return;
   }
 
   if (pathname.startsWith("/pdf/")) {
     const relMdPath = normalizeToPosix(decodeUrlPath(pathname, "/pdf/"));
     const resolved = resolveRelativeToNotesRoot(relMdPath);
+    const section = requestUrl.searchParams.get("section") === "raw" ? "raw" : "cleansed";
     if (!resolved || path.extname(resolved.resolved).toLowerCase() !== ".md" || !fs.existsSync(resolved.resolved)) {
       writeTextResponse(res, "Note not found.", 404);
       return;
@@ -1559,7 +1582,7 @@ function handleWebPreviewRequest(req, res) {
 
     const markdownContent = webPreviewContentOverrides.get(resolved.resolved)
       || fs.readFileSync(resolved.resolved, "utf8");
-    writeHtmlResponse(res, renderPdfNotePage(resolved.normalized, markdownContent));
+    writeHtmlResponse(res, renderPdfNotePage(resolved.normalized, markdownContent, { section }));
     return;
   }
 
@@ -2059,6 +2082,19 @@ async function prepareDocumentPreview(filePath, content) {
 
   if (typeof content === "string") {
     webPreviewContentOverrides.set(resolved, content);
+  } else if (content && typeof content === "object") {
+    const header = typeof content.header === "string" ? content.header.trim() : "";
+    const rawNotes = typeof content.rawNotes === "string" ? content.rawNotes.trim() : "";
+    const cleansed = typeof content.cleansed === "string" ? content.cleansed.trim() : "";
+    const overrideContent = [
+      header,
+      "# RawNotes",
+      rawNotes,
+      "# Cleansed",
+      cleansed
+    ].join("\n\n").trim();
+
+    webPreviewContentOverrides.set(resolved, overrideContent);
   }
 
   webPreviewScopeRoot = getWebPreviewScopeRoot();
@@ -2067,7 +2103,7 @@ async function prepareDocumentPreview(filePath, content) {
   const baseUrl = await ensureWebPreviewServer();
   return {
     resolved,
-    previewUrl: `${baseUrl}/pdf/${encodePathForUrl(normalizeToPosix(path.relative(webPreviewScopeRoot, resolved)))}?section=cleansed`
+    previewUrl: `${baseUrl}/view/${encodePathForUrl(normalizeToPosix(path.relative(webPreviewScopeRoot, resolved)))}?section=cleansed`
   };
 }
 
