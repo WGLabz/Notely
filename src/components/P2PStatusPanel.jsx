@@ -21,6 +21,7 @@ export function P2PStatusPanel({
   onPairWithCode,
   onManualConnect,
   onRemoveTrustedPeer,
+  onRotateWorkspaceKeys,
 }) {
   const [deviceNameDraft, setDeviceNameDraft] = useState("");
   const [invitePeerId, setInvitePeerId] = useState("");
@@ -226,6 +227,14 @@ export function P2PStatusPanel({
           >
             Connect
           </button>
+          <button
+            className="small-button"
+            type="button"
+            disabled={busyAction === "rotate-all" || !trustedPeers.length}
+            onClick={() => runAction("rotate-all", () => onRotateWorkspaceKeys())}
+          >
+            Rotate All Keys
+          </button>
         </div>
       </div>
 
@@ -321,6 +330,14 @@ export function P2PStatusPanel({
                       onClick={() => runAction(`remove-${peer.peerId}`, () => onRemoveTrustedPeer(peer.peerId))}
                     >
                       Remove
+                    </button>
+                    <button
+                      className="small-button"
+                      type="button"
+                      disabled={busyAction === `rotate-${peer.peerId}`}
+                      onClick={() => runAction(`rotate-${peer.peerId}`, () => onRotateWorkspaceKeys(peer.peerId))}
+                    >
+                      Rotate Key
                     </button>
                   </td>
                 </tr>

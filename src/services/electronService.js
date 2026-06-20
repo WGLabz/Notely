@@ -168,6 +168,30 @@ export async function removeTrustedP2PPeer(peerId) {
   return api.removeTrustedP2PPeer({ peerId });
 }
 
+export async function rotateP2PWorkspaceKeys(peerId) {
+  const api = getNotesApi();
+  if (typeof api.rotateP2PWorkspaceKeys !== "function") {
+    throw new Error("P2P key rotation unavailable. Please restart the app.");
+  }
+  return api.rotateP2PWorkspaceKeys({ peerId });
+}
+
+export async function runP2PSyncSelfTest() {
+  const api = getNotesApi();
+  if (typeof api.runP2PSyncSelfTest !== "function") {
+    throw new Error("P2P sync self-test unavailable. Please restart the app.");
+  }
+  return api.runP2PSyncSelfTest();
+}
+
+export async function listP2PSyncConflicts(limit = 200) {
+  const api = getNotesApi();
+  if (typeof api.listP2PSyncConflicts !== "function") {
+    throw new Error("P2P conflict list unavailable. Please restart the app.");
+  }
+  return api.listP2PSyncConflicts({ limit });
+}
+
 export async function getWorkspaceActivity(limit = 200) {
   const api = getNotesApi();
   if (typeof api.getWorkspaceActivity !== "function") {

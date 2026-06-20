@@ -2549,11 +2549,6 @@ function buildAppMenu(win, context = {}) {
           accelerator: "CmdOrCtrl+Shift+A",
           click: () => sendMenuAction(win, "open-workspace-activity")
         },
-        {
-          label: "P2P Status",
-          accelerator: "CmdOrCtrl+Shift+P",
-          click: () => sendMenuAction(win, "open-p2p-status")
-        },
         { type: "separator" },
         {
           label: "Open",
@@ -2616,11 +2611,6 @@ function buildAppMenu(win, context = {}) {
           label: "Workspace Activity",
           accelerator: "CmdOrCtrl+Shift+A",
           click: () => sendMenuAction(win, "open-workspace-activity")
-        },
-        {
-          label: "P2P Status",
-          accelerator: "CmdOrCtrl+Shift+P",
-          click: () => sendMenuAction(win, "open-p2p-status")
         },
         { type: "separator" },
         { role: "quit" }
@@ -2702,12 +2692,38 @@ function buildAppMenu(win, context = {}) {
       submenu: viewSubmenu
     },
     {
-      label: "Help",
+      label: "P2P",
       submenu: [
         {
-          label: "P2P Sync Notes",
+          label: "P2P Status",
+          accelerator: "CmdOrCtrl+Shift+P",
+          click: () => sendMenuAction(win, "open-p2p-status")
+        },
+        { type: "separator" },
+        {
+          label: "Run Sync Self-Test",
+          click: () => sendMenuAction(win, "run-p2p-sync-self-test")
+        },
+        {
+          label: "Conflict Center",
+          click: () => sendMenuAction(win, "open-p2p-conflicts")
+        },
+        { type: "separator" },
+        {
+          label: "Rotate Workspace Keys",
+          click: () => sendMenuAction(win, "rotate-p2p-workspace-keys")
+        },
+        { type: "separator" },
+        {
+          label: "How Sync Works",
           click: () => sendMenuAction(win, "open-p2p-sync-help")
         }
+      ]
+    },
+    {
+      label: "Help",
+      submenu: [
+        { role: "toggleDevTools" }
       ]
     }
   ]);
@@ -3176,11 +3192,50 @@ ipcMain.handle("p2p:remove-trusted-peer", (_event, payload) => {
   return p2pService.getStatus();
 });
 
+ipcMain.handle("p2p:rotate-workspace-keys", async (_event, payload) => {
+  if (!p2pService) {
+    throw new Error("P2P service unavailable.");
+  }
+
+  return await p2pService.rotateWorkspaceKeys(payload?.peerId);
+});
+
+ipcMain.handle("p2p:run-sync-self-test", async () => {
+  if (!p2pService) {
+    throw new Error("P2P service unavailable.");
+  }
+  return await p2pService.runSyncSelfTest();
+});
+
 ipcMain.handle("p2p:get-status", () => {
   if (p2pService) {
     return p2pService.getStatus();
   }
   return readP2PStatusSnapshot();
+});
+
+ipcMain.handle("sync:list-conflicts", (_event, payload) => {
+  const activeProject = getActiveProject();
+  const workspaceRoot = path.resolve(activeProject?.rootPath || notesRoot);
+  const rows = metadataStore.getWorkspaceActivity(workspaceRoot, payload?.limit || 200);
+
+  const conflicts = rows
+    .filter((entry) => String(entry.reason || "").startsWith("p2p-sync-conflict:"))
+    .map((entry, index) => ({
+      id: `${entry.createdAt || "unknown"}-${index}`,
+      reason: String(entry.reason || ""),
+      createdAt: entry.createdAt || null,
+      filePath: entry.filePath || "",
+      relativePath: normalizeToPosix(path.relative(workspaceRoot, entry.filePath || "")),
+      conflictPath: entry.versionPath || ""
+    }))
+    .filter((entry) => entry.conflictPath && fs.existsSync(entry.conflictPath));
+
+  return {
+    workspaceRoot,
+    total: conflicts.length,
+    conflicts
+  };
 });
 
 ipcMain.handle("activity:get-workspace", (_event, payload) => {

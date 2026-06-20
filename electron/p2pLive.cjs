@@ -10,6 +10,8 @@ const DISCOVERY_INTERVAL_MS = 4000;
 const DISCOVERY_STALE_MS = 20000;
 const INVITE_TTL_MS = 5 * 60 * 1000;
 const SOCKET_TIMEOUT_MS = 4000;
+const SYNC_RETRY_INTERVAL_MS = 2000;
+const SYNC_MAX_ATTEMPTS = 5;
 
 function ensureWorkspaceKey(value) {
   const key = String(value || "").trim().toLowerCase();
@@ -96,6 +98,23 @@ class P2PLiveService {
     this.discoveredPeers = new Map();
     this.pendingInvites = new Map();
     this.receivedEventIds = new Set();
+    this.syncOutbox = [];
+    this.syncRetryTimer = null;
+    this.outgoingSyncCounters = new Map();
+    this.incomingSyncCounters = new Map();
+    this.peerSyncMeta = new Map();
+
+    this.syncStats = {
+      queued: 0,
+      sent: 0,
+      acked: 0,
+      retried: 0,
+      failed: 0,
+      dropped: 0,
+      lastAckAt: null,
+      lastErrorAt: null,
+      lastError: ""
+    };
 
     this.state = {
       deviceId: randomHex(8),
@@ -108,10 +127,19 @@ class P2PLiveService {
     ensureDir(this.storageDir);
     this.loadState();
     this.startPairServer();
+    this.syncRetryTimer = setInterval(() => {
+      this.drainSyncOutbox().catch((error) => {
+        this.logger.error("[p2p] sync outbox drain failed", error);
+      });
+    }, SYNC_RETRY_INTERVAL_MS);
   }
 
   shutdown() {
     this.stopDiscovery();
+    if (this.syncRetryTimer) {
+      clearInterval(this.syncRetryTimer);
+      this.syncRetryTimer = null;
+    }
     if (this.pairServer) {
       try {
         this.pairServer.close();
@@ -400,6 +428,7 @@ class P2PLiveService {
     if (message.type === "sync-event") {
       const fromPeerId = String(message.fromPeerId || "").trim();
       const eventId = String(message.eventId || "").trim();
+      const counter = Number(message.counter) || 0;
       if (!fromPeerId || !eventId) {
         socket.write(`${JSON.stringify({ ok: false, error: "Sync event metadata missing." })}\n`);
         socket.end();
@@ -419,6 +448,13 @@ class P2PLiveService {
         return;
       }
 
+      const lastCounter = Number(this.incomingSyncCounters.get(fromPeerId) || 0);
+      if (counter > 0 && counter <= lastCounter) {
+        socket.write(`${JSON.stringify({ ok: true, duplicate: true, staleCounter: true })}\n`);
+        socket.end();
+        return;
+      }
+
       let decrypted = null;
       try {
         decrypted = decryptWithWorkspaceKey(trustedPeer.workspaceKey, message.encrypted);
@@ -432,6 +468,9 @@ class P2PLiveService {
       }
 
       this.receivedEventIds.add(eventId);
+      if (counter > 0) {
+        this.incomingSyncCounters.set(fromPeerId, counter);
+      }
       if (this.receivedEventIds.size > 2000) {
         const ids = Array.from(this.receivedEventIds);
         this.receivedEventIds = new Set(ids.slice(ids.length - 1000));
@@ -446,6 +485,40 @@ class P2PLiveService {
           this.logger.error("[p2p] sync apply callback failed", error);
         });
       }
+
+      socket.write(`${JSON.stringify({ ok: true })}\n`);
+      socket.end();
+      return;
+    }
+
+    if (message.type === "rekey-request") {
+      const fromPeerId = String(message.fromPeerId || "").trim();
+      const trustedPeer = this.state.trustedPeers.find((entry) => entry.peerId === fromPeerId);
+      if (!trustedPeer || !trustedPeer.workspaceKey) {
+        socket.write(`${JSON.stringify({ ok: false, error: "Peer not trusted for rekey." })}\n`);
+        socket.end();
+        return;
+      }
+
+      let decrypted = null;
+      try {
+        decrypted = decryptWithWorkspaceKey(trustedPeer.workspaceKey, message.encrypted);
+      } catch {
+        decrypted = null;
+      }
+
+      const nextWorkspaceKey = ensureWorkspaceKey(decrypted?.newWorkspaceKey);
+      if (!decrypted || !nextWorkspaceKey) {
+        socket.write(`${JSON.stringify({ ok: false, error: "Invalid rekey payload." })}\n`);
+        socket.end();
+        return;
+      }
+
+      this.upsertTrustedPeer({
+        ...trustedPeer,
+        workspaceKey: nextWorkspaceKey,
+        lastSeenAt: new Date().toISOString()
+      });
 
       socket.write(`${JSON.stringify({ ok: true })}\n`);
       socket.end();
@@ -637,6 +710,186 @@ class P2PLiveService {
     return true;
   }
 
+  queueSyncDelivery(peer, syncEvent) {
+    const counter = Number(this.outgoingSyncCounters.get(peer.peerId) || 0) + 1;
+    this.outgoingSyncCounters.set(peer.peerId, counter);
+
+    this.syncOutbox.push({
+      id: randomHex(8),
+      peerId: peer.peerId,
+      address: peer.address,
+      listenPort: peer.listenPort,
+      workspaceKey: peer.workspaceKey,
+      eventId: syncEvent.eventId,
+      syncEvent,
+      counter,
+      attempt: 0,
+      nextAttemptAt: Date.now(),
+      lastError: ""
+    });
+
+    this.syncStats.queued += 1;
+  }
+
+  async drainSyncOutbox() {
+    if (!this.syncOutbox.length) {
+      return;
+    }
+
+    const now = Date.now();
+    for (const task of this.syncOutbox) {
+      if (task.attempt >= SYNC_MAX_ATTEMPTS) {
+        continue;
+      }
+      if (task.nextAttemptAt > now) {
+        continue;
+      }
+
+      try {
+        const encrypted = encryptWithWorkspaceKey(task.workspaceKey, task.syncEvent);
+        const response = await this.requestPeer({
+          address: task.address,
+          listenPort: task.listenPort,
+          payload: {
+            type: "sync-event",
+            fromPeerId: this.state.deviceId,
+            eventId: task.eventId,
+            counter: task.counter,
+            encrypted
+          }
+        });
+
+        task.attempt += 1;
+        this.syncStats.sent += 1;
+
+        if (response?.ok) {
+          this.syncStats.acked += 1;
+          this.syncStats.lastAckAt = new Date().toISOString();
+          this.peerSyncMeta.set(task.peerId, {
+            lastAckAt: this.syncStats.lastAckAt,
+            lastErrorAt: null,
+            lastError: "",
+            lastCounter: task.counter
+          });
+          task.attempt = SYNC_MAX_ATTEMPTS;
+          task.done = true;
+          continue;
+        }
+
+        const errorMessage = String(response?.error || "Peer rejected sync event.");
+        throw new Error(errorMessage);
+      } catch (error) {
+        task.attempt += 1;
+        this.syncStats.failed += 1;
+        this.syncStats.lastErrorAt = new Date().toISOString();
+        this.syncStats.lastError = String(error?.message || "Sync delivery failed.");
+        this.peerSyncMeta.set(task.peerId, {
+          lastAckAt: this.peerSyncMeta.get(task.peerId)?.lastAckAt || null,
+          lastErrorAt: this.syncStats.lastErrorAt,
+          lastError: this.syncStats.lastError,
+          lastCounter: Number(this.peerSyncMeta.get(task.peerId)?.lastCounter || 0)
+        });
+
+        if (task.attempt >= SYNC_MAX_ATTEMPTS) {
+          task.done = true;
+          this.syncStats.dropped += 1;
+          continue;
+        }
+
+        this.syncStats.retried += 1;
+        const backoffMs = Math.min(15000, 1000 * Math.pow(2, task.attempt));
+        task.nextAttemptAt = Date.now() + backoffMs;
+        task.lastError = String(error?.message || "Retry scheduled");
+      }
+    }
+
+    this.syncOutbox = this.syncOutbox.filter((task) => !task.done);
+  }
+
+  async rotateWorkspaceKeys(peerId) {
+    const targetPeerId = String(peerId || "").trim();
+    const peers = targetPeerId
+      ? this.state.trustedPeers.filter((peer) => peer.peerId === targetPeerId)
+      : [...this.state.trustedPeers];
+
+    if (!peers.length) {
+      throw new Error("No trusted peer found for key rotation.");
+    }
+
+    const results = [];
+    for (const peer of peers) {
+      const oldKey = ensureWorkspaceKey(peer.workspaceKey);
+      const newKey = randomHex(32);
+      const encrypted = encryptWithWorkspaceKey(oldKey, {
+        type: "rekey",
+        fromPeerId: this.state.deviceId,
+        newWorkspaceKey: newKey,
+        createdAt: new Date().toISOString()
+      });
+
+      const response = await this.requestPeer({
+        address: peer.address,
+        listenPort: peer.listenPort,
+        payload: {
+          type: "rekey-request",
+          fromPeerId: this.state.deviceId,
+          encrypted
+        }
+      });
+
+      if (!response?.ok) {
+        throw new Error(response?.error || `Failed to rotate key for ${peer.name}`);
+      }
+
+      this.upsertTrustedPeer({
+        ...peer,
+        workspaceKey: newKey,
+        lastSeenAt: new Date().toISOString()
+      });
+
+      results.push({ peerId: peer.peerId, name: peer.name });
+    }
+
+    return {
+      rotated: results.length,
+      peers: results
+    };
+  }
+
+  async runSyncSelfTest() {
+    const startedAt = new Date().toISOString();
+    const event = {
+      eventId: randomHex(8),
+      peerId: this.state.deviceId,
+      timestamp: startedAt,
+      docId: "health/self-test.md",
+      op: "update",
+      baseHash: "base",
+      newHash: "next",
+      payload: {
+        relativePath: "health/self-test.md",
+        content: "self-test",
+        baseContent: "base",
+        delta: { rawNotes: "self-test" }
+      }
+    };
+
+    const workspaceKey = randomHex(32);
+    const encrypted = encryptWithWorkspaceKey(workspaceKey, event);
+    const decrypted = decryptWithWorkspaceKey(workspaceKey, encrypted);
+    const cryptoOk = Boolean(decrypted && decrypted.eventId === event.eventId && decrypted.docId === event.docId);
+
+    await this.drainSyncOutbox();
+
+    return {
+      ok: cryptoOk,
+      startedAt,
+      trustedPeers: this.state.trustedPeers.length,
+      outboxCount: this.syncOutbox.length,
+      cryptoRoundTrip: cryptoOk ? "pass" : "fail"
+    };
+  }
+
   async broadcastSyncEvent(event) {
     const syncEvent = {
       eventId: String(event?.eventId || randomHex(10)),
@@ -656,25 +909,16 @@ class P2PLiveService {
     const trustedPeers = this.state.trustedPeers
       .filter((peer) => peer.peerId && peer.listenPort && peer.address && peer.workspaceKey);
 
-    const results = await Promise.allSettled(trustedPeers.map(async (peer) => {
-      const encrypted = encryptWithWorkspaceKey(peer.workspaceKey, syncEvent);
-      await this.requestPeer({
-        address: peer.address,
-        listenPort: peer.listenPort,
-        payload: {
-          type: "sync-event",
-          fromPeerId: this.state.deviceId,
-          eventId: syncEvent.eventId,
-          encrypted
-        }
-      });
-      return { peerId: peer.peerId };
-    }));
+    trustedPeers.forEach((peer) => this.queueSyncDelivery(peer, syncEvent));
+    await this.drainSyncOutbox();
 
     return {
       eventId: syncEvent.eventId,
       attempted: trustedPeers.length,
-      delivered: results.filter((item) => item.status === "fulfilled").length
+      delivered: trustedPeers.filter((peer) => {
+        const meta = this.peerSyncMeta.get(peer.peerId);
+        return meta && meta.lastCounter === this.outgoingSyncCounters.get(peer.peerId);
+      }).length
     };
   }
 
@@ -739,6 +983,23 @@ class P2PLiveService {
         expiresAt: new Date(invite.expiresAt).toISOString()
       }));
 
+    const outbox = this.syncOutbox.map((task) => ({
+      id: task.id,
+      peerId: task.peerId,
+      eventId: task.eventId,
+      attempt: task.attempt,
+      nextAttemptAt: new Date(task.nextAttemptAt).toISOString(),
+      lastError: task.lastError || ""
+    }));
+
+    const peerSyncMeta = Array.from(this.peerSyncMeta.entries()).map(([peerId, meta]) => ({
+      peerId,
+      lastAckAt: meta?.lastAckAt || null,
+      lastErrorAt: meta?.lastErrorAt || null,
+      lastError: meta?.lastError || "",
+      lastCounter: Number(meta?.lastCounter || 0)
+    }));
+
     return {
       available: true,
       source: this.statePath,
@@ -765,7 +1026,13 @@ class P2PLiveService {
       })),
       discoveredPeers,
       trustedPeers: trustedPeerStatus,
-      invites: activeInvites
+      invites: activeInvites,
+      sync: {
+        outboxCount: outbox.length,
+        stats: { ...this.syncStats },
+        outbox,
+        peerMeta: peerSyncMeta
+      }
     };
   }
 }

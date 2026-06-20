@@ -461,6 +461,28 @@ button {
   opacity: 0.8;
 }
 
+.p2p-conflict-center {
+  margin-top: 8px;
+  overflow: auto;
+  max-height: calc(100vh - 200px);
+}
+
+.p2p-conflict-actions {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.p2p-test-pass {
+  color: #16653b;
+  font-weight: 700;
+}
+
+.p2p-test-fail {
+  color: #9b1c1c;
+  font-weight: 700;
+}
+
 .p2p-status-peer-table {
   width: 100%;
   border-collapse: collapse;

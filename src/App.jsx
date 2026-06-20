@@ -31,7 +31,11 @@ import {
   pairP2PWithCode,
   manualP2PConnect,
   removeTrustedP2PPeer,
+  rotateP2PWorkspaceKeys,
+  runP2PSyncSelfTest,
+  listP2PSyncConflicts,
   getWorkspaceActivity,
+  openInEditor as openInEditorPath,
   updateMenuContext,
 } from "./services/electronService";
 
@@ -100,6 +104,12 @@ export default function App() {
   const [workspaceActivityLoading, setWorkspaceActivityLoading] = useState(false);
   const [workspaceActivity, setWorkspaceActivity] = useState(null);
   const [p2pSyncHelpOpen, setP2PSyncHelpOpen] = useState(false);
+  const [syncSelfTestOpen, setSyncSelfTestOpen] = useState(false);
+  const [syncSelfTestLoading, setSyncSelfTestLoading] = useState(false);
+  const [syncSelfTestResult, setSyncSelfTestResult] = useState(null);
+  const [conflictCenterOpen, setConflictCenterOpen] = useState(false);
+  const [conflictCenterLoading, setConflictCenterLoading] = useState(false);
+  const [conflictCenterData, setConflictCenterData] = useState(null);
 
   const terminalCwd = current?.filePath
     ? current.filePath.replace(/[\\/][^\\/]+$/, "")
@@ -649,6 +659,57 @@ export default function App() {
     }
   }
 
+  async function handleRotateP2PWorkspaceKeys(peerId) {
+    try {
+      setP2PStatusLoading(true);
+      const result = await rotateP2PWorkspaceKeys(peerId);
+      await refreshP2PStatus();
+      const count = Number(result?.rotated || 0);
+      notify(`Workspace key rotated for ${count} peer${count === 1 ? "" : "s"}.`, "success");
+    } catch (err) {
+      notify(err?.message || "Unable to rotate workspace keys.", "error");
+    } finally {
+      setP2PStatusLoading(false);
+    }
+  }
+
+  async function handleRunP2PSyncSelfTest() {
+    setSyncSelfTestOpen(true);
+    setSyncSelfTestLoading(true);
+    try {
+      const result = await runP2PSyncSelfTest();
+      setSyncSelfTestResult(result);
+      notify(result?.ok ? "P2P sync self-test passed." : "P2P sync self-test failed.", result?.ok ? "success" : "error");
+    } catch (err) {
+      setSyncSelfTestResult({ ok: false, error: err?.message || "Self-test failed." });
+      notify(err?.message || "Unable to run sync self-test.", "error");
+    } finally {
+      setSyncSelfTestLoading(false);
+    }
+  }
+
+  async function handleOpenConflictCenter() {
+    setConflictCenterOpen(true);
+    setConflictCenterLoading(true);
+    try {
+      const data = await listP2PSyncConflicts(250);
+      setConflictCenterData(data);
+    } catch (err) {
+      notify(err?.message || "Unable to load conflict center.", "error");
+      setConflictCenterData({ total: 0, conflicts: [] });
+    } finally {
+      setConflictCenterLoading(false);
+    }
+  }
+
+  async function handleOpenConflictFile(filePath) {
+    try {
+      await openInEditorPath(filePath);
+    } catch (err) {
+      notify(err?.message || "Unable to open conflict file.", "error");
+    }
+  }
+
   useEffect(() => {
     loadDocumentsData();
   }, []);
@@ -706,6 +767,21 @@ export default function App() {
 
       if (action === "open-p2p-sync-help") {
         setP2PSyncHelpOpen(true);
+        return;
+      }
+
+      if (action === "run-p2p-sync-self-test") {
+        handleRunP2PSyncSelfTest();
+        return;
+      }
+
+      if (action === "rotate-p2p-workspace-keys") {
+        handleRotateP2PWorkspaceKeys();
+        return;
+      }
+
+      if (action === "open-p2p-conflicts") {
+        handleOpenConflictCenter();
         return;
       }
 
@@ -1017,6 +1093,7 @@ export default function App() {
               onPairWithCode={handlePairP2PWithCode}
               onManualConnect={handleManualP2PConnect}
               onRemoveTrustedPeer={handleRemoveTrustedP2PPeer}
+              onRotateWorkspaceKeys={handleRotateP2PWorkspaceKeys}
             />
           </div>
         </div>
@@ -1049,12 +1126,12 @@ export default function App() {
         <div className="overlay-dialog" role="dialog" aria-modal="true" aria-label="P2P sync notes">
           <div className="overlay-dialog-card">
             <div className="overlay-dialog-header">
-              <h2>P2P Sync Notes</h2>
+              <h2>How P2P Sync Works</h2>
               <button
                 className="icon-button"
                 onClick={() => setP2PSyncHelpOpen(false)}
                 type="button"
-                aria-label="Close P2P sync notes"
+                aria-label="Close P2P sync help"
               >
                 <X size={16} />
               </button>
@@ -1069,13 +1146,116 @@ export default function App() {
                 <li>Sync: create, update, and delete note events are shared between trusted peers.</li>
               </ol>
               <p><strong>File sync status</strong></p>
-              <p>Automatic note sync is enabled for trusted peers using encrypted sync events.</p>
+              <p>Automatic note sync is enabled for trusted peers using AES-256-GCM encrypted sync events.</p>
               <p><strong>Planned next phase</strong></p>
               <ol>
                 <li>Replace full-content updates with true section/line deltas.</li>
                 <li>Add richer conflict resolution UI (manual choose/merge).</li>
                 <li>Add delivery retry queues and offline reconciliation.</li>
               </ol>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {syncSelfTestOpen ? (
+        <div className="overlay-dialog" role="dialog" aria-modal="true" aria-label="P2P sync self-test">
+          <div className="overlay-dialog-card">
+            <div className="overlay-dialog-header">
+              <h2>P2P Sync Self-Test</h2>
+              <button
+                className="icon-button"
+                onClick={() => setSyncSelfTestOpen(false)}
+                type="button"
+                aria-label="Close sync self-test"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p2p-sync-help-content">
+              {syncSelfTestLoading ? (
+                <p>Running self-test...</p>
+              ) : syncSelfTestResult ? (
+                <>
+                  <p>
+                    <strong>Result:</strong>{" "}
+                    <span className={syncSelfTestResult.ok ? "p2p-test-pass" : "p2p-test-fail"}>
+                      {syncSelfTestResult.ok ? "PASS" : "FAIL"}
+                    </span>
+                  </p>
+                  <p><strong>Crypto round-trip:</strong> {syncSelfTestResult.cryptoRoundTrip || "N/A"}</p>
+                  <p><strong>Trusted peers:</strong> {syncSelfTestResult.trustedPeers ?? "N/A"}</p>
+                  <p><strong>Outbox count:</strong> {syncSelfTestResult.outboxCount ?? "N/A"}</p>
+                  {syncSelfTestResult.error ? (
+                    <p className="p2p-test-fail"><strong>Error:</strong> {syncSelfTestResult.error}</p>
+                  ) : null}
+                </>
+              ) : (
+                <p>No result yet.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {conflictCenterOpen ? (
+        <div className="overlay-dialog" role="dialog" aria-modal="true" aria-label="P2P conflict center">
+          <div className="overlay-dialog-card p2p-status-dialog-card">
+            <div className="overlay-dialog-header">
+              <h2>Conflict Center</h2>
+              <button
+                className="icon-button"
+                onClick={() => setConflictCenterOpen(false)}
+                type="button"
+                aria-label="Close conflict center"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p2p-conflict-center">
+              {conflictCenterLoading ? (
+                <p className="p2p-status-table-empty">Loading conflicts...</p>
+              ) : !conflictCenterData?.conflicts?.length ? (
+                <p className="p2p-status-table-empty">No unresolved sync conflicts.</p>
+              ) : (
+                <table className="p2p-status-peer-table">
+                  <thead>
+                    <tr>
+                      <th>Note</th>
+                      <th>Conflict File</th>
+                      <th>When</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {conflictCenterData.conflicts.map((entry) => (
+                      <tr key={entry.id}>
+                        <td className="mono-cell">{entry.relativePath || entry.filePath}</td>
+                        <td className="mono-cell" title={entry.conflictPath}>
+                          {entry.conflictPath.split(/[\\/]/).pop()}
+                        </td>
+                        <td>{entry.createdAt ? new Date(entry.createdAt).toLocaleString() : "Unknown"}</td>
+                        <td className="p2p-conflict-actions">
+                          <button
+                            className="small-button"
+                            type="button"
+                            onClick={() => handleOpenConflictFile(entry.filePath)}
+                          >
+                            Open Local
+                          </button>
+                          <button
+                            className="small-button"
+                            type="button"
+                            onClick={() => handleOpenConflictFile(entry.conflictPath)}
+                          >
+                            Open Conflict
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </div>
