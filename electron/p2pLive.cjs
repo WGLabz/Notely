@@ -11,6 +11,39 @@ const DISCOVERY_STALE_MS = 20000;
 const INVITE_TTL_MS = 5 * 60 * 1000;
 const SOCKET_TIMEOUT_MS = 4000;
 
+function ensureWorkspaceKey(value) {
+  const key = String(value || "").trim().toLowerCase();
+  if (/^[a-f0-9]{64}$/.test(key)) {
+    return key;
+  }
+  return randomHex(32);
+}
+
+function encryptWithWorkspaceKey(workspaceKey, payload) {
+  const keyBuffer = Buffer.from(ensureWorkspaceKey(workspaceKey), "hex");
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", keyBuffer, iv);
+  const json = JSON.stringify(payload);
+  const encrypted = Buffer.concat([cipher.update(json, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return {
+    iv: iv.toString("base64"),
+    tag: tag.toString("base64"),
+    payload: encrypted.toString("base64")
+  };
+}
+
+function decryptWithWorkspaceKey(workspaceKey, encrypted) {
+  const keyBuffer = Buffer.from(ensureWorkspaceKey(workspaceKey), "hex");
+  const iv = Buffer.from(String(encrypted?.iv || ""), "base64");
+  const tag = Buffer.from(String(encrypted?.tag || ""), "base64");
+  const payload = Buffer.from(String(encrypted?.payload || ""), "base64");
+  const decipher = crypto.createDecipheriv("aes-256-gcm", keyBuffer, iv);
+  decipher.setAuthTag(tag);
+  const decoded = Buffer.concat([decipher.update(payload), decipher.final()]);
+  return safeJsonParse(decoded.toString("utf8"));
+}
+
 function randomHex(bytes) {
   return crypto.randomBytes(bytes).toString("hex");
 }
@@ -47,10 +80,11 @@ function ensureDir(dirPath) {
 }
 
 class P2PLiveService {
-  constructor({ storageDir, logger = console }) {
+  constructor({ storageDir, logger = console, onSyncEvent = null }) {
     this.logger = logger;
     this.storageDir = storageDir;
     this.statePath = path.join(storageDir, "p2p-live-state.json");
+    this.onSyncEvent = typeof onSyncEvent === "function" ? onSyncEvent : null;
 
     this.discoverySocket = null;
     this.discoveryTimer = null;
@@ -61,6 +95,7 @@ class P2PLiveService {
 
     this.discoveredPeers = new Map();
     this.pendingInvites = new Map();
+    this.receivedEventIds = new Set();
 
     this.state = {
       deviceId: randomHex(8),
@@ -111,6 +146,7 @@ class P2PLiveService {
           name: String(peer.name || "Unknown peer"),
           address: normalizeAddress(peer.address),
           listenPort: Number(peer.listenPort) || 0,
+          workspaceKey: ensureWorkspaceKey(peer.workspaceKey),
           pairedAt: String(peer.pairedAt || new Date().toISOString()),
           lastSeenAt: String(peer.lastSeenAt || "")
         }))
@@ -344,6 +380,7 @@ class P2PLiveService {
         name: fromName,
         address: normalizeAddress(socket.remoteAddress),
         listenPort: fromListenPort,
+        workspaceKey: ensureWorkspaceKey(invite.workspaceKey),
         pairedAt: new Date().toISOString(),
         lastSeenAt: new Date().toISOString()
       });
@@ -353,8 +390,64 @@ class P2PLiveService {
         peerId: this.state.deviceId,
         name: this.state.deviceName,
         listenPort: this.listenPort,
+        workspaceKey: ensureWorkspaceKey(invite.workspaceKey),
         pairedAt: new Date().toISOString()
       })}\n`);
+      socket.end();
+      return;
+    }
+
+    if (message.type === "sync-event") {
+      const fromPeerId = String(message.fromPeerId || "").trim();
+      const eventId = String(message.eventId || "").trim();
+      if (!fromPeerId || !eventId) {
+        socket.write(`${JSON.stringify({ ok: false, error: "Sync event metadata missing." })}\n`);
+        socket.end();
+        return;
+      }
+
+      if (this.receivedEventIds.has(eventId)) {
+        socket.write(`${JSON.stringify({ ok: true, duplicate: true })}\n`);
+        socket.end();
+        return;
+      }
+
+      const trustedPeer = this.state.trustedPeers.find((entry) => entry.peerId === fromPeerId);
+      if (!trustedPeer || !trustedPeer.workspaceKey) {
+        socket.write(`${JSON.stringify({ ok: false, error: "Peer not trusted for sync." })}\n`);
+        socket.end();
+        return;
+      }
+
+      let decrypted = null;
+      try {
+        decrypted = decryptWithWorkspaceKey(trustedPeer.workspaceKey, message.encrypted);
+      } catch {
+        decrypted = null;
+      }
+      if (!decrypted || typeof decrypted !== "object") {
+        socket.write(`${JSON.stringify({ ok: false, error: "Unable to decrypt sync payload." })}\n`);
+        socket.end();
+        return;
+      }
+
+      this.receivedEventIds.add(eventId);
+      if (this.receivedEventIds.size > 2000) {
+        const ids = Array.from(this.receivedEventIds);
+        this.receivedEventIds = new Set(ids.slice(ids.length - 1000));
+      }
+
+      if (this.onSyncEvent) {
+        Promise.resolve(this.onSyncEvent({
+          peerId: fromPeerId,
+          peerName: trustedPeer.name,
+          event: decrypted
+        })).catch((error) => {
+          this.logger.error("[p2p] sync apply callback failed", error);
+        });
+      }
+
+      socket.write(`${JSON.stringify({ ok: true })}\n`);
       socket.end();
       return;
     }
@@ -456,6 +549,7 @@ class P2PLiveService {
       inviteId,
       code: createReadableInviteCode(),
       targetPeerId: peerId || null,
+      workspaceKey: randomHex(32),
       createdAt: Date.now(),
       expiresAt: Date.now() + INVITE_TTL_MS,
       used: false
@@ -509,6 +603,7 @@ class P2PLiveService {
       name: String(peer.name || response.name || "Unknown peer"),
       address: normalizeAddress(peer.address),
       listenPort: Number(response.listenPort || peer.listenPort) || 0,
+      workspaceKey: ensureWorkspaceKey(response.workspaceKey),
       pairedAt: response.pairedAt || new Date().toISOString(),
       lastSeenAt: new Date().toISOString()
     });
@@ -542,6 +637,47 @@ class P2PLiveService {
     return true;
   }
 
+  async broadcastSyncEvent(event) {
+    const syncEvent = {
+      eventId: String(event?.eventId || randomHex(10)),
+      peerId: this.state.deviceId,
+      timestamp: event?.timestamp || new Date().toISOString(),
+      docId: String(event?.docId || "").trim(),
+      op: String(event?.op || "").trim(),
+      baseHash: event?.baseHash ? String(event.baseHash) : null,
+      newHash: event?.newHash ? String(event.newHash) : null,
+      payload: event?.payload && typeof event.payload === "object" ? event.payload : {}
+    };
+
+    if (!syncEvent.docId || !syncEvent.op) {
+      throw new Error("Sync event requires docId and op.");
+    }
+
+    const trustedPeers = this.state.trustedPeers
+      .filter((peer) => peer.peerId && peer.listenPort && peer.address && peer.workspaceKey);
+
+    const results = await Promise.allSettled(trustedPeers.map(async (peer) => {
+      const encrypted = encryptWithWorkspaceKey(peer.workspaceKey, syncEvent);
+      await this.requestPeer({
+        address: peer.address,
+        listenPort: peer.listenPort,
+        payload: {
+          type: "sync-event",
+          fromPeerId: this.state.deviceId,
+          eventId: syncEvent.eventId,
+          encrypted
+        }
+      });
+      return { peerId: peer.peerId };
+    }));
+
+    return {
+      eventId: syncEvent.eventId,
+      attempted: trustedPeers.length,
+      delivered: results.filter((item) => item.status === "fulfilled").length
+    };
+  }
+
   upsertTrustedPeer(peer) {
     const existingIndex = this.state.trustedPeers.findIndex((entry) => entry.peerId === peer.peerId);
     const next = {
@@ -549,6 +685,7 @@ class P2PLiveService {
       name: String(peer.name || "Unknown peer"),
       address: normalizeAddress(peer.address),
       listenPort: Number(peer.listenPort) || 0,
+      workspaceKey: ensureWorkspaceKey(peer.workspaceKey),
       pairedAt: String(peer.pairedAt || new Date().toISOString()),
       lastSeenAt: String(peer.lastSeenAt || new Date().toISOString())
     };
@@ -584,6 +721,15 @@ class P2PLiveService {
     const trustedPeers = [...this.state.trustedPeers]
       .sort((a, b) => String(a.name).localeCompare(String(b.name)));
 
+    const trustedPeerStatus = trustedPeers.map((peer) => ({
+      peerId: peer.peerId,
+      name: peer.name,
+      address: peer.address,
+      listenPort: peer.listenPort,
+      pairedAt: peer.pairedAt,
+      lastSeenAt: peer.lastSeenAt
+    }));
+
     const activeInvites = Array.from(this.pendingInvites.values())
       .filter((invite) => !invite.used && Date.now() <= invite.expiresAt)
       .map((invite) => ({
@@ -609,16 +755,16 @@ class P2PLiveService {
       },
       peerCount: discoveredPeers.length,
       trustedLinkCount: trustedPeers.length,
-      workspaceKeyCount: 0,
-      peers: trustedPeers.map((peer) => ({
+      workspaceKeyCount: trustedPeers.filter((peer) => peer.workspaceKey).length,
+      peers: trustedPeerStatus.map((peer) => ({
         name: peer.name,
         peerId: peer.peerId,
         trustedPeerCount: 0,
-        workspaceKeyCount: 0,
+        workspaceKeyCount: 1,
         inboxCount: 0
       })),
       discoveredPeers,
-      trustedPeers,
+      trustedPeers: trustedPeerStatus,
       invites: activeInvites
     };
   }

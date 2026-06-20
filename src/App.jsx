@@ -1066,14 +1066,15 @@ export default function App() {
                 <li>Connect: you can manually ping a peer by address and port.</li>
                 <li>Pairing: one peer creates an invite code, the other submits the code to establish trust.</li>
                 <li>Trust state: trusted peers are saved locally on each device.</li>
+                <li>Sync: create, update, and delete note events are shared between trusted peers.</li>
               </ol>
               <p><strong>File sync status</strong></p>
-              <p>Automatic note file and note content sync is not enabled yet in the current live P2P phase.</p>
+              <p>Automatic note sync is enabled for trusted peers using encrypted sync events.</p>
               <p><strong>Planned next phase</strong></p>
               <ol>
-                <li>Detect note create/update/delete events.</li>
-                <li>Send encrypted note deltas to trusted peers.</li>
-                <li>Apply updates with conflict handling and activity logging.</li>
+                <li>Replace full-content updates with true section/line deltas.</li>
+                <li>Add richer conflict resolution UI (manual choose/merge).</li>
+                <li>Add delivery retry queues and offline reconciliation.</li>
               </ol>
             </div>
           </div>
