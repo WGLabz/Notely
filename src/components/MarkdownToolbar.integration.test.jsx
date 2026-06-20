@@ -96,4 +96,42 @@ describe("MarkdownToolbar validation panel interactions", () => {
 
     view.unmount();
   });
+
+  it("wires undo/redo toolbar buttons", () => {
+    const onChange = vi.fn();
+    const onUndo = vi.fn();
+    const onRedo = vi.fn();
+
+    const view = renderToolbar({
+      value: "Example",
+      onChange,
+      onUndo,
+      onRedo,
+      canUndo: true,
+      canRedo: false,
+      textareaRef: { current: null },
+      basePath: "",
+      onNotify: vi.fn(),
+      validationStatus: "ready",
+      validationIssues: [],
+      onJumpToLine: vi.fn(),
+    });
+
+    const undoButton = view.host.querySelector('button[title="Undo (Ctrl/Cmd+Z)"]');
+    const redoButton = view.host.querySelector('button[title="Redo (Ctrl/Cmd+Y)"]');
+
+    expect(undoButton).toBeTruthy();
+    expect(redoButton).toBeTruthy();
+    expect(undoButton.disabled).toBe(false);
+    expect(redoButton.disabled).toBe(true);
+
+    act(() => {
+      undoButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(onUndo).toHaveBeenCalledTimes(1);
+    expect(onRedo).not.toHaveBeenCalled();
+
+    view.unmount();
+  });
 });

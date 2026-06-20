@@ -3,6 +3,8 @@ import {
   Heading2,
   Bold,
   Italic,
+  Undo2,
+  Redo2,
   List,
   CheckCircle2,
   Quote,
@@ -66,6 +68,10 @@ export function MarkdownToolbar({
   validationIssues = [],
   validationStatus = "idle",
   onJumpToLine,
+  onUndo,
+  onRedo,
+  canUndo = false,
+  canRedo = false,
 }) {
   const imageInputRef = useRef(null);
   const mermaidPopoverRef = useRef(null);
@@ -467,6 +473,12 @@ export function MarkdownToolbar({
 
   return (
     <div className="editor-toolbar" aria-label="Markdown formatting toolbar">
+      <button onClick={() => onUndo?.()} title="Undo (Ctrl/Cmd+Z)" disabled={!canUndo}>
+        <Undo2 size={18} />
+      </button>
+      <button onClick={() => onRedo?.()} title="Redo (Ctrl/Cmd+Y)" disabled={!canRedo}>
+        <Redo2 size={18} />
+      </button>
       {snippets.map((snippet) => (
         <button
           key={snippet.key}

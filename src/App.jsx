@@ -118,8 +118,10 @@ export default function App() {
     setHistory(await getHistory(filePath));
   }
 
-  async function saveDocument() {
+  async function saveDocument(options = {}) {
     if (!current) return;
+    const reason = options?.reason || "manual-save";
+    const silent = Boolean(options?.silent);
     setSaving(true);
     setError("");
 
@@ -129,7 +131,7 @@ export default function App() {
         header: current.header,
         rawNotes: current.rawNotes,
         cleansed: current.cleansed,
-        reason: "manual-save",
+        reason,
       });
       setCurrent(saved);
       setSavedHash(
@@ -141,10 +143,14 @@ export default function App() {
       );
       setHistory(await getHistory(saved.filePath));
       await loadDocumentsData();
-      notify("Document saved.", "success");
+      if (!silent) {
+        notify("Document saved.", "success");
+      }
     } catch (err) {
       setError(err?.message || "Unable to save document.");
-      notify(err?.message || "Unable to save document.", "error");
+      if (!silent) {
+        notify(err?.message || "Unable to save document.", "error");
+      }
     } finally {
       setSaving(false);
     }

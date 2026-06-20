@@ -21,6 +21,9 @@ export function MarkdownEditor({
   validationIssues = [],
   onJumpToLine,
   focusedLine = 1,
+  onUndo,
+  onRedo,
+  onOpenFind,
 }) {
   const gutterRef = useRef(null);
   const issueLayerRef = useRef(null);
@@ -142,6 +145,34 @@ export function MarkdownEditor({
     });
   };
 
+  const handleKeyDown = (event) => {
+    const isModifierPressed = event.ctrlKey || event.metaKey;
+    if (!isModifierPressed) return;
+
+    const key = String(event.key || "").toLowerCase();
+    const wantsRedoWithY = key === "y";
+    const wantsRedoWithShiftZ = key === "z" && event.shiftKey;
+    const wantsUndo = key === "z" && !event.shiftKey;
+    const wantsFind = key === "f";
+
+    if (wantsFind) {
+      event.preventDefault();
+      onOpenFind?.();
+      return;
+    }
+
+    if (wantsUndo) {
+      event.preventDefault();
+      onUndo?.();
+      return;
+    }
+
+    if (wantsRedoWithY || wantsRedoWithShiftZ) {
+      event.preventDefault();
+      onRedo?.();
+    }
+  };
+
   const applyIssueAction = (issue) => {
     if (!issue) return;
 
@@ -218,6 +249,7 @@ export function MarkdownEditor({
             className="markdown-textarea with-line-numbers"
             value={value}
             onChange={(event) => onChange(event.target.value)}
+            onKeyDown={handleKeyDown}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
             onScroll={handleEditorScroll}

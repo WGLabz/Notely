@@ -14,6 +14,11 @@ export function EditorPane({
   basePath,
   showToolbar = true,
   onNotify,
+  onUndo,
+  onRedo,
+  canUndo = false,
+  canRedo = false,
+  onOpenFind,
 }) {
   const previewRef = useRef(null);
   const [focusedLine, setFocusedLine] = useState(1);
@@ -114,6 +119,9 @@ export function EditorPane({
       validationIssues={validationIssues}
       onJumpToLine={jumpToLine}
       focusedLine={focusedLine}
+      onUndo={onUndo}
+      onRedo={onRedo}
+      onOpenFind={onOpenFind}
     />
   );
 
@@ -143,6 +151,10 @@ export function EditorPane({
                 validationIssues={validationIssues}
                 validationStatus={validationStatus}
                 onJumpToLine={jumpToLine}
+                onUndo={onUndo}
+                onRedo={onRedo}
+                canUndo={canUndo}
+                canRedo={canRedo}
               />
             </div>
           ) : null}
@@ -176,6 +188,10 @@ export function EditorPane({
             validationIssues={validationIssues}
             validationStatus={validationStatus}
             onJumpToLine={jumpToLine}
+            onUndo={onUndo}
+            onRedo={onRedo}
+            canUndo={canUndo}
+            canRedo={canRedo}
           />
         </div>
       ) : null}

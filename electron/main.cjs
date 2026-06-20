@@ -2185,25 +2185,31 @@ ipcMain.handle("documents:save", (_event, payload) => {
     throw new Error("Invalid document path.");
   }
 
-  const previous = fs.readFileSync(resolved, "utf8");
-  const slug = slugify(path.basename(resolved));
-  const versionDir = path.join(versionsRoot, slug);
-  ensureDir(versionDir);
+  const saveReason = String(payload?.reason || "manual-save");
+  const isAutoSave = saveReason === "autosave";
 
-  const stamp = nowStamp();
-  const versionPath = path.join(versionDir, `${stamp}.md`);
-  fs.writeFileSync(versionPath, previous, "utf8");
+  const previous = fs.readFileSync(resolved, "utf8");
 
   const next = buildDocumentContent(payload);
   fs.writeFileSync(resolved, next, "utf8");
 
-  metadataStore.addHistory({
-    filePath: resolved,
-    versionPath,
-    fileHash: hashContent(previous),
-    reason: payload.reason || "manual-save",
-    createdAt: new Date().toISOString()
-  });
+  if (!isAutoSave) {
+    const slug = slugify(path.basename(resolved));
+    const versionDir = path.join(versionsRoot, slug);
+    ensureDir(versionDir);
+
+    const stamp = nowStamp();
+    const versionPath = path.join(versionDir, `${stamp}.md`);
+    fs.writeFileSync(versionPath, previous, "utf8");
+
+    metadataStore.addHistory({
+      filePath: resolved,
+      versionPath,
+      fileHash: hashContent(previous),
+      reason: saveReason,
+      createdAt: new Date().toISOString()
+    });
+  }
 
   return parseDocument(next, resolved);
 });

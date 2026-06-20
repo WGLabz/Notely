@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useMemo } from "react";
 import {
   Home,
   Save,
@@ -22,6 +22,8 @@ import {
   X,
   Filter,
   Sparkles,
+  Search,
+  ListTree,
 } from "lucide-react";
 import { EditorPane } from "./EditorPane";
 import { MediaTab } from "./MediaTab";
@@ -114,6 +116,71 @@ function buildVisibleRows(rows, options = {}) {
   return output;
 }
 
+const AUTOSAVE_PREF_KEY = "notely:autosave-enabled";
+const AUTOSAVE_DELAY_MS = 1200;
+const DRAFT_SAVE_DELAY_MS = 450;
+const DRAFT_NAMESPACE = "notely:draft:";
+
+function escapeRegExp(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function getDraftStorageKey(filePath) {
+  return `${DRAFT_NAMESPACE}${encodeURIComponent(filePath || "")}`;
+}
+
+function readDraftSnapshot(filePath) {
+  if (!filePath || typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(getDraftStorageKey(filePath));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeDraftSnapshot(filePath, snapshot) {
+  if (!filePath || typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(getDraftStorageKey(filePath), JSON.stringify(snapshot));
+  } catch {
+    // Ignore storage quota and serialization failures.
+  }
+}
+
+function clearDraftSnapshot(filePath) {
+  if (!filePath || typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(getDraftStorageKey(filePath));
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function collectMatches(text, query, caseSensitive) {
+  const source = String(text || "");
+  const needle = String(query || "");
+  if (!needle) return [];
+
+  const haystack = caseSensitive ? source : source.toLowerCase();
+  const searchNeedle = caseSensitive ? needle : needle.toLowerCase();
+  const output = [];
+  let fromIndex = 0;
+
+  while (fromIndex <= haystack.length) {
+    const at = haystack.indexOf(searchNeedle, fromIndex);
+    if (at === -1) break;
+    output.push({ start: at, end: at + needle.length });
+    fromIndex = at + Math.max(searchNeedle.length, 1);
+  }
+
+  return output;
+}
+
 export function DocumentDetail({
   document,
   history,
@@ -129,8 +196,14 @@ export function DocumentDetail({
   onHome,
   onNotify,
 }) {
+  const MAX_EDITOR_HISTORY = 200;
   const textareaRef = useRef(null);
   const pdfPopoverRef = useRef(null);
+  const historyStateRef = useRef({
+    raw: { undo: [], redo: [] },
+    cleansed: { undo: [], redo: [] },
+  });
+  const applyingHistoryRef = useRef(false);
   const [isHistoryPanelCollapsed, setIsHistoryPanelCollapsed] = useState(false);
   const [compareModalOpen, setCompareModalOpen] = useState(false);
   const [compareLoading, setCompareLoading] = useState(false);
@@ -141,6 +214,24 @@ export function DocumentDetail({
   const [pdfExporting, setPdfExporting] = useState(false);
   const [pdfOptionsOpen, setPdfOptionsOpen] = useState(false);
   const [pdfExportMode, setPdfExportMode] = useState("formal");
+  const [autosaveEnabled, setAutosaveEnabled] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.localStorage.getItem(AUTOSAVE_PREF_KEY) === "true";
+    } catch {
+      return false;
+    }
+  });
+  const [lastAutoSaveAt, setLastAutoSaveAt] = useState(0);
+  const [recoverableDraft, setRecoverableDraft] = useState(null);
+  const [draftChecked, setDraftChecked] = useState(false);
+  const [showFindReplace, setShowFindReplace] = useState(false);
+  const [findQuery, setFindQuery] = useState("");
+  const [replaceValue, setReplaceValue] = useState("");
+  const [findCaseSensitive, setFindCaseSensitive] = useState(false);
+  const [findMatchIndex, setFindMatchIndex] = useState(-1);
+  const [findMatchTotal, setFindMatchTotal] = useState(0);
+  const [isOutlineCollapsed, setIsOutlineCollapsed] = useState(false);
 
   useEffect(() => {
     if (!pdfOptionsOpen || typeof globalThis?.document === "undefined") return;
@@ -161,11 +252,289 @@ export function DocumentDetail({
   const content = activeTab === "raw" ? document.rawNotes : document.cleansed;
   const mediaContent = `${document.rawNotes || ""}\n\n${document.cleansed || ""}`.trim();
 
+  const activeEditorField = activeTab === "raw" ? "rawNotes" : "cleansed";
+  const activeHistoryKey = activeTab === "raw" ? "raw" : "cleansed";
+  const outlineHeadings = useMemo(() => {
+    if (activeTab === "media") return [];
+    const lines = String(content || "").split(/\r?\n/);
+    const headings = [];
+    lines.forEach((lineText, index) => {
+      const match = lineText.match(/^(#{1,6})\s+(.+)$/);
+      if (!match) return;
+      headings.push({
+        level: match[1].length,
+        text: match[2].trim(),
+        line: index + 1,
+      });
+    });
+    return headings;
+  }, [activeTab, content]);
+
+  useEffect(() => {
+    historyStateRef.current = {
+      raw: { undo: [], redo: [] },
+      cleansed: { undo: [], redo: [] },
+    };
+  }, [document.filePath]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(AUTOSAVE_PREF_KEY, autosaveEnabled ? "true" : "false");
+    } catch {
+      // Ignore preference persistence failures.
+    }
+  }, [autosaveEnabled]);
+
+  useEffect(() => {
+    const snapshot = readDraftSnapshot(document.filePath);
+    const isChanged = Boolean(snapshot) && (
+      snapshot.header !== (document.header || "")
+      || snapshot.rawNotes !== (document.rawNotes || "")
+      || snapshot.cleansed !== (document.cleansed || "")
+    );
+    setRecoverableDraft(isChanged ? snapshot : null);
+    setDraftChecked(true);
+  }, [document.filePath]);
+
+  useEffect(() => {
+    if (!draftChecked) return undefined;
+    if (!dirty) return undefined;
+
+    const timer = window.setTimeout(() => {
+      writeDraftSnapshot(document.filePath, {
+        header: document.header || "",
+        rawNotes: document.rawNotes || "",
+        cleansed: document.cleansed || "",
+        updatedAt: new Date().toISOString(),
+      });
+    }, DRAFT_SAVE_DELAY_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [draftChecked, dirty, document.filePath, document.header, document.rawNotes, document.cleansed]);
+
+  useEffect(() => {
+    if (!draftChecked) return;
+    if (dirty || recoverableDraft) return;
+    clearDraftSnapshot(document.filePath);
+  }, [draftChecked, dirty, recoverableDraft, document.filePath]);
+
+  useEffect(() => {
+    if (!autosaveEnabled || !dirty || saving || activeTab === "media") return undefined;
+
+    const timer = window.setTimeout(async () => {
+      await onSave({ reason: "autosave", silent: true });
+      setLastAutoSaveAt(Date.now());
+    }, AUTOSAVE_DELAY_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [autosaveEnabled, dirty, saving, activeTab, onSave, document.filePath, document.header, document.rawNotes, document.cleansed]);
+
+  useEffect(() => {
+    const total = collectMatches(content, findQuery, findCaseSensitive).length;
+    setFindMatchTotal(total);
+    if (!total) {
+      setFindMatchIndex(-1);
+    } else if (findMatchIndex >= total) {
+      setFindMatchIndex(total - 1);
+    }
+  }, [content, findQuery, findCaseSensitive, findMatchIndex]);
+
   const updateContent = (value) => {
+    if (value === content) return;
+
+    if (!applyingHistoryRef.current) {
+      const currentHistory = historyStateRef.current[activeHistoryKey];
+      currentHistory.undo.push(content);
+      if (currentHistory.undo.length > MAX_EDITOR_HISTORY) {
+        currentHistory.undo.shift();
+      }
+      currentHistory.redo = [];
+    }
+
     onChange({
       ...document,
-      [activeTab === "raw" ? "rawNotes" : "cleansed"]: value,
+      [activeEditorField]: value,
     });
+  };
+
+  const canUndo = activeTab !== "media" && historyStateRef.current[activeHistoryKey].undo.length > 0;
+  const canRedo = activeTab !== "media" && historyStateRef.current[activeHistoryKey].redo.length > 0;
+
+  const jumpToLine = (line) => {
+    const safeLine = Math.max(Number(line) || 1, 1);
+    if (mode !== "edit" && mode !== "split") {
+      setMode("edit");
+      requestAnimationFrame(() => jumpToLine(safeLine));
+      return;
+    }
+
+    const editor = textareaRef?.current;
+    if (!editor) return;
+
+    const lines = (content || "").split(/\r?\n/);
+    let startIndex = 0;
+    for (let index = 0; index < Math.min(safeLine - 1, lines.length); index += 1) {
+      startIndex += lines[index].length + 1;
+    }
+
+    editor.focus();
+    editor.selectionStart = startIndex;
+    editor.selectionEnd = startIndex;
+
+    const lineHeight = parseFloat(window.getComputedStyle(editor).lineHeight) || 20;
+    editor.scrollTop = Math.max(0, (safeLine - 1) * lineHeight - lineHeight * 3);
+  };
+
+  const openFindReplacePanel = () => {
+    setShowFindReplace(true);
+    const selectedText = textareaRef.current
+      ? textareaRef.current.value.slice(textareaRef.current.selectionStart, textareaRef.current.selectionEnd)
+      : "";
+    if (selectedText && !selectedText.includes("\n")) {
+      setFindQuery(selectedText);
+    }
+  };
+
+  const goToMatch = (nextIndex) => {
+    const editor = textareaRef.current;
+    if (!editor) return;
+
+    const matches = collectMatches(content, findQuery, findCaseSensitive);
+    if (!matches.length) {
+      setFindMatchIndex(-1);
+      return;
+    }
+
+    const safeIndex = ((nextIndex % matches.length) + matches.length) % matches.length;
+    const match = matches[safeIndex];
+
+    if (mode !== "edit" && mode !== "split") {
+      setMode("edit");
+    }
+
+    editor.focus();
+    editor.selectionStart = match.start;
+    editor.selectionEnd = match.end;
+    editor.scrollTop = Math.max(0, editor.scrollTop - 1);
+    setFindMatchIndex(safeIndex);
+    setFindMatchTotal(matches.length);
+  };
+
+  const handleFindNext = () => {
+    const editor = textareaRef.current;
+    const matches = collectMatches(content, findQuery, findCaseSensitive);
+    if (!editor || !matches.length) return;
+
+    const cursor = editor.selectionEnd;
+    const next = matches.findIndex((entry) => entry.start > cursor);
+    goToMatch(next === -1 ? 0 : next);
+  };
+
+  const handleFindPrevious = () => {
+    const editor = textareaRef.current;
+    const matches = collectMatches(content, findQuery, findCaseSensitive);
+    if (!editor || !matches.length) return;
+
+    const cursor = editor.selectionStart;
+    let previous = -1;
+    for (let index = 0; index < matches.length; index += 1) {
+      if (matches[index].start < cursor) previous = index;
+      else break;
+    }
+    goToMatch(previous === -1 ? matches.length - 1 : previous);
+  };
+
+  const replaceCurrentMatch = () => {
+    if (!findQuery) return;
+    const editor = textareaRef.current;
+    if (!editor) return;
+
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const selected = content.slice(start, end);
+    const expected = findCaseSensitive ? findQuery : findQuery.toLowerCase();
+    const actual = findCaseSensitive ? selected : selected.toLowerCase();
+
+    if (actual !== expected) {
+      handleFindNext();
+      return;
+    }
+
+    const nextValue = `${content.slice(0, start)}${replaceValue}${content.slice(end)}`;
+    updateContent(nextValue);
+
+    requestAnimationFrame(() => {
+      if (!textareaRef.current) return;
+      const nextCursor = start + replaceValue.length;
+      textareaRef.current.focus();
+      textareaRef.current.selectionStart = nextCursor;
+      textareaRef.current.selectionEnd = nextCursor;
+      handleFindNext();
+    });
+  };
+
+  const replaceAllMatches = () => {
+    if (!findQuery) return;
+    const matches = collectMatches(content, findQuery, findCaseSensitive);
+    if (!matches.length) return;
+
+    const nextValue = findCaseSensitive
+      ? content.split(findQuery).join(replaceValue)
+      : content.replace(new RegExp(escapeRegExp(findQuery), "gi"), replaceValue);
+
+    updateContent(nextValue);
+    onNotify?.(`Replaced ${matches.length} match${matches.length > 1 ? "es" : ""}.`, "success");
+  };
+
+  const restoreDraftSnapshot = () => {
+    if (!recoverableDraft) return;
+    onChange({
+      ...document,
+      header: recoverableDraft.header || "",
+      rawNotes: recoverableDraft.rawNotes || "",
+      cleansed: recoverableDraft.cleansed || "",
+    });
+    setRecoverableDraft(null);
+    onNotify?.("Recovered unsaved draft changes.", "success");
+  };
+
+  const discardDraftSnapshot = () => {
+    clearDraftSnapshot(document.filePath);
+    setRecoverableDraft(null);
+    onNotify?.("Discarded recovered draft.", "info");
+  };
+
+  const handleUndo = () => {
+    if (activeTab === "media") return;
+    const currentHistory = historyStateRef.current[activeHistoryKey];
+    if (!currentHistory.undo.length) return;
+
+    const previousValue = currentHistory.undo.pop();
+    currentHistory.redo.push(content);
+
+    applyingHistoryRef.current = true;
+    onChange({
+      ...document,
+      [activeEditorField]: previousValue,
+    });
+    applyingHistoryRef.current = false;
+  };
+
+  const handleRedo = () => {
+    if (activeTab === "media") return;
+    const currentHistory = historyStateRef.current[activeHistoryKey];
+    if (!currentHistory.redo.length) return;
+
+    const nextValue = currentHistory.redo.pop();
+    currentHistory.undo.push(content);
+
+    applyingHistoryRef.current = true;
+    onChange({
+      ...document,
+      [activeEditorField]: nextValue,
+    });
+    applyingHistoryRef.current = false;
   };
 
   const handleOpenLatestFile = async () => {
@@ -292,6 +661,15 @@ export function DocumentDetail({
         </button>
         <div className="crumb">Notes / {document.title}</div>
         <div className="save-status">{dirty ? "Unsaved changes" : "Saved"}</div>
+        <button
+          className={`text-button ${autosaveEnabled ? "active" : ""}`}
+          onClick={() => setAutosaveEnabled((value) => !value)}
+          title="Toggle autosave"
+          type="button"
+        >
+          <Save size={18} />
+          {autosaveEnabled ? "Autosave On" : "Autosave Off"}
+        </button>
         <button className="text-button" onClick={handleOpenLatestFile} title="Open latest file">
           <FolderOpen size={18} />
           Open
@@ -357,6 +735,22 @@ export function DocumentDetail({
         </button>
       </div>
 
+      {autosaveEnabled && lastAutoSaveAt ? (
+        <div className="autosave-status">Last autosave {new Date(lastAutoSaveAt).toLocaleTimeString()}</div>
+      ) : null}
+
+      {recoverableDraft ? (
+        <div className="draft-recovery-banner" role="status" aria-live="polite">
+          <span>
+            Unsaved draft found{recoverableDraft.updatedAt ? ` from ${new Date(recoverableDraft.updatedAt).toLocaleString()}` : ""}.
+          </span>
+          <div className="draft-recovery-actions">
+            <button className="small-button" type="button" onClick={restoreDraftSnapshot}>Restore Draft</button>
+            <button className="small-button" type="button" onClick={discardDraftSnapshot}>Discard</button>
+          </div>
+        </div>
+      ) : null}
+
       <header className="doc-header">
         <div>
           <h1>{document.title}</h1>
@@ -381,7 +775,7 @@ export function DocumentDetail({
         </div>
       </header>
 
-      <div className={`workspace ${isHistoryPanelCollapsed ? "history-panel-collapsed" : ""}`}>
+      <div className={`workspace ${isHistoryPanelCollapsed ? "history-panel-collapsed" : ""} ${isOutlineCollapsed ? "outline-panel-collapsed" : ""}`}>
         <aside className={`history-panel ${isHistoryPanelCollapsed ? "collapsed" : ""}`}>
           {isHistoryPanelCollapsed ? (
             <div className="history-collapsed-actions">
@@ -475,6 +869,24 @@ export function DocumentDetail({
               </button>
             </div>
             <div className="mode-switch">
+              <button
+                className={showFindReplace ? "active" : ""}
+                type="button"
+                title="Find and replace"
+                onClick={() => setShowFindReplace((value) => !value)}
+              >
+                <Search size={16} />
+                <span>Find</span>
+              </button>
+              <button
+                className={isOutlineCollapsed ? "" : "active"}
+                type="button"
+                title="Toggle outline"
+                onClick={() => setIsOutlineCollapsed((value) => !value)}
+              >
+                <ListTree size={16} />
+                <span>Outline</span>
+              </button>
               {[
                 { key: "edit", label: "Edit", icon: PenLine },
                 { key: "split", label: "Split", icon: SplitSquareHorizontal },
@@ -493,6 +905,34 @@ export function DocumentDetail({
             </div>
           </div>
 
+          {showFindReplace ? (
+            <div className="find-replace-panel" role="region" aria-label="Find and replace">
+              <input
+                value={findQuery}
+                onChange={(event) => setFindQuery(event.target.value)}
+                placeholder="Find"
+              />
+              <input
+                value={replaceValue}
+                onChange={(event) => setReplaceValue(event.target.value)}
+                placeholder="Replace"
+              />
+              <label className="find-toggle">
+                <input
+                  type="checkbox"
+                  checked={findCaseSensitive}
+                  onChange={(event) => setFindCaseSensitive(event.target.checked)}
+                />
+                Case
+              </label>
+              <button className="small-button" type="button" onClick={handleFindPrevious}>Prev</button>
+              <button className="small-button" type="button" onClick={handleFindNext}>Next</button>
+              <button className="small-button" type="button" onClick={replaceCurrentMatch}>Replace</button>
+              <button className="small-button" type="button" onClick={replaceAllMatches}>Replace All</button>
+              <span className="find-count">{findMatchTotal ? `${Math.max(findMatchIndex + 1, 1)}/${findMatchTotal}` : "0/0"}</span>
+            </div>
+          ) : null}
+
           {activeTab === "media" ? (
             <MediaTab content={mediaContent} basePath={document.filePath} onNotify={onNotify} />
           ) : (
@@ -504,9 +944,42 @@ export function DocumentDetail({
               basePath={document.filePath}
               showToolbar={activeTab !== "media"}
               onNotify={onNotify}
+              onUndo={handleUndo}
+              onRedo={handleRedo}
+              canUndo={canUndo}
+              canRedo={canRedo}
+              onOpenFind={openFindReplacePanel}
             />
           )}
         </main>
+
+        <aside className={`outline-panel ${isOutlineCollapsed ? "collapsed" : ""}`}>
+          {isOutlineCollapsed ? null : (
+            <>
+              <div className="panel-title-row">
+                <h2>Outline</h2>
+              </div>
+              {outlineHeadings.length ? (
+                <div className="outline-list">
+                  {outlineHeadings.map((entry) => (
+                    <button
+                      key={`${entry.line}-${entry.text}`}
+                      type="button"
+                      className={`outline-item level-${entry.level}`}
+                      onClick={() => jumpToLine(entry.line)}
+                      title={`Go to line ${entry.line}`}
+                    >
+                      <span>{entry.text}</span>
+                      <em>L{entry.line}</em>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted">No headings in this section yet.</p>
+              )}
+            </>
+          )}
+        </aside>
       </div>
 
       {compareModalOpen ? (
