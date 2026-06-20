@@ -142,6 +142,15 @@ export async function openWebView(filePath, content) {
   return api.openWebView({ filePath, content });
 }
 
+export async function downloadPdf(payload) {
+  const api = getNotesApi();
+  if (typeof api.downloadPdf !== "function") {
+    throw new Error("PDF download action unavailable. Please restart the app to load the latest desktop API.");
+  }
+
+  return api.downloadPdf(payload);
+}
+
 export async function saveImage(fileName, base64Data) {
   const api = getNotesApi();
   return api.saveImage({ fileName, base64Data });

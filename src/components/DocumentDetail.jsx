@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import {
   Home,
   Save,
@@ -8,6 +8,7 @@ import {
   FolderOpen,
   FileText,
   FilePenLine,
+  FileDown,
   PenLine,
   SplitSquareHorizontal,
   Eye,
@@ -27,6 +28,7 @@ import { MediaTab } from "./MediaTab";
 import { formatDate } from "../utils/dateUtils";
 import { openInEditor } from "../services/electronService";
 import { openWebView } from "../services/electronService";
+import { downloadPdf } from "../services/electronService";
 import { deleteVersion, readVersion } from "../services/electronService";
 
 function buildDiffRows(latest, previous, options = {}) {
@@ -128,6 +130,7 @@ export function DocumentDetail({
   onNotify,
 }) {
   const textareaRef = useRef(null);
+  const pdfPopoverRef = useRef(null);
   const [isHistoryPanelCollapsed, setIsHistoryPanelCollapsed] = useState(false);
   const [compareModalOpen, setCompareModalOpen] = useState(false);
   const [compareLoading, setCompareLoading] = useState(false);
@@ -135,6 +138,26 @@ export function DocumentDetail({
   const [diffRows, setDiffRows] = useState([]);
   const [showOnlyChanges, setShowOnlyChanges] = useState(false);
   const [smartMode, setSmartMode] = useState(true);
+  const [pdfExporting, setPdfExporting] = useState(false);
+  const [pdfOptionsOpen, setPdfOptionsOpen] = useState(false);
+  const [pdfExportMode, setPdfExportMode] = useState("formal");
+
+  useEffect(() => {
+    if (!pdfOptionsOpen || typeof globalThis?.document === "undefined") return;
+
+    const handleClickOutside = (event) => {
+      if (pdfPopoverRef.current && !pdfPopoverRef.current.contains(event.target)) {
+        setPdfOptionsOpen(false);
+      }
+    };
+
+    globalThis.document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      if (typeof globalThis?.document !== "undefined") {
+        globalThis.document.removeEventListener("mousedown", handleClickOutside);
+      }
+    };
+  }, [pdfOptionsOpen]);
   const content = activeTab === "raw" ? document.rawNotes : document.cleansed;
   const mediaContent = `${document.rawNotes || ""}\n\n${document.cleansed || ""}`.trim();
 
@@ -168,6 +191,36 @@ export function DocumentDetail({
       }
     } catch (error) {
       onNotify?.(error?.message || "Unable to open website view.", "error");
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    setPdfOptionsOpen(true);
+  };
+
+  const handleConfirmPdfExport = async () => {
+    const includeRawNotes = pdfExportMode === "raw" || pdfExportMode === "both";
+    const includeCleansed = pdfExportMode === "formal" || pdfExportMode === "both";
+
+    setPdfExporting(true);
+
+    try {
+      const result = await downloadPdf({
+        filePath: document.filePath,
+        title: document.title,
+        rawNotes: document.rawNotes,
+        cleansed: document.cleansed,
+        includeRawNotes,
+        includeCleansed,
+      });
+      if (!result?.canceled) {
+        onNotify?.("PDF downloaded.", "success");
+        setPdfOptionsOpen(false);
+      }
+    } catch (error) {
+      onNotify?.(error?.message || "Unable to download PDF.", "error");
+    } finally {
+      setPdfExporting(false);
     }
   };
 
@@ -247,6 +300,52 @@ export function DocumentDetail({
           <Globe size={18} />
           Website
         </button>
+        <div style={{ position: "relative" }}>
+          <button
+            className="text-button"
+            onClick={handleDownloadPdf}
+            disabled={pdfExporting}
+            title="Export note as PDF"
+          >
+            <FileDown size={18} />
+            {pdfExporting ? "Exporting..." : "Export PDF"}
+          </button>
+          {pdfOptionsOpen ? (
+            <div ref={pdfPopoverRef} className="pdf-popover" style={{ position: "absolute", top: "100%", right: 0, marginTop: "8px", zIndex: 1000 }}>
+              <div style={{ background: "#ffffff", border: "1px solid #dde5ea", borderRadius: "8px", padding: "12px 16px", boxShadow: "0 2px 8px rgba(0,0,0,0.1)", minWidth: "200px" }}>
+                <select
+                  value={pdfExportMode}
+                  onChange={(event) => setPdfExportMode(event.target.value)}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    padding: "8px 12px",
+                    border: "1px solid #d7e0e6",
+                    borderRadius: "6px",
+                    fontSize: "14px",
+                    fontFamily: "inherit",
+                    marginBottom: "10px",
+                    boxSizing: "border-box"
+                  }}
+                >
+                  <option value="formal">Formal Notes</option>
+                  <option value="raw">Raw Notes</option>
+                  <option value="both">Both Raw and Formal</option>
+                </select>
+                <button
+                  className="primary-button"
+                  onClick={handleConfirmPdfExport}
+                  disabled={pdfExporting}
+                  type="button"
+                  style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
+                >
+                  <FileDown size={14} />
+                  {pdfExporting ? "Exporting..." : "Export"}
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
         <button
           className="primary-button"
           onClick={onSave}

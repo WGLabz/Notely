@@ -1,6 +1,8 @@
 const { app, BrowserWindow, dialog, ipcMain, Menu, shell } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
+const os = require("node:os");
+const { pathToFileURL } = require("node:url");
 const crypto = require("node:crypto");
 const http = require("node:http");
 const { spawn } = require("node:child_process");
@@ -1172,6 +1174,92 @@ function renderMarkdownWebsitePage(relMdPath, rawContent) {
   });
 }
 
+function renderPdfNotePage(relMdPath, markdownContent) {
+  const markdown = buildWebsiteMarkdownRenderer();
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${escapeHtml(title)}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
+        --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+        --bg: #ffffff;
+        --surface: #ffffff;
+        --surface2: #f5f8fa;
+        --border: #d7e0e6;
+        --ink: #0d1f26;
+        --ink-2: #334a53;
+        --ink-3: #5b717a;
+        --accent: #0a6b8a;
+        --radius: 12px;
+      }
+
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); }
+      body { font-family: var(--font-sans); line-height: 1.7; }
+
+      .page {
+        padding: 0;
+        margin: 0;
+      }
+
+      .content {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 18mm 16mm 20mm;
+        font-size: 14.5px;
+      }
+
+      .content h1, .content h2, .content h3, .content h4, .content h5, .content h6 {
+        line-height: 1.3;
+        color: var(--ink);
+        scroll-margin-top: 72px;
+      }
+
+      .content h1 { font-size: 22px; margin: 28px 0 10px; }
+      .content h2 { font-size: 18px; margin: 22px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+      .content h3 { font-size: 15.5px; margin: 18px 0 6px; }
+      .content h4 { font-size: 13.5px; margin: 14px 0 4px; color: var(--ink-2); }
+      .content p { margin: 0 0 14px; }
+      .content ul, .content ol { margin: 0 0 14px 20px; }
+      .content li { margin: 4px 0; }
+      .content a { color: var(--accent); text-decoration: none; }
+      .content a:hover { text-decoration: underline; }
+      .content code { font-family: var(--font-mono); font-size: 12.5px; background: #eef4f7; border: 1px solid #d5e2e8; border-radius: 4px; padding: 1px 5px; color: #0a4a5f; }
+      .content pre { background: #0d2029; color: #d6eaf0; border-radius: 8px; padding: 16px 18px; overflow-x: auto; margin: 0 0 16px; font-size: 13px; line-height: 1.55; }
+      .content pre code { background: transparent; border: 0; padding: 0; color: inherit; font-size: inherit; }
+      .content blockquote { border-left: 3px solid var(--accent); padding-left: 14px; margin: 14px 0; color: var(--ink-2); font-style: italic; }
+      .content img { max-width: 100%; height: auto; border-radius: 8px; display: block; margin: 12px 0; border: 1px solid var(--border); }
+      .content table { width: 100%; border-collapse: collapse; margin: 0 0 16px; font-size: 13.5px; }
+      .content th { background: var(--surface2); font-weight: 600; border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
+      .content td { border: 1px solid var(--border); padding: 7px 12px; }
+      .content tr:nth-child(even) td { background: #fafcfd; }
+      .content hr { border: 0; border-top: 1px solid var(--border); margin: 24px 0; }
+      .empty { color: var(--ink-3); font-style: italic; }
+
+      @page { margin: 18mm 16mm; }
+      @media print {
+        .page { padding: 0; max-width: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <article class="content">
+        ${markdownContent ? markdown.render(markdownContent, { relMdPath }) : '<p class="empty">No cleansed notes captured yet.</p>'}
+      </article>
+    </main>
+  </body>
+</html>`;
+}
+
 function contentTypeForFile(filePath) {
   const ext = path.extname(filePath).toLowerCase();
   const map = {
@@ -1369,6 +1457,20 @@ function handleWebPreviewRequest(req, res) {
     return;
   }
 
+  if (pathname.startsWith("/pdf/")) {
+    const relMdPath = normalizeToPosix(decodeUrlPath(pathname, "/pdf/"));
+    const resolved = resolveRelativeToNotesRoot(relMdPath);
+    if (!resolved || path.extname(resolved.resolved).toLowerCase() !== ".md" || !fs.existsSync(resolved.resolved)) {
+      writeTextResponse(res, "Note not found.", 404);
+      return;
+    }
+
+    const markdownContent = webPreviewContentOverrides.get(resolved.resolved)
+      || fs.readFileSync(resolved.resolved, "utf8");
+    writeHtmlResponse(res, renderPdfNotePage(resolved.normalized, markdownContent));
+    return;
+  }
+
   if (pathname.startsWith("/raw/")) {
     const relPath = normalizeToPosix(decodeUrlPath(pathname, "/raw/"));
     const resolved = resolveRelativeToNotesRoot(relPath);
@@ -1451,6 +1553,158 @@ function tryOpenInChrome(targetUrl) {
   }
 
   return false;
+}
+
+function buildPdfExportMarkdown(document, options = {}) {
+  const includeRawNotes = Boolean(options.includeRawNotes);
+  const includeCleansed = Boolean(options.includeCleansed);
+  const title = String(document?.title || path.basename(document?.filePath || "note", ".md") || "Note").trim() || "Note";
+
+  const sections = [];
+  if (includeRawNotes) {
+    sections.push([
+      "## Raw Notes",
+      (document?.rawNotes || "").trim() || "_No raw notes captured yet._"
+    ].join("\n\n"));
+  }
+
+  if (includeCleansed) {
+    sections.push([
+      "## Formal Notes",
+      (document?.cleansed || "").trim() || "_No formal notes captured yet._"
+    ].join("\n\n"));
+  }
+
+  return [
+    `# ${title}`,
+    "",
+    sections.join("\n\n")
+  ].filter(Boolean).join("\n");
+}
+
+function buildPdfExportHtml({ title, markdownContent, baseHref }) {
+  const markdown = new MarkdownIt({
+    html: false,
+    linkify: true,
+    typographer: true
+  });
+
+  const bodyHtml = markdown.render(markdownContent || "");
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="${baseHref}" />
+    <title>${escapeHtml(title)}</title>
+    <style>
+${buildPdfStyles()}
+    </style>
+  </head>
+  <body>
+    <main class="markdown-body">
+      ${bodyHtml}
+    </main>
+  </body>
+</html>`;
+}
+
+function buildPdfStyles() {
+  return `
+    :root {
+      color-scheme: light;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: "Segoe UI", "Inter", Arial, sans-serif;
+      color: #0d1f26;
+      background: #ffffff;
+      line-height: 1.65;
+      font-size: 14px;
+    }
+
+    .markdown-body {
+      max-width: 100%;
+    }
+
+    h1 {
+      font-size: 24px;
+      line-height: 1.2;
+      margin: 0 0 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #d7e0e6;
+    }
+
+    h2 {
+      font-size: 17px;
+      line-height: 1.3;
+      margin: 24px 0 10px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #d7e0e6;
+    }
+
+    h3, h4, h5, h6 {
+      line-height: 1.3;
+      margin: 18px 0 8px;
+    }
+
+    p, ul, ol, blockquote, pre, table {
+      margin: 0 0 14px;
+    }
+
+    ul, ol {
+      padding-left: 22px;
+    }
+
+    code {
+      font-family: Consolas, "Cascadia Code", monospace;
+      font-size: 12.5px;
+      background: #eef4f7;
+      border: 1px solid #d5e2e8;
+      border-radius: 4px;
+      padding: 1px 4px;
+    }
+
+    pre {
+      background: #0d2029;
+      color: #d6eaf0;
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+    }
+
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      border: 1px solid #d7e0e6;
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f5f8fa;
+      font-weight: 600;
+    }
+
+    img {
+      max-width: 100%;
+      height: auto;
+    }
+  `;
 }
 
 function listRootEntries(rootDir) {
@@ -1593,6 +1847,32 @@ class MetadataStore {
     );
     fs.writeFileSync(this.jsonPath, JSON.stringify(this.state, null, 2));
   }
+}
+
+async function prepareDocumentPreview(filePath, content) {
+  const resolved = path.resolve(String(filePath || ""));
+  const isValidMarkdownPath =
+    filePathWithin(notesRoot, resolved)
+    && path.extname(resolved).toLowerCase() === ".md"
+    && fs.existsSync(resolved)
+    && filePathWithin(getWebPreviewScopeRoot(), resolved);
+
+  if (!isValidMarkdownPath) {
+    throw new Error("Invalid document path.");
+  }
+
+  if (typeof content === "string") {
+    webPreviewContentOverrides.set(resolved, content);
+  }
+
+  webPreviewScopeRoot = getWebPreviewScopeRoot();
+  webPreviewScopeLabel = getWebPreviewScopeLabel();
+
+  const baseUrl = await ensureWebPreviewServer();
+  return {
+    resolved,
+    previewUrl: `${baseUrl}/pdf/${encodePathForUrl(normalizeToPosix(path.relative(webPreviewScopeRoot, resolved)))}?section=cleansed`
+  };
 }
 
 let metadataStore;
@@ -1983,31 +2263,12 @@ ipcMain.handle("documents:open-in-editor", async (_event, filePath) => {
 });
 
 ipcMain.handle("documents:open-web-view", async (_event, payload) => {
-  webPreviewScopeRoot = getWebPreviewScopeRoot();
-  webPreviewScopeLabel = getWebPreviewScopeLabel();
-
-  let relPath = "";
+  let previewUrl = `${await ensureWebPreviewServer()}/`;
   if (payload?.filePath) {
-    const resolved = path.resolve(String(payload.filePath || ""));
-    const isValidMarkdownPath =
-      filePathWithin(notesRoot, resolved)
-      && path.extname(resolved).toLowerCase() === ".md"
-      && fs.existsSync(resolved)
-      && filePathWithin(webPreviewScopeRoot, resolved);
-
-    if (isValidMarkdownPath) {
-      if (typeof payload?.content === "string") {
-        webPreviewContentOverrides.set(resolved, payload.content);
-      }
-
-      relPath = normalizeToPosix(path.relative(webPreviewScopeRoot, resolved));
-    }
+    const prepared = await prepareDocumentPreview(payload.filePath, payload.content);
+    previewUrl = prepared.previewUrl;
   }
 
-  const baseUrl = await ensureWebPreviewServer();
-  const previewUrl = relPath
-    ? `${baseUrl}/?note=${encodeURIComponent(relPath)}`
-    : `${baseUrl}/`;
   const openedWithChrome = tryOpenInChrome(previewUrl);
 
   if (!openedWithChrome) {
@@ -2018,6 +2279,81 @@ ipcMain.handle("documents:open-web-view", async (_event, payload) => {
     openedWith: openedWithChrome ? "chrome" : "default",
     previewUrl
   };
+});
+
+ipcMain.handle("documents:download-pdf", async (_event, payload) => {
+  const resolved = path.resolve(String(payload?.filePath || ""));
+  if (!filePathWithin(notesRoot, resolved) || path.extname(resolved).toLowerCase() !== ".md") {
+    throw new Error("Invalid document path.");
+  }
+
+  const includeRawNotes = Boolean(payload?.includeRawNotes);
+  const includeCleansed = Boolean(payload?.includeCleansed);
+  if (!includeRawNotes && !includeCleansed) {
+    throw new Error("Select at least one section to export.");
+  }
+
+  const focusedWindow = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0] || null;
+  const defaultName = `${path.basename(resolved, ".md") || "note"}.pdf`;
+  const saveResult = await dialog.showSaveDialog(focusedWindow, {
+    title: "Save note as PDF",
+    defaultPath: path.join(path.dirname(resolved), defaultName),
+    filters: [{ name: "PDF", extensions: ["pdf"] }]
+  });
+
+  if (saveResult.canceled || !saveResult.filePath) {
+    return { canceled: true };
+  }
+
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "notely-pdf-"));
+  const tempMarkdownPath = path.join(tempDir, `${slugify(path.basename(resolved))}-export.md`);
+  const tempHtmlPath = path.join(tempDir, `${slugify(path.basename(resolved))}-export.html`);
+  const markdownContent = buildPdfExportMarkdown(payload, { includeRawNotes, includeCleansed });
+  fs.writeFileSync(tempMarkdownPath, markdownContent, "utf8");
+
+  try {
+    const baseHref = pathToFileURL(`${path.dirname(resolved)}${path.sep}`).href;
+    const html = buildPdfExportHtml({
+      title: payload?.title || path.basename(resolved, ".md"),
+      markdownContent,
+      baseHref
+    });
+    fs.writeFileSync(tempHtmlPath, html, "utf8");
+
+    const pdfWindow = new BrowserWindow({
+      show: false,
+      width: 1280,
+      height: 1600,
+      backgroundColor: "#ffffff",
+      webPreferences: {
+        backgroundThrottling: false
+      }
+    });
+
+    try {
+      await pdfWindow.loadFile(tempHtmlPath);
+      await pdfWindow.webContents.executeJavaScript("document.fonts ? document.fonts.ready : Promise.resolve()");
+
+      const pdfData = await pdfWindow.webContents.printToPDF({
+        printBackground: true,
+        preferCSSPageSize: true
+      });
+
+      fs.writeFileSync(saveResult.filePath, pdfData);
+    } finally {
+      if (!pdfWindow.isDestroyed()) {
+        pdfWindow.close();
+      }
+    }
+
+    return { canceled: false, filePath: saveResult.filePath };
+  } finally {
+    try {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    } catch {
+      // Ignore cleanup failures for temporary export files.
+    }
+  }
 });
 
 ipcMain.handle("documents:read-version", (_event, payload) => {
