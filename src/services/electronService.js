@@ -437,6 +437,14 @@ export async function replaceImage(basePath, assetPath, base64Data) {
   return api.replaceImage({ basePath, assetPath, base64Data });
 }
 
+export async function renameImage(basePath, assetPath, nextFileName) {
+  const api = getNotesApi();
+  if (typeof api.renameImage !== "function") {
+    throw new Error("Image rename action unavailable. Please restart the app.");
+  }
+  return api.renameImage({ basePath, assetPath, nextFileName });
+}
+
 export async function runTerminalCommand(command, cwd) {
   const api = getNotesApi();
   if (typeof api.runTerminalCommand !== "function") {

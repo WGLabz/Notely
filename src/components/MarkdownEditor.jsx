@@ -83,7 +83,8 @@ const editorTheme = EditorView.theme({
     lineHeight: "1.55",
   },
   ".cm-content": {
-    whiteSpace: "pre",
+    whiteSpace: "pre-wrap",
+    overflowWrap: "anywhere",
     fontFamily: '"Cascadia Code", Consolas, ui-monospace, monospace',
     fontSize: "13px",
     padding: "14px 0",
@@ -420,22 +421,36 @@ export function MarkdownEditor({
         }
         return false;
       },
-      async drop(event, view) {
+      drop(event, view) {
         const files = event.dataTransfer?.files || [];
         if (!files.length) return false;
 
         event.preventDefault();
-
-        try {
-          const results = await insertImagesFromFiles(files);
-          const markdownImages = results.map((result) => createImageMarkdown(result.altText, result.imagePath));
-          const adapter = textareaRef?.current;
-          insertTextAtCursor(view.state.doc.toString(), onChange, `${markdownImages.join("\n\n")}\n`, adapter ? { current: adapter } : textareaRef);
-          onNotify?.(`Inserted ${results.length} image${results.length > 1 ? "s" : ""}.`, "success");
-        } catch (error) {
-          console.error("Image drop insertion failed:", error);
-          onNotify?.(error?.message || "Failed to insert dropped images.", "error");
+        const dropPosition = view.posAtCoords({ x: event.clientX, y: event.clientY });
+        if (Number.isFinite(dropPosition)) {
+          view.dispatch({ selection: EditorSelection.single(dropPosition) });
         }
+
+        onNotify?.("Uploading dropped image...", "info");
+
+        void (async () => {
+          try {
+            const results = await insertImagesFromFiles(files);
+            const markdownImages = results.map((result) => createImageMarkdown(result.altText, result.imagePath));
+            const adapter = createEditorAdapter(view);
+            insertTextAtCursor(
+              view.state.doc.toString(),
+              onChange,
+              `${markdownImages.join("\n\n")}\n`,
+              { current: adapter }
+            );
+            onNotify?.(`Inserted ${results.length} image${results.length > 1 ? "s" : ""}.`, "success");
+          } catch (error) {
+            console.error("Image drop insertion failed:", error);
+            onNotify?.(error?.message || "Failed to insert dropped images.", "error");
+          }
+        })();
+
         return true;
       },
     }),

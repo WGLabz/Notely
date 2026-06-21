@@ -1,0 +1,172 @@
+.image-crop-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(9, 22, 25, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 2500;
+}
+
+.image-crop-modal {
+  width: min(900px, 96vw);
+  max-height: 92vh;
+  background: #ffffff;
+  border: 1px solid #dce8e3;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.image-crop-header {
+  padding: 12px 14px;
+  border-bottom: 1px solid #e3ece8;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.image-crop-header h3 {
+  margin: 0;
+  font-size: 15px;
+  color: #143237;
+}
+
+.image-crop-header p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #5d757b;
+}
+
+.image-crop-canvas-wrap {
+  padding: 14px;
+  background: linear-gradient(135deg, #f4f8f6 0%, #edf4f2 100%);
+  overflow: auto;
+}
+
+.image-crop-canvas {
+  position: relative;
+  width: fit-content;
+  margin: 0 auto;
+  cursor: crosshair;
+  user-select: none;
+}
+
+.image-crop-canvas img {
+  max-width: min(860px, 90vw);
+  max-height: 64vh;
+  width: auto;
+  height: auto;
+  display: block;
+}
+
+.image-crop-selection {
+  position: absolute;
+  border: 2px solid #45a37e;
+  background: rgba(69, 163, 126, 0.18);
+  box-shadow: 0 0 0 9999px rgba(7, 20, 24, 0.48);
+  pointer-events: auto;
+}
+
+.image-crop-move-zone {
+  position: absolute;
+  inset: 0;
+  cursor: move;
+}
+
+.image-crop-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid #2f8f6a;
+  box-shadow: 0 0 0 1px rgba(10, 28, 23, 0.2);
+}
+
+.image-crop-handle.nw {
+  left: -7px;
+  top: -7px;
+  cursor: nwse-resize;
+}
+
+.image-crop-handle.n {
+  left: calc(50% - 6px);
+  top: -7px;
+  cursor: ns-resize;
+}
+
+.image-crop-handle.ne {
+  right: -7px;
+  top: -7px;
+  cursor: nesw-resize;
+}
+
+.image-crop-handle.e {
+  right: -7px;
+  top: calc(50% - 6px);
+  cursor: ew-resize;
+}
+
+.image-crop-handle.se {
+  right: -7px;
+  bottom: -7px;
+  cursor: nwse-resize;
+}
+
+.image-crop-handle.s {
+  left: calc(50% - 6px);
+  bottom: -7px;
+  cursor: ns-resize;
+}
+
+.image-crop-handle.sw {
+  left: -7px;
+  bottom: -7px;
+  cursor: nesw-resize;
+}
+
+.image-crop-handle.w {
+  left: -7px;
+  top: calc(50% - 6px);
+  cursor: ew-resize;
+}
+
+.image-crop-footer {
+  padding: 10px 14px;
+  border-top: 1px solid #e3ece8;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.image-crop-hint {
+  margin: 0;
+  font-size: 12px;
+  color: #5d757b;
+}
+
+.image-crop-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.image-crop-aspect-label {
+  font-size: 12px;
+  color: #4a6368;
+}
+
+.image-crop-aspect-select {
+  border: 1px solid #c9d9d3;
+  background: #ffffff;
+  color: #17343a;
+  border-radius: 6px;
+  padding: 4px 8px;
+  min-height: 30px;
+}

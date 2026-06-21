@@ -205,7 +205,7 @@ export function EditorPane({
   );
 
   if (mode === "preview") {
-    return <MarkdownPreview content={value} basePath={basePath} />;
+    return <MarkdownPreview content={value} basePath={basePath} onNotify={onNotify} onContentChange={onChange} />;
   }
 
   if (mode === "web") {
@@ -258,7 +258,13 @@ export function EditorPane({
             <span className="pane-title-label">Preview</span>
           </div>
           {showToolbar ? <div className="pane-toolbar-spacer" aria-hidden="true" /> : null}
-          <MarkdownPreview content={value} basePath={basePath} externalRef={previewRef} />
+          <MarkdownPreview
+            content={value}
+            basePath={basePath}
+            externalRef={previewRef}
+            onNotify={onNotify}
+            onContentChange={onChange}
+          />
         </section>
       </div>
     );

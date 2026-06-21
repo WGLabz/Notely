@@ -4108,6 +4108,45 @@ ipcMain.handle("images:replace", (_event, payload) => {
   return true;
 });
 
+ipcMain.handle("images:rename", (_event, payload) => {
+  const { basePath, assetPath, nextFileName } = payload || {};
+  if (!basePath || typeof basePath !== "string") {
+    throw new Error("Invalid base path.");
+  }
+  if (!assetPath || typeof assetPath !== "string") {
+    throw new Error("Invalid asset path.");
+  }
+  if (!nextFileName || typeof nextFileName !== "string") {
+    throw new Error("Invalid image filename.");
+  }
+
+  const resolvedAssetPath = resolveImageAssetPath(basePath, assetPath);
+  if (!resolvedAssetPath || !fs.existsSync(resolvedAssetPath)) {
+    throw new Error("Image file not found.");
+  }
+
+  const imagesDir = path.resolve(path.join(notesRoot, "images"));
+  if (!filePathWithin(imagesDir, resolvedAssetPath)) {
+    throw new Error("Image path must be inside notes/images.");
+  }
+
+  const currentExt = path.extname(resolvedAssetPath);
+  const rawName = path.basename(String(nextFileName || "").trim()).replace(/[<>:"/\\|?*]+/g, "-");
+  const desiredExt = path.extname(rawName) || currentExt || ".png";
+  const desiredBase = path.basename(rawName, path.extname(rawName)) || "image";
+  const candidatePath = path.join(path.dirname(resolvedAssetPath), `${desiredBase}${desiredExt}`);
+
+  const normalizedCurrent = path.resolve(resolvedAssetPath);
+  const normalizedCandidate = path.resolve(candidatePath);
+  let finalPath = normalizedCandidate;
+  if (normalizedCandidate.toLowerCase() !== normalizedCurrent.toLowerCase()) {
+    finalPath = getUniquePath(normalizedCandidate);
+    fs.renameSync(normalizedCurrent, finalPath);
+  }
+
+  return `./images/${path.basename(finalPath)}`;
+});
+
 ipcMain.handle("images:read", (_event, payload) => {
   const { basePath, assetPath } = payload || {};
   if (!basePath || typeof basePath !== "string") {
