@@ -3,6 +3,13 @@
  * Uses a local spell checker and LanguageTool API for grammar
  */
 
+// Cache for spell check results to avoid redundant computations
+const spellCheckCache = new Map();
+const MAX_CACHE_SIZE = 5000;
+
+// Validation result cache
+const validationCache = new Map();
+
 // Simple spell checker using common English words
 // For a production app, consider using a proper dictionary
 const COMMON_WORDS = new Set([
@@ -53,14 +60,30 @@ function extractWords(text) {
 
 function isValidWord(word) {
   const cleanWord = word.replace(/[^\w'-]/g, "").toLowerCase();
-  if (cleanWord.length === 0) return true;
-  if (cleanWord.length <= 2) return true;
-  if (/^\d+/.test(cleanWord)) return true; // Numbers
-  if (COMMON_WORDS.has(cleanWord)) return true;
-  if (KNOWN_ABBREVIATIONS.has(cleanWord)) return true;
-  if (cleanWord.includes("-")) return true; // Hyphenated words often valid
-  if (cleanWord.endsWith("ing") || cleanWord.endsWith("ed") || cleanWord.endsWith("ly")) return true;
-  return false;
+  
+  // Check cache first
+  if (validationCache.has(cleanWord)) {
+    return validationCache.get(cleanWord);
+  }
+  
+  let isValid = false;
+  
+  if (cleanWord.length === 0) isValid = true;
+  else if (cleanWord.length <= 2) isValid = true;
+  else if (/^\d+/.test(cleanWord)) isValid = true; // Numbers
+  else if (COMMON_WORDS.has(cleanWord)) isValid = true;
+  else if (KNOWN_ABBREVIATIONS.has(cleanWord)) isValid = true;
+  else if (cleanWord.includes("-")) isValid = true; // Hyphenated words often valid
+  else if (cleanWord.endsWith("ing") || cleanWord.endsWith("ed") || cleanWord.endsWith("ly")) isValid = true;
+  
+  // Store in cache (with size limit to prevent memory leaks)
+  if (validationCache.size >= MAX_CACHE_SIZE) {
+    const firstKey = validationCache.keys().next().value;
+    validationCache.delete(firstKey);
+  }
+  validationCache.set(cleanWord, isValid);
+  
+  return isValid;
 }
 
 function levenshteinDistance(left, right) {
@@ -89,19 +112,49 @@ function suggestCorrection(word) {
   const cleanWord = word.replace(/[^\w'-]/g, "").toLowerCase();
   if (!cleanWord) return "";
 
+  // Check cache first
+  if (spellCheckCache.has(cleanWord)) {
+    return spellCheckCache.get(cleanWord);
+  }
+
   const candidates = [...COMMON_WORDS, ...KNOWN_ABBREVIATIONS].filter((candidate) => candidate.length > 2);
   let bestCandidate = "";
   let bestDistance = Number.POSITIVE_INFINITY;
 
+  // Early exit for very short words - less likely to find good suggestions
+  if (cleanWord.length < 3) {
+    spellCheckCache.set(cleanWord, "");
+    return "";
+  }
+
   for (const candidate of candidates) {
+    // Skip candidates that are too different in length
+    if (Math.abs(candidate.length - cleanWord.length) > 3) continue;
+    
     const distance = levenshteinDistance(cleanWord, candidate);
+    
+    // Early exit if we found a very close match
+    if (distance === 0) {
+      bestCandidate = candidate;
+      break;
+    }
+    
     if (distance < bestDistance) {
       bestDistance = distance;
       bestCandidate = candidate;
     }
   }
 
-  return bestDistance <= 2 ? bestCandidate : "";
+  const result = bestDistance <= 2 ? bestCandidate : "";
+  
+  // Cache with size limit
+  if (spellCheckCache.size >= MAX_CACHE_SIZE) {
+    const firstKey = spellCheckCache.keys().next().value;
+    spellCheckCache.delete(firstKey);
+  }
+  spellCheckCache.set(cleanWord, result);
+  
+  return result;
 }
 
 function isSentenceLike(text) {

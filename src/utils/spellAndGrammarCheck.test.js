@@ -3,6 +3,7 @@ import { checkGrammar, checkSpelling, checkSpellingAndGrammar } from "./spellAnd
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 afterEach(() => {
