@@ -7,6 +7,9 @@ const size = 256;
 const outDir = path.join(process.cwd(), "build");
 const pngPath = path.join(outDir, "icon.png");
 const icoPath = path.join(outDir, "icon.ico");
+const iconSourcePath = process.env.NOTELY_ICON_SOURCE
+  ? path.resolve(process.cwd(), process.env.NOTELY_ICON_SOURCE)
+  : "";
 
 function clamp(v) {
   return Math.max(0, Math.min(255, v));
@@ -52,27 +55,41 @@ function drawN(png, color) {
 async function main() {
   fs.mkdirSync(outDir, { recursive: true });
 
-  const png = new PNG({ width: size, height: size });
-
-  for (let y = 0; y < size; y++) {
-    const t = y / (size - 1);
-    const r = clamp(Math.round(lerp(33, 15, t)));
-    const g = clamp(Math.round(lerp(93, 69, t)));
-    const b = clamp(Math.round(lerp(107, 93, t)));
-
-    for (let x = 0; x < size; x++) {
-      const idx = (y * size + x) << 2;
-      png.data[idx] = r;
-      png.data[idx + 1] = g;
-      png.data[idx + 2] = b;
-      png.data[idx + 3] = 255;
+  if (iconSourcePath) {
+    if (!fs.existsSync(iconSourcePath)) {
+      throw new Error(`Custom icon source not found: ${path.relative(process.cwd(), iconSourcePath)}`);
     }
+    fs.copyFileSync(iconSourcePath, pngPath);
+    process.stdout.write(`Copied icon source ${path.relative(process.cwd(), iconSourcePath)} -> ${path.relative(process.cwd(), pngPath)}\n`);
   }
 
-  drawRoundedRect(png, 32, 32, 192, 192, 36, { r: 19, g: 35, b: 38, a: 220 });
-  drawN(png, { r: 241, g: 234, b: 214, a: 255 });
+  if (!fs.existsSync(pngPath)) {
+    process.stdout.write("No custom icon found. Generating fallback icon at build/icon.png\n");
 
-  fs.writeFileSync(pngPath, PNG.sync.write(png));
+    const png = new PNG({ width: size, height: size });
+
+    for (let y = 0; y < size; y++) {
+      const t = y / (size - 1);
+      const r = clamp(Math.round(lerp(33, 15, t)));
+      const g = clamp(Math.round(lerp(93, 69, t)));
+      const b = clamp(Math.round(lerp(107, 93, t)));
+
+      for (let x = 0; x < size; x++) {
+        const idx = (y * size + x) << 2;
+        png.data[idx] = r;
+        png.data[idx + 1] = g;
+        png.data[idx + 2] = b;
+        png.data[idx + 3] = 255;
+      }
+    }
+
+    drawRoundedRect(png, 32, 32, 192, 192, 36, { r: 19, g: 35, b: 38, a: 220 });
+    drawN(png, { r: 241, g: 234, b: 214, a: 255 });
+
+    fs.writeFileSync(pngPath, PNG.sync.write(png));
+  } else {
+    process.stdout.write(`Using existing icon asset ${path.relative(process.cwd(), pngPath)}\n`);
+  }
 
   const icoBuffer = await pngToIco([pngPath]);
   fs.writeFileSync(icoPath, icoBuffer);

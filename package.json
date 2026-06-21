@@ -4,8 +4,8 @@
   "private": true,
   "description": "Notely desktop markdown notes app.",
   "author": {
-    "name": "Tata Chemicals Limited - Mithapur",
-    "email": "digital@tatachemicals.com"
+    "name": "Notely Team",
+    "email": "hello@notely.app"
   },
   "main": "electron/main.cjs",
   "scripts": {
@@ -56,7 +56,7 @@
     "wait-on": "^8.0.3"
   },
   "build": {
-    "appId": "com.notely.app",
+    "appId": "app.notely.desktop",
     "productName": "Notely",
     "directories": {
       "output": ".artifacts",
@@ -65,17 +65,28 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "src/ai/**/*",
       "scripts/launch-electron.cjs",
       "package.json"
     ],
     "extraMetadata": {
       "main": "electron/main.cjs"
     },
+    "extraResources": [
+      {
+        "from": "build/icon.ico",
+        "to": "icon.ico"
+      },
+      {
+        "from": "build/icon.png",
+        "to": "icon.png"
+      }
+    ],
     "asar": true,
     "win": {
       "signAndEditExecutable": false,
       "icon": "build/icon.ico",
-      "publisherName": "Tata Chemicals Limited",
+      "publisherName": "Notely",
       "verifyUpdateCodeSignature": false,
       "target": [
         {

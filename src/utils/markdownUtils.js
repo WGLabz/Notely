@@ -24,6 +24,8 @@ export function insertTextAtCursor(value, onChange, text, textareaRef) {
   }
 
   const textarea = textareaRef.current;
+  const previousScrollTop = Number(textarea.scrollTop) || 0;
+  const previousScrollLeft = Number(textarea.scrollLeft) || 0;
   const start = textarea.selectionStart;
   const end = textarea.selectionEnd;
   const next = replaceTextAtSelection(value, start, end, text);
@@ -35,6 +37,8 @@ export function insertTextAtCursor(value, onChange, text, textareaRef) {
       textareaRef.current.focus();
       textareaRef.current.selectionStart = start + text.length;
       textareaRef.current.selectionEnd = start + text.length;
+      textareaRef.current.scrollTop = previousScrollTop;
+      textareaRef.current.scrollLeft = previousScrollLeft;
     }
   }, 0);
 }

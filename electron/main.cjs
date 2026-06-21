@@ -9,9 +9,27 @@ const { spawn } = require("node:child_process");
 const pty = require("node-pty");
 const MarkdownIt = require("markdown-it");
 const { P2PLiveService } = require("./p2pLive.cjs");
+const { initializeAIHandlers } = require("./aiHandlers.cjs");
+const { initializeAISystem, shutdownAISystem } = require("../src/ai/index.js");
 
 const rendererUrl = process.env.ELECTRON_RENDERER_URL;
 const projectRoot = app.getAppPath();
+const sessionDataPath = path.join(app.getPath("userData"), "session-data");
+const chromiumCachePath = path.join(sessionDataPath, "Cache");
+
+if (process.platform === "win32") {
+  app.setAppUserModelId("app.notely.desktop");
+}
+
+try {
+  fs.mkdirSync(chromiumCachePath, { recursive: true });
+  app.setPath("sessionData", sessionDataPath);
+  app.commandLine.appendSwitch("disk-cache-dir", chromiumCachePath);
+  app.commandLine.appendSwitch("disable-gpu-shader-disk-cache");
+} catch (error) {
+  console.warn("[startup] Unable to initialize custom Chromium cache path:", error?.message || error);
+}
+
 const userConfigPath = path.join(app.getPath("userData"), "settings.json");
 let notesRoot = "";
 let appDataDir = "";
@@ -27,8 +45,29 @@ let webPreviewScopeLabel = "Project";
 const terminalSessions = new Map();
 let nextTerminalSessionId = 1;
 let p2pService = null;
+let aiAgent = null;
 const FULL_SYNC_BATCH_SIZE = 25;
 const FULL_SYNC_MAX_FILES = 1000;
+
+async function initializeAIForWorkspace() {
+  try {
+    const AIConfig = require("../src/ai/utils/AIConfig");
+    const config = new AIConfig();
+    const geminiKey = config.getAPIKey("gemini");
+    const llmProvider = geminiKey
+      ? { name: "gemini", config: { apiKey: geminiKey } }
+      : null;
+
+    const result = await initializeAISystem(appDataDir, notesRoot, llmProvider);
+    aiAgent = result.agent;
+    console.log("[AI] System initialized");
+  } catch (error) {
+    aiAgent = null;
+    console.error("[AI] Initialization failed:", error?.message || error);
+  } finally {
+    initializeAIHandlers(app, aiAgent);
+  }
+}
 
 function ensureDir(dirPath) {
   if (!dirPath || typeof dirPath !== "string") {
@@ -2859,6 +2898,44 @@ function buildAppMenu(win, context = {}) {
       ]
     },
     {
+      label: "AI",
+      submenu: [
+        ...(screen === "document"
+          ? [
+              {
+                label: "Open AI Palette",
+                accelerator: "CmdOrCtrl+K",
+                click: () => sendMenuAction(win, "open-ai-palette")
+              },
+              { type: "separator" }
+            ]
+          : []),
+        {
+          label: "AI Settings",
+          accelerator: "CmdOrCtrl+Shift+,",
+          click: () => sendMenuAction(win, "open-ai-settings")
+        },
+        { type: "separator" },
+        {
+          label: "Generate Embeddings",
+          click: () => sendMenuAction(win, "ai-generate-embeddings")
+        },
+        {
+          label: "Build Relationship Graph",
+          click: () => sendMenuAction(win, "ai-build-graph")
+        },
+        {
+          label: "Detect Patterns",
+          click: () => sendMenuAction(win, "ai-detect-patterns")
+        },
+        { type: "separator" },
+        {
+          label: "Clear Cache",
+          click: () => sendMenuAction(win, "ai-clear-cache")
+        }
+      ]
+    },
+    {
       label: "Help",
       submenu: [
         { role: "toggleDevTools" }
@@ -2868,6 +2945,16 @@ function buildAppMenu(win, context = {}) {
 }
 
 function createWindow() {
+  const iconCandidates = [
+    path.join(process.resourcesPath || "", "icon.ico"),
+    path.join(process.resourcesPath || "", "icon.png"),
+    path.join(process.cwd(), "build", "icon.ico"),
+    path.join(process.cwd(), "build", "icon.png"),
+    path.join(projectRoot, "build", "icon.ico"),
+    path.join(projectRoot, "build", "icon.png")
+  ];
+  const windowIconPath = iconCandidates.find((candidate) => candidate && fs.existsSync(candidate));
+
   const win = new BrowserWindow({
     width: 1320,
     height: 860,
@@ -2875,6 +2962,7 @@ function createWindow() {
     minHeight: 640,
     show: false,
     backgroundColor: "#f5f3ef",
+    ...(windowIconPath ? { icon: windowIconPath } : {}),
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -2953,8 +3041,9 @@ if (!gotSingleInstanceLock) {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   applyNotesRoot(resolveInitialNotesRoot());
+  await initializeAIForWorkspace();
   if (!mainWindow || mainWindow.isDestroyed()) {
     createWindow();
   } else {
@@ -2972,6 +3061,8 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
+  shutdownAISystem();
+
   if (webPreviewServer) {
     webPreviewServer.close();
     webPreviewServer = null;
@@ -4030,6 +4121,45 @@ ipcMain.handle("images:replace", (_event, payload) => {
 
   fs.writeFileSync(resolvedAssetPath, buffer);
   return true;
+});
+
+ipcMain.handle("images:rename", (_event, payload) => {
+  const { basePath, assetPath, nextFileName } = payload || {};
+  if (!basePath || typeof basePath !== "string") {
+    throw new Error("Invalid base path.");
+  }
+  if (!assetPath || typeof assetPath !== "string") {
+    throw new Error("Invalid asset path.");
+  }
+  if (!nextFileName || typeof nextFileName !== "string") {
+    throw new Error("Invalid image filename.");
+  }
+
+  const resolvedAssetPath = resolveImageAssetPath(basePath, assetPath);
+  if (!resolvedAssetPath || !fs.existsSync(resolvedAssetPath)) {
+    throw new Error("Image file not found.");
+  }
+
+  const imagesDir = path.resolve(path.join(notesRoot, "images"));
+  if (!filePathWithin(imagesDir, resolvedAssetPath)) {
+    throw new Error("Image path must be inside notes/images.");
+  }
+
+  const currentExt = path.extname(resolvedAssetPath);
+  const rawName = path.basename(String(nextFileName || "").trim()).replace(/[<>:"/\\|?*]+/g, "-");
+  const desiredExt = path.extname(rawName) || currentExt || ".png";
+  const desiredBase = path.basename(rawName, path.extname(rawName)) || "image";
+  const candidatePath = path.join(path.dirname(resolvedAssetPath), `${desiredBase}${desiredExt}`);
+
+  const normalizedCurrent = path.resolve(resolvedAssetPath);
+  const normalizedCandidate = path.resolve(candidatePath);
+  let finalPath = normalizedCandidate;
+  if (normalizedCandidate.toLowerCase() !== normalizedCurrent.toLowerCase()) {
+    finalPath = getUniquePath(normalizedCandidate);
+    fs.renameSync(normalizedCurrent, finalPath);
+  }
+
+  return `./images/${path.basename(finalPath)}`;
 });
 
 ipcMain.handle("images:read", (_event, payload) => {

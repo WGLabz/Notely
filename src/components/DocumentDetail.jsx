@@ -4,6 +4,7 @@ import {
   Save,
   RotateCcw,
   ChevronRight,
+  ChevronLeft,
   FileText,
   FilePenLine,
   FileDown,
@@ -21,12 +22,59 @@ import {
   Filter,
   Sparkles,
   ListTree,
+  MessageSquare,
+  Settings,
 } from "lucide-react";
 import { EditorPane } from "./EditorPane";
 import { MediaTab } from "./MediaTab";
 import { formatDate } from "../utils/dateUtils";
 import { downloadPdf } from "../services/electronService";
 import { deleteVersion, readVersion } from "../services/electronService";
+
+function getBlockRange(value, anchorIndex) {
+  const text = String(value || "");
+  const safeAnchor = Math.max(0, Math.min(Number(anchorIndex) || 0, text.length));
+
+  let start = safeAnchor;
+  while (start > 0) {
+    const previousBreak = text.lastIndexOf("\n\n", start - 1);
+    if (previousBreak === -1) {
+      start = 0;
+      break;
+    }
+
+    const candidate = text.slice(previousBreak + 2, safeAnchor).trim();
+    if (candidate) {
+      start = previousBreak + 2;
+      break;
+    }
+
+    start = previousBreak;
+  }
+
+  let end = safeAnchor;
+  while (end < text.length) {
+    const nextBreak = text.indexOf("\n\n", end);
+    if (nextBreak === -1) {
+      end = text.length;
+      break;
+    }
+
+    const candidate = text.slice(safeAnchor, nextBreak).trim();
+    if (candidate) {
+      end = nextBreak;
+      break;
+    }
+
+    end = nextBreak + 2;
+  }
+
+  return {
+    start,
+    end,
+    text: text.slice(start, end),
+  };
+}
 
 function buildDiffRows(latest, previous, options = {}) {
   const { ignoreWhitespace = false } = options;
@@ -159,6 +207,18 @@ export function DocumentDetail({
   menuAction,
   onNotify,
   onBack,
+  onOpenAI,
+  onOpenAIRequest,
+  onInlineAIRequest,
+  onRegisterAIEditor,
+  inlineGhostSuggestion,
+  onAcceptInlineGhost,
+  onRejectInlineGhost,
+  aiEnabled = true,
+  aiPanelVisible = true,
+  onShowAI,
+  onOpenAISettings,
+  aiSidebar = null,
 }) {
   const MAX_EDITOR_HISTORY = 200;
   const textareaRef = useRef(null);
@@ -218,6 +278,97 @@ export function DocumentDetail({
     });
     return headings;
   }, [content, showMediaManager]);
+
+  const getCurrentAIContext = () => {
+    const editor = textareaRef.current;
+    const currentValue = String(content || "");
+    const selectionStart = Number(editor?.selectionStart) || 0;
+    const selectionEnd = Number(editor?.selectionEnd) || selectionStart;
+    const hasSelection = selectionEnd > selectionStart;
+    const selectedText = hasSelection
+      ? currentValue.slice(selectionStart, selectionEnd)
+      : "";
+    const anchor = hasSelection ? selectionStart : selectionEnd;
+    const currentBlock = getBlockRange(currentValue, anchor);
+
+    return {
+      tab: activeTab,
+      field: activeEditorField,
+      selectionStart,
+      selectionEnd,
+      hasSelection,
+      selectedText,
+      currentBlock,
+      cursorOffset: selectionEnd,
+      contentLength: currentValue.length,
+    };
+  };
+
+  const applyAIResult = ({ text, mode, previewOnly = false, insertAt = null }) => {
+    const editor = textareaRef.current;
+    const currentValue = String(content || "");
+    const insertion = String(text || "");
+    if (!editor || !insertion) {
+      return { applied: false, reason: "No editor target available." };
+    }
+
+    const selectionStart = Number(editor.selectionStart) || 0;
+    const selectionEnd = Number(editor.selectionEnd) || selectionStart;
+    const currentBlock = getBlockRange(currentValue, selectionEnd);
+
+    let start = Number.isInteger(insertAt) ? insertAt : selectionEnd;
+    let end = Number.isInteger(insertAt) ? insertAt : selectionEnd;
+
+    if (mode === "replace-selection") {
+      start = selectionStart;
+      end = selectionEnd;
+      if (end <= start) {
+        return { applied: false, reason: "Select text to replace." };
+      }
+    } else if (mode === "replace-block") {
+      start = currentBlock.start;
+      end = currentBlock.end;
+      if (end <= start) {
+        return { applied: false, reason: "No current block found." };
+      }
+    }
+
+    if (previewOnly && mode !== "insert") {
+      return {
+        applied: false,
+        preview: true,
+        mode,
+        currentText: currentValue.slice(start, end),
+        nextText: insertion,
+        start,
+        end,
+      };
+    }
+
+    const nextValue = `${currentValue.slice(0, start)}${insertion}${currentValue.slice(end)}`;
+    updateContent(nextValue);
+
+    requestAnimationFrame(() => {
+      if (!textareaRef.current) return;
+      textareaRef.current.focus();
+      const nextCursor = start + insertion.length;
+      textareaRef.current.selectionStart = nextCursor;
+      textareaRef.current.selectionEnd = nextCursor;
+    });
+
+    return { applied: true, mode, start, end };
+  };
+
+  useEffect(() => {
+    if (typeof onRegisterAIEditor !== "function") return undefined;
+
+    onRegisterAIEditor({
+      getContext: getCurrentAIContext,
+      applyResult: applyAIResult,
+    });
+
+    return () => onRegisterAIEditor(null);
+  }, [onRegisterAIEditor, content, activeTab, activeEditorField]);
 
   useEffect(() => {
     historyStateRef.current = {
@@ -739,7 +890,7 @@ export function DocumentDetail({
         </div>
       ) : null}
 
-      <div className={`workspace ${isOutlineCollapsed ? "outline-panel-collapsed" : ""} ${isFocusMode ? "focus-mode" : ""}`}>
+      <div className={`workspace ${isOutlineCollapsed ? "outline-panel-collapsed" : ""} ${isFocusMode ? "focus-mode" : ""} ${aiSidebar ? "with-ai-chat" : ""}`}>
         <main className="editor-panel">
           <div className="tab-row">
             <div className="tabs">
@@ -837,6 +988,19 @@ export function DocumentDetail({
             canUndo={canUndo}
             canRedo={canRedo}
             onOpenFind={openFindReplacePanel}
+            aiEnabled={aiEnabled}
+            onOpenAIRequest={onOpenAIRequest}
+            onOpenAISettings={onOpenAISettings}
+            onInlineAIContinue={() => {
+              onInlineAIRequest?.({
+                initialQuery: "Continue the current paragraph naturally in the same tone and structure.",
+                target: "block",
+                source: "inline-continue",
+              });
+            }}
+            ghostSuggestion={inlineGhostSuggestion}
+            onAcceptInlineGhost={onAcceptInlineGhost}
+            onRejectInlineGhost={onRejectInlineGhost}
           />
         </main>
 
@@ -888,6 +1052,18 @@ export function DocumentDetail({
             </>
           )}
         </aside>
+        {aiSidebar}
+        {!aiPanelVisible && aiEnabled ? (
+          <button
+            type="button"
+            className="ai-panel-reveal"
+            onClick={onShowAI}
+            title="Show AI panel"
+            aria-label="Show AI panel"
+          >
+            AI
+          </button>
+        ) : null}
       </div>
 
       {compareModalOpen ? (

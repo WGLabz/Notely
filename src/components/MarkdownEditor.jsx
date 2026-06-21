@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
 import { EditorSelection, RangeSetBuilder } from "@codemirror/state";
-import { Decoration, EditorView, keymap } from "@codemirror/view";
+import { Decoration, EditorView, keymap, WidgetType } from "@codemirror/view";
 import { createImageMarkdown, insertTextAtCursor } from "../utils/markdownUtils";
 import { insertImagesFromFiles } from "../services/imageService";
 import { applyMarkdownQuickFix, applyValidationSuggestion, getIssueFixType } from "../utils/markdownQuickFix";
@@ -83,7 +83,8 @@ const editorTheme = EditorView.theme({
     lineHeight: "1.55",
   },
   ".cm-content": {
-    whiteSpace: "pre",
+    whiteSpace: "pre-wrap",
+    overflowWrap: "anywhere",
     fontFamily: '"Cascadia Code", Consolas, ui-monospace, monospace',
     fontSize: "13px",
     padding: "14px 0",
@@ -110,7 +111,132 @@ const editorTheme = EditorView.theme({
     boxShadow: "inset 0 -2px 0 rgba(142, 61, 90, 0.45)",
     borderRadius: "4px",
   },
+  ".cm-ai-ghost-widget": {
+    margin: "8px 16px 0",
+    padding: "10px 12px",
+    border: "1px dashed #a8c2b8",
+    borderRadius: "10px",
+    backgroundColor: "rgba(239, 246, 242, 0.95)",
+    color: "#31535a",
+    display: "grid",
+    gap: "8px",
+  },
+  ".cm-ai-ghost-header": {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "8px",
+    fontSize: "11px",
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+  },
+  ".cm-ai-ghost-actions": {
+    display: "flex",
+    gap: "8px",
+    flexWrap: "wrap",
+  },
+  ".cm-ai-ghost-button": {
+    minHeight: "28px",
+    padding: "0 10px",
+    border: "1px solid #c6d6d1",
+    borderRadius: "999px",
+    backgroundColor: "#ffffff",
+    color: "#17343a",
+    fontSize: "11px",
+    fontWeight: "700",
+    cursor: "pointer",
+  },
+  ".cm-ai-ghost-button.reject": {
+    backgroundColor: "#fff6f1",
+    color: "#8a3a1e",
+  },
+  ".cm-ai-ghost-body": {
+    whiteSpace: "pre-wrap",
+    fontSize: "12px",
+    lineHeight: "1.5",
+    color: "#45666b",
+  },
 });
+
+class AIGhostSuggestionWidget extends WidgetType {
+  constructor(text, onAccept, onReject) {
+    super();
+    this.text = text;
+    this.onAccept = onAccept;
+    this.onReject = onReject;
+  }
+
+  eq(other) {
+    return other.text === this.text;
+  }
+
+  toDOM() {
+    const wrap = document.createElement("div");
+    wrap.className = "cm-ai-ghost-widget";
+
+    const header = document.createElement("div");
+    header.className = "cm-ai-ghost-header";
+    const title = document.createElement("span");
+    title.textContent = "AI suggestion";
+    header.appendChild(title);
+
+    const actions = document.createElement("div");
+    actions.className = "cm-ai-ghost-actions";
+    const accept = document.createElement("button");
+    accept.type = "button";
+    accept.className = "cm-ai-ghost-button accept";
+    accept.textContent = "Accept";
+    accept.onclick = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.onAccept?.();
+    };
+    const reject = document.createElement("button");
+    reject.type = "button";
+    reject.className = "cm-ai-ghost-button reject";
+    reject.textContent = "Reject";
+    reject.onclick = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.onReject?.();
+    };
+    actions.appendChild(accept);
+    actions.appendChild(reject);
+    header.appendChild(actions);
+
+    const body = document.createElement("div");
+    body.className = "cm-ai-ghost-body";
+    body.textContent = this.text;
+
+    wrap.appendChild(header);
+    wrap.appendChild(body);
+    return wrap;
+  }
+
+  ignoreEvent() {
+    return false;
+  }
+}
+
+function buildGhostSuggestionDecorations(ghostSuggestion, onAccept, onReject, docLength) {
+  const builder = new RangeSetBuilder();
+  if (!ghostSuggestion?.text) {
+    return builder.finish();
+  }
+
+  const anchor = Math.max(0, Math.min(Number(ghostSuggestion.insertAt) || 0, docLength));
+  builder.add(
+    anchor,
+    anchor,
+    Decoration.widget({
+      widget: new AIGhostSuggestionWidget(ghostSuggestion.text, onAccept, onReject),
+      side: 1,
+      block: true,
+    })
+  );
+  return builder.finish();
+}
 
 function createEditorAdapter(view) {
   const clamp = (value) => Math.max(0, Math.min(Number(value) || 0, view.state.doc.length));
@@ -178,6 +304,13 @@ export function MarkdownEditor({
   onUndo,
   onRedo,
   onOpenFind,
+  aiEnabled = true,
+  onOpenAIRequest,
+  onOpenAISettings,
+  onInlineAIContinue,
+  ghostSuggestion,
+  onAcceptInlineGhost,
+  onRejectInlineGhost,
   onEditorReady,
 }) {
   const viewRef = useRef(null);
@@ -186,6 +319,10 @@ export function MarkdownEditor({
   const [activeLine, setActiveLine] = useState(1);
 
   const validationDecorations = useMemo(() => buildDecorationSet(value, validationIssues), [value, validationIssues]);
+  const ghostSuggestionDecorations = useMemo(
+    () => buildGhostSuggestionDecorations(ghostSuggestion, onAcceptInlineGhost, onRejectInlineGhost, String(value || "").length),
+    [ghostSuggestion, onAcceptInlineGhost, onRejectInlineGhost, value]
+  );
 
   useEffect(() => {
     if (Number.isFinite(focusedLine) && focusedLine > 0) {
@@ -243,14 +380,20 @@ export function MarkdownEditor({
     markdown(),
     editorTheme,
     EditorView.decorations.of(validationDecorations),
+    EditorView.decorations.of(ghostSuggestionDecorations),
     EditorView.lineWrapping,
     EditorView.domEventHandlers({
       contextmenu(event, view) {
         event.preventDefault();
         const position = view.posAtCoords({ x: event.clientX, y: event.clientY }) ?? view.state.selection.main.from;
-        view.dispatch({ selection: EditorSelection.single(position) });
+        const currentSelection = view.state.selection.main;
+        const keepSelection = !currentSelection.empty && position >= currentSelection.from && position <= currentSelection.to;
+        if (!keepSelection) {
+          view.dispatch({ selection: EditorSelection.single(position) });
+        }
 
         const docValue = view.state.doc.toString();
+        const activeSelection = keepSelection ? currentSelection : view.state.selection.main;
         const lineColumn = getLineColumnFromIndex(docValue, position);
         setActiveLine(lineColumn.line);
 
@@ -267,6 +410,8 @@ export function MarkdownEditor({
           y: event.clientY,
           line: lineColumn.line,
           issues: targetIssues,
+          hasSelection: !activeSelection.empty,
+          selectedText: !activeSelection.empty ? docValue.slice(activeSelection.from, activeSelection.to) : "",
         });
         return true;
       },
@@ -276,22 +421,36 @@ export function MarkdownEditor({
         }
         return false;
       },
-      async drop(event, view) {
+      drop(event, view) {
         const files = event.dataTransfer?.files || [];
         if (!files.length) return false;
 
         event.preventDefault();
-
-        try {
-          const results = await insertImagesFromFiles(files);
-          const markdownImages = results.map((result) => createImageMarkdown(result.altText, result.imagePath));
-          const adapter = textareaRef?.current;
-          insertTextAtCursor(view.state.doc.toString(), onChange, `${markdownImages.join("\n\n")}\n`, adapter ? { current: adapter } : textareaRef);
-          onNotify?.(`Inserted ${results.length} image${results.length > 1 ? "s" : ""}.`, "success");
-        } catch (error) {
-          console.error("Image drop insertion failed:", error);
-          onNotify?.(error?.message || "Failed to insert dropped images.", "error");
+        const dropPosition = view.posAtCoords({ x: event.clientX, y: event.clientY });
+        if (Number.isFinite(dropPosition)) {
+          view.dispatch({ selection: EditorSelection.single(dropPosition) });
         }
+
+        onNotify?.("Uploading dropped image...", "info");
+
+        void (async () => {
+          try {
+            const results = await insertImagesFromFiles(files);
+            const markdownImages = results.map((result) => createImageMarkdown(result.altText, result.imagePath));
+            const adapter = createEditorAdapter(view);
+            insertTextAtCursor(
+              view.state.doc.toString(),
+              onChange,
+              `${markdownImages.join("\n\n")}\n`,
+              { current: adapter }
+            );
+            onNotify?.(`Inserted ${results.length} image${results.length > 1 ? "s" : ""}.`, "success");
+          } catch (error) {
+            console.error("Image drop insertion failed:", error);
+            onNotify?.(error?.message || "Failed to insert dropped images.", "error");
+          }
+        })();
+
         return true;
       },
     }),
@@ -325,7 +484,7 @@ export function MarkdownEditor({
         },
       },
     ]),
-  ], [onChange, onNotify, onOpenFind, onRedo, onUndo, textareaRef, validationDecorations, validationIssues]);
+  ], [ghostSuggestionDecorations, onChange, onNotify, onOpenFind, onRedo, onUndo, textareaRef, validationDecorations, validationIssues]);
 
   return (
     <div className="markdown-editor">
@@ -371,8 +530,155 @@ export function MarkdownEditor({
           <button type="button" role="menuitem" onClick={() => onJumpToLine?.(contextMenu.line)}>
             Go to line {contextMenu.line}
           </button>
+          {aiEnabled ? (
+            <div className="editor-context-menu-group">
+              <div className="editor-context-menu-label">AI actions</div>
+              {contextMenu.hasSelection ? (
+                <>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      onOpenAIRequest?.({
+                        initialQuery: "Help me improve this selection while preserving its meaning and intent.",
+                        target: "selection",
+                        autoRun: false,
+                        source: "context-menu",
+                      });
+                      setContextMenu(null);
+                    }}
+                  >
+                    Ask AI about selection
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      onOpenAIRequest?.({
+                        initialQuery: "Rewrite this selection to be clearer and more polished while preserving meaning.",
+                        target: "selection",
+                        autoRun: true,
+                        source: "context-menu",
+                      });
+                      setContextMenu(null);
+                    }}
+                  >
+                    Rewrite selection with AI
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      onOpenAIRequest?.({
+                        initialQuery: "Use the selected text as the focal point and find related ideas, contradictions, or supporting notes from the workspace.",
+                        target: "workspace",
+                        autoRun: true,
+                        source: "context-menu",
+                      });
+                      setContextMenu(null);
+                    }}
+                  >
+                    Find related notes in workspace
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      onOpenAIRequest?.({
+                        initialQuery: "Turn this selection into a concise action list with markdown bullets.",
+                        target: "selection",
+                        autoRun: true,
+                        source: "context-menu",
+                      });
+                      setContextMenu(null);
+                    }}
+                  >
+                    Turn selection into action items
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      onOpenAIRequest?.({
+                        initialQuery: "Help me think through this section, point out gaps, and suggest the strongest next move.",
+                        target: "block",
+                        autoRun: false,
+                        source: "context-menu",
+                      });
+                      setContextMenu(null);
+                    }}
+                  >
+                    Ask AI about this section
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      onOpenAIRequest?.({
+                        initialQuery: "Continue writing this section in the same tone and structure.",
+                        target: "block",
+                        autoRun: true,
+                        source: "context-menu",
+                      });
+                      setContextMenu(null);
+                    }}
+                  >
+                    Continue this section with AI
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      onOpenAIRequest?.({
+                        initialQuery: "Use this note as the focal point and search the workspace for related notes, missing context, and useful connections.",
+                        target: "workspace",
+                        autoRun: true,
+                        source: "context-menu",
+                      });
+                      setContextMenu(null);
+                    }}
+                  >
+                    Explore related workspace notes
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      onOpenAIRequest?.({
+                        initialQuery: "Summarize the current block into a shorter, cleaner version.",
+                        target: "block",
+                        autoRun: true,
+                        source: "context-menu",
+                      });
+                      setContextMenu(null);
+                    }}
+                  >
+                    Summarize current block
+                  </button>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="editor-context-menu-group">
+              <div className="editor-context-menu-label">AI unavailable</div>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  onOpenAISettings?.();
+                  setContextMenu(null);
+                }}
+              >
+                Configure AI settings
+              </button>
+            </div>
+          )}
           {contextMenu.issues.length ? (
             <div className="editor-context-menu-group">
+              <div className="editor-context-menu-label">Fixes</div>
               {contextMenu.issues.map((issue, index) => {
                 const label = getIssueFixType(issue)
                   ? "Quick fix"

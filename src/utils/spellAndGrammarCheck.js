@@ -21,7 +21,7 @@ const COMMON_WORDS = new Set([
   "css", "javascript", "python", "java", "c", "database", "api", "rest",
   "json", "xml", "react", "vue", "angular", "node", "express", "npm",
   "yarn", "webpack", "babel", "eslint", "prettier", "git", "github",
-  "notely", "tata", "chemicals", "mithapur", "tcl", "project", "folder",
+  "notely", "project", "folder",
   "file", "document", "notes", "meeting", "metadata", "location", "time",
   "raw", "cleansed", "preview", "edit", "save", "delete", "create",
   "analysis", "conference", "room", "power", "plant", "captive", "review",

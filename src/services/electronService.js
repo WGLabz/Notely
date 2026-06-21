@@ -27,6 +27,86 @@ export function updateMenuContext(context) {
   api.updateMenuContext(context || {});
 }
 
+export async function aiQuery(query, context = {}) {
+  const api = getNotesApi();
+  if (typeof api.aiQuery !== "function") {
+    throw new Error("AI queries are unavailable. Please restart the app.");
+  }
+  return api.aiQuery({ query, context });
+}
+
+export async function aiGetApiKey(provider) {
+  const api = getNotesApi();
+  if (typeof api.aiGetApiKey !== "function") {
+    throw new Error("AI configuration is unavailable. Please restart the app.");
+  }
+  return api.aiGetApiKey({ provider });
+}
+
+export async function aiSetApiKey(provider, apiKey) {
+  const api = getNotesApi();
+  if (typeof api.aiSetApiKey !== "function") {
+    throw new Error("AI configuration is unavailable. Please restart the app.");
+  }
+  return api.aiSetApiKey({ provider, apiKey });
+}
+
+export async function aiGetPreferences() {
+  const api = getNotesApi();
+  if (typeof api.aiGetPreferences !== "function") {
+    throw new Error("AI preferences are unavailable. Please restart the app.");
+  }
+  return api.aiGetPreferences({});
+}
+
+export async function aiSetPreferences(preferences) {
+  const api = getNotesApi();
+  if (typeof api.aiSetPreferences !== "function") {
+    throw new Error("AI preferences are unavailable. Please restart the app.");
+  }
+  return api.aiSetPreferences({ preferences });
+}
+
+export async function aiTestConnection(provider) {
+  const api = getNotesApi();
+  if (typeof api.aiTestConnection !== "function") {
+    throw new Error("AI connection testing is unavailable. Please restart the app.");
+  }
+  return api.aiTestConnection({ provider });
+}
+
+export async function aiClearData() {
+  const api = getNotesApi();
+  if (typeof api.aiClearData !== "function") {
+    throw new Error("AI data management is unavailable. Please restart the app.");
+  }
+  return api.aiClearData({});
+}
+
+export async function aiGenerateEmbeddings(forceRefresh = true) {
+  const api = getNotesApi();
+  if (typeof api.aiGenerateEmbeddings !== "function") {
+    throw new Error("AI embeddings are unavailable. Please restart the app.");
+  }
+  return api.aiGenerateEmbeddings({ forceRefresh });
+}
+
+export async function aiBuildGraph() {
+  const api = getNotesApi();
+  if (typeof api.aiBuildGraph !== "function") {
+    throw new Error("AI graph operations are unavailable. Please restart the app.");
+  }
+  return api.aiBuildGraph({});
+}
+
+export async function aiDetectPatterns() {
+  const api = getNotesApi();
+  if (typeof api.aiDetectPatterns !== "function") {
+    throw new Error("AI pattern detection is unavailable. Please restart the app.");
+  }
+  return api.aiDetectPatterns({});
+}
+
 export async function getNotesRootSetting() {
   const api = getNotesApi();
   if (typeof api.getNotesRootSetting !== "function") {
@@ -355,6 +435,14 @@ export async function deleteImage(basePath, assetPath) {
 export async function replaceImage(basePath, assetPath, base64Data) {
   const api = getNotesApi();
   return api.replaceImage({ basePath, assetPath, base64Data });
+}
+
+export async function renameImage(basePath, assetPath, nextFileName) {
+  const api = getNotesApi();
+  if (typeof api.renameImage !== "function") {
+    throw new Error("Image rename action unavailable. Please restart the app.");
+  }
+  return api.renameImage({ basePath, assetPath, nextFileName });
 }
 
 export async function runTerminalCommand(command, cwd) {

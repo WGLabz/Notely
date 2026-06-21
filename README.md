@@ -1,6 +1,6 @@
 # Notely
 
-Notely is a desktop Markdown notes app for the TCL Mithapur workspace. It is built with Electron + React and is designed for project notes, meeting records, document history, image handling, and markdown authoring in one place.
+Notely is a desktop Markdown notes app for team and project workspaces. It is built with Electron + React and is designed for project notes, meeting records, document history, image handling, and markdown authoring in one place.
 
 ## What the app does
 
@@ -71,7 +71,7 @@ The spell checker is tuned for notes and markdown content:
 - Skips Mermaid blocks.
 - Recognizes common English words.
 - Allows common abbreviations and technical terms.
-- Handles project-specific terms like TCL and Mithapur.
+- Handles project-specific terms used across engineering notes.
 
 ### Grammar checking
 
@@ -232,4 +232,4 @@ Grammar checks use an external API, so network access is required for the best r
 
 ## License and ownership
 
-This repository is maintained for Tata Chemicals Limited - Mithapur use.
+This repository is maintained for Notely use.
