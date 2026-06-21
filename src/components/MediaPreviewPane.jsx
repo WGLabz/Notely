@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 import { X, Volume2, VolumeX, RotateCw, Download } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
+import PdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?worker";
 import { ImageCropModal } from "./ImageCropModal";
 import {
   rotateImage,
@@ -15,11 +16,36 @@ import {
   getImageFileSize,
   formatFileSize,
 } from "../utils/imageProcessingUtils";
+import { readImage } from "../services/electronService";
 import "../styles/mediaPreview.css";
 
-// Set up PDF.js worker
-if (typeof window !== "undefined") {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Initialize the pdf.js worker once via a Vite-bundled module worker so it
+// runs offline and under Electron's file:// scheme (no CDN, no URL resolution
+// quirks).
+let pdfWorkerPort = null;
+function ensurePdfWorker() {
+  if (typeof window === "undefined") return;
+  if (pdfjsLib.GlobalWorkerOptions.workerPort) return;
+  if (!pdfWorkerPort) {
+    pdfWorkerPort = new PdfWorker();
+  }
+  pdfjsLib.GlobalWorkerOptions.workerPort = pdfWorkerPort;
+}
+
+function dataUrlToUint8Array(dataUrl) {
+  const commaIndex = dataUrl.indexOf(",");
+  if (commaIndex === -1) return null;
+  try {
+    const binary = atob(dataUrl.slice(commaIndex + 1));
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  } catch {
+    return null;
+  }
 }
 
 export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalImages = false, onClose }) {
@@ -39,9 +65,40 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
   const videoRef = useRef(null);
   const audioRef = useRef(null);
 
-  const resolvedPath = basePath && !mediaPath.startsWith("data:") && !mediaPath.startsWith("http")
-    ? `${basePath}/${mediaPath}`.replace(/\\/g, "/")
-    : mediaPath;
+  const [resolvedPath, setResolvedPath] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function resolve() {
+      if (!mediaPath) {
+        if (!cancelled) setResolvedPath(null);
+        return;
+      }
+
+      if (/^(data:|blob:|https?:)/i.test(mediaPath)) {
+        if (!cancelled) setResolvedPath(mediaPath);
+        return;
+      }
+
+      if (!basePath) {
+        if (!cancelled) setResolvedPath(mediaPath);
+        return;
+      }
+
+      try {
+        const result = await readImage(basePath, mediaPath);
+        if (!cancelled) setResolvedPath(result || mediaPath);
+      } catch {
+        if (!cancelled) setResolvedPath(mediaPath);
+      }
+    }
+
+    resolve();
+    return () => {
+      cancelled = true;
+    };
+  }, [basePath, mediaPath]);
 
   useEffect(() => {
     setError(null);
@@ -54,6 +111,8 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
     setImageInfo(null);
     setShowCropModal(false);
     setContextMenu(null);
+
+    if (!resolvedPath) return;
 
     if (mediaType === "pdf" && mediaPath) {
       loadPdf(resolvedPath);
@@ -72,17 +131,27 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
       } else {
         const defaultQuality = "MEDIUM";
         const option = IMAGE_DOWNSAMPLE_OPTIONS[defaultQuality];
-        const downsampled = await downsampleImage(path, option.scale, option.quality);
-        setImageQuality(defaultQuality);
-        setDisplayedImage(downsampled);
+        try {
+          const downsampled = await downsampleImage(path, option.scale, option.quality);
+          setImageQuality(defaultQuality);
+          setDisplayedImage(downsampled);
+        } catch {
+          // Downsample failed (e.g. unsupported format), fall back to original.
+          setImageQuality("ORIGINAL");
+          setDisplayedImage(path);
+        }
       }
-      const dimensions = await getImageDimensions(path);
-      const fileSize = getImageFileSize(path);
-      setImageInfo({
-        dimensions,
-        fileSize,
-        formattedSize: formatFileSize(fileSize),
-      });
+      try {
+        const dimensions = await getImageDimensions(path);
+        const fileSize = getImageFileSize(path);
+        setImageInfo({
+          dimensions,
+          fileSize,
+          formattedSize: formatFileSize(fileSize),
+        });
+      } catch {
+        setImageInfo(null);
+      }
     } catch (err) {
       setError(`Failed to load image: ${err.message}`);
     }
@@ -186,9 +255,13 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
     };
   }, [contextMenu]);
 
-  const loadPdf = async (path) => {
+  const loadPdf = async (source) => {
     try {
-      const pdf = await pdfjsLib.getDocument(path).promise;
+      ensurePdfWorker();
+      const input = typeof source === "string" && source.startsWith("data:")
+        ? { data: dataUrlToUint8Array(source) }
+        : source;
+      const pdf = await pdfjsLib.getDocument(input).promise;
       setPdfPages(pdf.numPages);
       await renderPdfPage(pdf, 1);
     } catch (err) {
@@ -221,7 +294,11 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
     setCurrentPdfPage(newPage);
 
     try {
-      const pdf = await pdfjsLib.getDocument(resolvedPath).promise;
+      ensurePdfWorker();
+      const input = typeof resolvedPath === "string" && resolvedPath.startsWith("data:")
+        ? { data: dataUrlToUint8Array(resolvedPath) }
+        : resolvedPath;
+      const pdf = await pdfjsLib.getDocument(input).promise;
       await renderPdfPage(pdf, newPage);
     } catch (err) {
       setError(`Failed to load PDF page: ${err.message}`);

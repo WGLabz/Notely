@@ -404,9 +404,9 @@ export async function downloadPdf(payload) {
   return api.downloadPdf(payload);
 }
 
-export async function saveImage(fileName, base64Data) {
+export async function saveImage(fileName, base64Data, basePath) {
   const api = getNotesApi();
-  return api.saveImage({ fileName, base64Data });
+  return api.saveImage({ fileName, base64Data, basePath });
 }
 
 export async function listImages(basePath) {

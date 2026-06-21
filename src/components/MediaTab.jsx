@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Copy, ImageOff, ImagePlus, RefreshCw, Upload, Trash2, Filter } from "lucide-react";
+import { Copy, Eye, ImageOff, ImagePlus, RefreshCw, Upload, Trash2 } from "lucide-react";
 import { extractImagesFromMarkdown } from "../utils/mediaUtils";
 import { getMediaTypeFromExtension } from "../utils/mediaUtils";
 import { MediaStats } from "./MediaStats";
+import { MediaPreviewPane } from "./MediaPreviewPane";
 import {
   getImageUsage,
   listImages,
@@ -29,6 +30,7 @@ export function MediaTab({ content, basePath, onNotify }) {
   const [searchText, setSearchText] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [sortType, setSortType] = useState("name-asc");
+  const [selectedMediaPreview, setSelectedMediaPreview] = useState(null);
   const addInputRef = useRef(null);
   const replaceInputRef = useRef(null);
 
@@ -149,6 +151,8 @@ export function MediaTab({ content, basePath, onNotify }) {
         );
         setResolvedImages(resolvedById);
         setMediaSizes(sizeById);
+        // Clear stale failure flags so newly resolved data URLs get a chance to render.
+        setThumbnailFailures({});
       }
     }
 
@@ -231,7 +235,7 @@ export function MediaTab({ content, basePath, onNotify }) {
     setActionInfo("");
     try {
       const dataUrl = await readFileAsDataUrl(file);
-      await saveImage(file.name, dataUrl);
+      await saveImage(file.name, dataUrl, basePath);
       setRefreshKey((value) => value + 1);
       setActionInfo("Media added successfully.");
       onNotify?.("Media added.", "success");
@@ -364,27 +368,6 @@ export function MediaTab({ content, basePath, onNotify }) {
     <div>
       <MediaStats allMedia={mediaItemsWithSize} onDeleteUnused={handleDeleteUnusedMedia} isDeleting={busy} />
 
-      <div className="media-actions">
-        <button
-          className="small-button icon-only"
-          onClick={() => addInputRef.current?.click()}
-          disabled={busy}
-          title="Add media"
-        >
-          <ImagePlus size={16} />
-        </button>
-        <button
-          className="small-button icon-only"
-          onClick={() => setRefreshKey((value) => value + 1)}
-          disabled={busy}
-          title="Refresh media"
-        >
-          <RefreshCw size={16} />
-        </button>
-        <input ref={addInputRef} type="file" accept="image/*,video/*,audio/*,.pdf" onChange={handleAddImage} hidden />
-        <input ref={replaceInputRef} type="file" accept="image/*,video/*,audio/*,.pdf" onChange={handleReplaceImage} hidden />
-      </div>
-
       <div className="media-toolbar">
         <input
           className="media-search"
@@ -410,6 +393,26 @@ export function MediaTab({ content, basePath, onNotify }) {
           <option value="name-desc">Name Z-A</option>
           <option value="referenced-first">Referenced First</option>
         </select>
+        <div className="media-toolbar-actions">
+          <button
+            className="small-button icon-only"
+            onClick={() => addInputRef.current?.click()}
+            disabled={busy}
+            title="Add media"
+          >
+            <ImagePlus size={16} />
+          </button>
+          <button
+            className="small-button icon-only"
+            onClick={() => setRefreshKey((value) => value + 1)}
+            disabled={busy}
+            title="Refresh media"
+          >
+            <RefreshCw size={16} />
+          </button>
+          <input ref={addInputRef} type="file" accept="image/*,video/*,audio/*,.pdf" onChange={handleAddImage} hidden />
+          <input ref={replaceInputRef} type="file" accept="image/*,video/*,audio/*,.pdf" onChange={handleReplaceImage} hidden />
+        </div>
       </div>
 
       <p className="media-summary">
@@ -436,11 +439,15 @@ export function MediaTab({ content, basePath, onNotify }) {
       ) : (
         <div className="media-grid">
           {filteredImages.map((image) => {
-            const imageSrc = resolvedImages[image.id] || image.path;
+            const resolvedSrc = resolvedImages[image.id];
             const extension = image.path.split(".").pop()?.toLowerCase();
             const mediaType = getMediaTypeFromExtension(extension) || "unknown";
             const referenced = (image.referenceCount || 0) > 0 || referencedPathSet.has(image.path);
-            const showFallback = Boolean(thumbnailFailures[image.id] || image.missingFile);
+            const isResolving = basePath && resolvedSrc === undefined;
+            const isDataUrl = typeof resolvedSrc === "string" && resolvedSrc.startsWith("data:");
+            const canRender = !isResolving && (isDataUrl || !basePath);
+            const showFallback = Boolean(thumbnailFailures[image.id] || image.missingFile || (!isResolving && !isDataUrl && basePath));
+            const imageSrc = resolvedSrc || image.path;
 
             return (
             <div className="media-item" key={image.id}>
@@ -449,6 +456,10 @@ export function MediaTab({ content, basePath, onNotify }) {
                   <div className="media-fallback">
                     <ImageOff size={18} />
                     <span>Preview unavailable</span>
+                  </div>
+                ) : !canRender ? (
+                  <div className="media-fallback">
+                    <span>Loading…</span>
                   </div>
                 ) : mediaType === "image" ? (
                   <img src={imageSrc} alt={image.altText} onError={() => markThumbnailFailed(image.id)} />
@@ -476,16 +487,38 @@ export function MediaTab({ content, basePath, onNotify }) {
               </div>
               <div className="media-info">
                 <div className="media-title-row">
-                  <p className="media-alt">{image.altText}</p>
-                  <span
-                    className={`media-badge ${referenced ? "linked" : "unlinked"}`}
-                    title={referenced ? `Referenced in ${image.referenceCount || 0} note${(image.referenceCount || 0) === 1 ? "" : "s"}` : "Not referenced in any note"}
-                  >
-                    {referenced ? `${image.referenceCount || 0} Refs` : "Unused"}
-                  </span>
+                  <p className="media-alt" title={image.altText}>{image.altText}</p>
+                  {referenced ? (
+                    <span
+                      className="media-badge linked"
+                      title={`Referenced in ${image.referenceCount || 0} note${(image.referenceCount || 0) === 1 ? "" : "s"}`}
+                    >
+                      {`${image.referenceCount || 0} Refs`}
+                    </span>
+                  ) : (
+                    <span className="media-unused-group" title="Not referenced in any note">
+                      <span className="media-badge unlinked">Unused</span>
+                      <button
+                        className="media-badge-action"
+                        onClick={() => handleDeleteImage(image.path)}
+                        disabled={busy}
+                        title="Delete media"
+                        aria-label="Delete media"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </span>
+                  )}
                 </div>
                 <p className="media-path" title={image.path}>{image.path}</p>
                 <div className="media-item-actions">
+                  <button
+                    className="small-button icon-only"
+                    onClick={() => setSelectedMediaPreview({ path: image.path, type: mediaType })}
+                    title="Preview media"
+                  >
+                    <Eye size={14} />
+                  </button>
                   <button className="small-button icon-only" onClick={() => handleCopyMarkdown(image)} title="Copy markdown">
                     <Copy size={14} />
                   </button>
@@ -497,21 +530,24 @@ export function MediaTab({ content, basePath, onNotify }) {
                   >
                     <Upload size={14} />
                   </button>
-                  {!referenced ? (
-                    <button
-                      className="small-button danger icon-only"
-                      onClick={() => handleDeleteImage(image.path)}
-                      disabled={busy}
-                      title="Delete media"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  ) : null}
                 </div>
               </div>
             </div>
           );
           })}
+        </div>
+      )}
+
+      {selectedMediaPreview && (
+        <div className="media-full-preview-overlay" role="dialog" aria-modal="true" aria-label="Media preview">
+          <div className="media-full-preview-content">
+            <MediaPreviewPane
+              mediaPath={selectedMediaPreview.path}
+              mediaType={selectedMediaPreview.type}
+              basePath={basePath}
+              onClose={() => setSelectedMediaPreview(null)}
+            />
+          </div>
         </div>
       )}
     </div>

@@ -3902,7 +3902,7 @@ ipcMain.handle("documents:delete-version", (_event, payload) => {
 });
 
 ipcMain.handle("images:save", (_event, payload) => {
-  const { fileName, base64Data } = payload || {};
+  const { fileName, base64Data, basePath } = payload || {};
   if (!fileName || typeof fileName !== "string") {
     throw new Error("Invalid image filename.");
   }
@@ -3910,7 +3910,19 @@ ipcMain.handle("images:save", (_event, payload) => {
     throw new Error("Invalid image payload.");
   }
 
-  const imagesDir = path.join(notesRoot, "images");
+  // Prefer saving next to the active note (per-note images/), fall back to
+  // the workspace-level notesRoot/images when no basePath is provided.
+  let imagesDir;
+  if (basePath && typeof basePath === "string") {
+    const resolvedBase = path.resolve(basePath);
+    const normalizedNotesRoot = path.resolve(notesRoot).toLowerCase();
+    if (resolvedBase.toLowerCase().startsWith(normalizedNotesRoot)) {
+      imagesDir = path.join(path.dirname(resolvedBase), "images");
+    }
+  }
+  if (!imagesDir) {
+    imagesDir = path.join(notesRoot, "images");
+  }
   ensureDir(imagesDir);
 
   // Generate unique filename if it already exists
@@ -3949,15 +3961,38 @@ ipcMain.handle("images:list", (_event, payload) => {
     throw new Error("Invalid document path.");
   }
 
-  const imagesDir = path.join(notesRoot, "images");
-  if (!fs.existsSync(imagesDir)) return [];
+  const allowedExtensions = new Set([
+    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp", ".ico",
+    ".mp4", ".webm", ".ogv", ".mov", ".avi", ".mkv", ".m4v",
+    ".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac",
+    ".pdf"
+  ]);
+  const readImagesIn = (dir) => {
+    if (!fs.existsSync(dir)) return [];
+    try {
+      return fs.readdirSync(dir, { withFileTypes: true })
+        .filter((entry) => entry.isFile())
+        .map((entry) => entry.name)
+        .filter((name) => allowedExtensions.has(path.extname(name).toLowerCase()));
+    } catch {
+      return [];
+    }
+  };
 
-  const allowedExtensions = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"]);
-  return fs.readdirSync(imagesDir, { withFileTypes: true })
-    .filter((entry) => entry.isFile())
-    .map((entry) => entry.name)
-    .filter((name) => allowedExtensions.has(path.extname(name).toLowerCase()))
-    .map((name) => `./images/${name}`);
+  // Scan both the note's own sibling images/ folder and the workspace-level
+  // notesRoot/images. Names from the note-local folder win when duplicated.
+  const baseDir = path.dirname(path.resolve(basePath));
+  const localImagesDir = path.join(baseDir, "images");
+  const rootImagesDir = path.join(notesRoot, "images");
+
+  const localNames = readImagesIn(localImagesDir);
+  const seen = new Set(localNames.map((name) => name.toLowerCase()));
+  const rootNames = readImagesIn(rootImagesDir).filter((name) => !seen.has(name.toLowerCase()));
+
+  return [
+    ...localNames.map((name) => `./images/${name}`),
+    ...rootNames.map((name) => `./images/${name}`),
+  ];
 });
 
 function collectImageUsage(basePath) {
@@ -4058,7 +4093,26 @@ function resolveImageAssetPath(basePath, assetPath) {
     const normalizedAsset = decodedAsset
       .replace(/^\.\//, "")
       .replace(/^[/\\]+images[/\\]/i, "images/");
-    resolvedAssetPath = path.resolve(baseDir, normalizedAsset);
+
+    // For asset paths like "./images/foo.jpg", try the markdown file's own
+    // sibling folder first (most common case for per-note images/), then fall
+    // back to the workspace-level notesRoot/images. For any other relative
+    // path, resolve from the markdown file directory.
+    const candidates = [];
+    if (/^images[\\/]/i.test(normalizedAsset)) {
+      candidates.push(path.resolve(baseDir, normalizedAsset));
+      candidates.push(path.resolve(notesRoot, normalizedAsset));
+    } else {
+      candidates.push(path.resolve(baseDir, normalizedAsset));
+    }
+
+    resolvedAssetPath = candidates.find((candidate) => {
+      try {
+        return fs.existsSync(candidate);
+      } catch {
+        return false;
+      }
+    }) || candidates[0];
   }
 
   const normalizedNotesRoot = path.resolve(notesRoot).toLowerCase();
@@ -4191,7 +4245,18 @@ ipcMain.handle("images:read", (_event, payload) => {
     ".jpeg": "image/jpeg",
     ".gif": "image/gif",
     ".webp": "image/webp",
-    ".svg": "image/svg+xml"
+    ".svg": "image/svg+xml",
+    ".bmp": "image/bmp",
+    ".ico": "image/x-icon",
+    ".mp4": "video/mp4",
+    ".webm": "video/webm",
+    ".ogv": "video/ogg",
+    ".mov": "video/quicktime",
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+    ".ogg": "audio/ogg",
+    ".m4a": "audio/mp4",
+    ".pdf": "application/pdf"
   };
   const mimeType = mimeMap[ext] || "application/octet-stream";
   const buffer = fs.readFileSync(resolvedAssetPath);
