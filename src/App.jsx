@@ -10,6 +10,7 @@ import { ConflictResolutionPanel } from "./components/ConflictResolutionPanel";
 import AIChatPanel from "./components/AIChatPanel";
 import AISettings from "./components/AISettings";
 import {
+  aiGetApiKey,
   aiQuery,
   aiBuildGraph,
   aiClearData,
@@ -263,6 +264,7 @@ export default function App() {
   });
   const [aiPaletteIntent, setAiPaletteIntent] = useState(() => normalizePaletteIntent());
   const [aiChatMessages, setAiChatMessages] = useState([]);
+  const [isAIConfigured, setIsAIConfigured] = useState(false);
   const [aiPanelVisible, setAiPanelVisible] = useState(() => {
     try {
       const stored = window.localStorage.getItem("notely:ai-panel-visible");
@@ -289,6 +291,25 @@ export default function App() {
     normalizedLandingFolder &&
     normalizedLandingFolder !== normalizedProjectRoot
   );
+
+  async function refreshAIConfiguration() {
+    try {
+      const providers = ["gemini", "openai", "local"];
+      const checks = await Promise.all(
+        providers.map(async (provider) => {
+          try {
+            const result = await aiGetApiKey(provider);
+            return Boolean(result?.success && result?.data?.apiKey);
+          } catch {
+            return false;
+          }
+        })
+      );
+      setIsAIConfigured(checks.some(Boolean));
+    } catch {
+      setIsAIConfigured(false);
+    }
+  }
 
   const notify = (message, type = "info") => {
     const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -785,6 +806,13 @@ export default function App() {
       return;
     }
 
+    if (!isAIConfigured) {
+      notify("Configure an AI provider key in AI Settings to use AI chat.", "warning");
+      setAiPanelVisible(false);
+      setAiSettingsOpen(true);
+      return;
+    }
+
     const editorContext = aiEditorRef.current?.getContext?.() || null;
     const summary = buildAIContextSummary(editorContext, current);
     setAiQueryError("");
@@ -796,6 +824,13 @@ export default function App() {
   async function handleInlineAIRequest(options = {}) {
     if (!current?.filePath) {
       notify("Open a note to use AI.", "warning");
+      return;
+    }
+
+    if (!isAIConfigured) {
+      notify("Configure an AI provider key in AI Settings to use AI actions.", "warning");
+      setAiPanelVisible(false);
+      setAiSettingsOpen(true);
       return;
     }
 
@@ -859,6 +894,13 @@ export default function App() {
   async function handleAIQuery({ query, target }) {
     if (!current?.filePath) {
       throw new Error("Open a note to use AI.");
+    }
+
+    if (!isAIConfigured) {
+      notify("Configure an AI provider key in AI Settings to use AI chat.", "warning");
+      setAiPanelVisible(false);
+      setAiSettingsOpen(true);
+      throw new Error("AI provider not configured.");
     }
 
     setAiQueryLoading(true);
@@ -1283,6 +1325,22 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    refreshAIConfiguration();
+  }, []);
+
+  useEffect(() => {
+    if (!isAIConfigured && aiPanelVisible) {
+      setAiPanelVisible(false);
+    }
+  }, [isAIConfigured, aiPanelVisible]);
+
+  useEffect(() => {
+    if (!aiSettingsOpen) {
+      refreshAIConfiguration();
+    }
+  }, [aiSettingsOpen]);
+
+  useEffect(() => {
     try {
       window.localStorage.setItem("notes:view-mode", notesViewMode);
     } catch {
@@ -1595,9 +1653,18 @@ export default function App() {
           inlineGhostSuggestion={inlineGhostSuggestion}
           onAcceptInlineGhost={handleAcceptInlineGhost}
           onRejectInlineGhost={handleRejectInlineGhost}
+          aiEnabled={isAIConfigured}
           aiPanelVisible={aiPanelVisible}
-          onShowAI={() => setAiPanelVisible(true)}
-          aiSidebar={aiPanelVisible ? (
+          onShowAI={() => {
+            if (!isAIConfigured) {
+              notify("Configure an AI provider key in AI Settings to use AI chat.", "warning");
+              setAiSettingsOpen(true);
+              return;
+            }
+            setAiPanelVisible(true);
+          }}
+          onOpenAISettings={() => setAiSettingsOpen(true)}
+          aiSidebar={aiPanelVisible && isAIConfigured ? (
             <AIChatPanel
               onHide={() => setAiPanelVisible(false)}
               onClear={handleClearAIChat}
@@ -1787,7 +1854,10 @@ export default function App() {
       {aiSettingsOpen ? (
         <AISettings
           isOpen={aiSettingsOpen}
-          onClose={() => setAiSettingsOpen(false)}
+          onClose={() => {
+            setAiSettingsOpen(false);
+            refreshAIConfiguration();
+          }}
         />
       ) : null}
 

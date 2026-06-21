@@ -14,6 +14,18 @@ const { initializeAISystem, shutdownAISystem } = require("../src/ai/index.js");
 
 const rendererUrl = process.env.ELECTRON_RENDERER_URL;
 const projectRoot = app.getAppPath();
+const sessionDataPath = path.join(app.getPath("userData"), "session-data");
+const chromiumCachePath = path.join(sessionDataPath, "Cache");
+
+try {
+  fs.mkdirSync(chromiumCachePath, { recursive: true });
+  app.setPath("sessionData", sessionDataPath);
+  app.commandLine.appendSwitch("disk-cache-dir", chromiumCachePath);
+  app.commandLine.appendSwitch("disable-gpu-shader-disk-cache");
+} catch (error) {
+  console.warn("[startup] Unable to initialize custom Chromium cache path:", error?.message || error);
+}
+
 const userConfigPath = path.join(app.getPath("userData"), "settings.json");
 let notesRoot = "";
 let appDataDir = "";

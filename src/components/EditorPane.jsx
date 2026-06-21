@@ -19,7 +19,9 @@ export function EditorPane({
   canUndo = false,
   canRedo = false,
   onOpenFind,
+  aiEnabled = true,
   onOpenAIRequest,
+  onOpenAISettings,
   onInlineAIContinue,
   ghostSuggestion,
   onAcceptInlineGhost,
@@ -191,7 +193,9 @@ export function EditorPane({
       onUndo={onUndo}
       onRedo={onRedo}
       onOpenFind={onOpenFind}
+      aiEnabled={aiEnabled}
       onOpenAIRequest={onOpenAIRequest}
+      onOpenAISettings={onOpenAISettings}
       onInlineAIContinue={onInlineAIContinue}
       ghostSuggestion={ghostSuggestion}
       onAcceptInlineGhost={onAcceptInlineGhost}

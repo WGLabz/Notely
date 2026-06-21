@@ -214,8 +214,10 @@ export function DocumentDetail({
   inlineGhostSuggestion,
   onAcceptInlineGhost,
   onRejectInlineGhost,
+  aiEnabled = true,
   aiPanelVisible = true,
   onShowAI,
+  onOpenAISettings,
   aiSidebar = null,
 }) {
   const MAX_EDITOR_HISTORY = 200;
@@ -986,7 +988,9 @@ export function DocumentDetail({
             canUndo={canUndo}
             canRedo={canRedo}
             onOpenFind={openFindReplacePanel}
+            aiEnabled={aiEnabled}
             onOpenAIRequest={onOpenAIRequest}
+            onOpenAISettings={onOpenAISettings}
             onInlineAIContinue={() => {
               onInlineAIRequest?.({
                 initialQuery: "Continue the current paragraph naturally in the same tone and structure.",
@@ -1049,7 +1053,7 @@ export function DocumentDetail({
           )}
         </aside>
         {aiSidebar}
-        {!aiPanelVisible ? (
+        {!aiPanelVisible && aiEnabled ? (
           <button
             type="button"
             className="ai-panel-reveal"

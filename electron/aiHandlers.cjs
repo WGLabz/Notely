@@ -224,29 +224,11 @@ async function handleGetAPIKey(event, payload) {
       throw new Error('Provider required');
     }
 
-    // Retrieve API key using Electron's safeStorage
-    const { app, safeStorage } = require('electron');
-    const appDataDir = app.getPath('appData');
-    const fs = require('fs');
-    const path = require('path');
+    const AIConfig = require('../src/ai/utils/AIConfig');
+    const config = new AIConfig();
+    const apiKey = config.getAPIKey(provider);
 
-    const configPath = path.join(appDataDir, 'notely', 'ai-config.json');
-
-    if (!fs.existsSync(configPath)) {
-      return new AIQueryResponse(true, { apiKey: null });
-    }
-
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-
-    if (!config[provider]) {
-      return new AIQueryResponse(true, { apiKey: null });
-    }
-
-    // Decrypt API key
-    const encrypted = Buffer.from(config[provider], 'latin1');
-    const decrypted = safeStorage.decryptString(encrypted);
-
-    return new AIQueryResponse(true, { apiKey: decrypted });
+    return new AIQueryResponse(true, { apiKey: apiKey || null });
   } catch (error) {
     console.error('[AI IPC] API key retrieval failed:', error);
     return new AIQueryResponse(false, null, error.message);

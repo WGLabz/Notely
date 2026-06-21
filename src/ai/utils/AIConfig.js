@@ -58,11 +58,21 @@ class AIConfig {
         return null;
       }
 
-      // Decrypt using Electron's safeStorage
-      const encrypted = Buffer.from(config[provider], 'latin1');
-      const decrypted = safeStorage.decryptString(encrypted);
-
-      return decrypted;
+      try {
+        // Decrypt using Electron's safeStorage
+        const encrypted = Buffer.from(config[provider], 'latin1');
+        const decrypted = safeStorage.decryptString(encrypted);
+        return decrypted;
+      } catch (decryptError) {
+        // Auto-clean invalid/stale ciphertext so UI can recover without repeated failures.
+        delete config[provider];
+        fs.writeFileSync(this.configPath, JSON.stringify(config, null, 2));
+        console.warn(
+          `[AIConfig] Removed invalid API key for provider "${provider}":`,
+          decryptError.message
+        );
+        return null;
+      }
     } catch (error) {
       console.error('[AIConfig] Failed to get API key:', error.message);
       return null;
