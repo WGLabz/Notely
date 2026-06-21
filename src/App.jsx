@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import mermaid from "mermaid";
-import { ArrowUp, FolderOpen, FolderPlus, LayoutGrid, NotebookPen, Rows3, Terminal, X } from "lucide-react";
+import { ArrowUp, FolderOpen, FolderPlus, Image as ImageIcon, LayoutGrid, NotebookPen, Rows3, Terminal, X } from "lucide-react";
 import { DocumentList } from "./components/DocumentList";
 import { DocumentDetail } from "./components/DocumentDetail";
 import { EmbeddedTerminal } from "./components/EmbeddedTerminal";
@@ -9,6 +9,7 @@ import { WorkspaceActivityPanel } from "./components/WorkspaceActivityPanel";
 import { ConflictResolutionPanel } from "./components/ConflictResolutionPanel";
 import AIChatPanel from "./components/AIChatPanel";
 import AISettings from "./components/AISettings";
+import { MediaTab } from "./components/MediaTab";
 import {
   aiGetApiKey,
   aiQuery,
@@ -221,6 +222,7 @@ export default function App() {
   const [documentMenuAction, setDocumentMenuAction] = useState(null);
   const [showTerminal, setShowTerminal] = useState(false);
   const [landingFolderPath, setLandingFolderPath] = useState("");
+  const [landingAssetsOpen, setLandingAssetsOpen] = useState(false);
   const [p2pStatusOpen, setP2PStatusOpen] = useState(false);
   const [p2pStatusLoading, setP2PStatusLoading] = useState(false);
   const [p2pStatus, setP2PStatus] = useState(null);
@@ -1618,6 +1620,15 @@ export default function App() {
                   <NotebookPen size={14} />
                   New Note
                 </button>
+                <button
+                  className="small-button"
+                  type="button"
+                  onClick={() => setLandingAssetsOpen(true)}
+                  title="Browse assets in this folder"
+                >
+                  <ImageIcon size={14} />
+                  Assets
+                </button>
                 <div className="document-view-toggle" role="group" aria-label="Landing notes view mode">
                   <button
                     className={notesViewMode === "tile" ? "active" : ""}
@@ -1645,6 +1656,41 @@ export default function App() {
             loading={loading}
             viewMode={notesViewMode}
           />
+          {landingAssetsOpen ? (
+            <div
+              className="overlay-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Assets"
+              onClick={(event) => {
+                if (event.target === event.currentTarget) setLandingAssetsOpen(false);
+              }}
+            >
+              <div className="overlay-dialog-card assets-dialog-card">
+                <div className="overlay-dialog-header assets-dialog-header">
+                  <div className="assets-dialog-title-group">
+                    <h2>Assets Library</h2>
+                    <p>Browse assets in this folder.</p>
+                  </div>
+                  <button
+                    className="icon-button assets-close-button"
+                    onClick={() => setLandingAssetsOpen(false)}
+                    type="button"
+                    aria-label="Close assets dialog"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+                <div className="assets-dialog-body">
+                  <MediaTab
+                    content=""
+                    basePath={`${(landingFolderPath || activeProject?.rootPath || notesFolderPath || "").replace(/[\\/]+$/, "")}/_assets.md`}
+                    onNotify={notify}
+                  />
+                </div>
+              </div>
+            </div>
+          ) : null}
         </>
       ) : (
         <DocumentDetail
