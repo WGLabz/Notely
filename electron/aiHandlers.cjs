@@ -9,7 +9,9 @@ const path = require('path');
 let IPC_EVENTS, AIQueryRequest, AIQueryResponse;
 
 try {
-  const ipcProtocolPath = path.join(__dirname, '..', 'src', 'ai', 'utils', 'ipcProtocol.js');
+  // In packaged app: electron/ and dist/ are siblings in app.asar
+  // In dev: electron/ and src/ are siblings, but we use dist which is created by build
+  const ipcProtocolPath = path.join(__dirname, '..', 'dist', 'ai', 'utils', 'ipcProtocol.js');
   console.log('[AI] Attempting to load ipcProtocol from:', ipcProtocolPath);
   ({ IPC_EVENTS, AIQueryRequest, AIQueryResponse } = require(ipcProtocolPath));
   console.log('[AI] Successfully loaded ipcProtocol');
