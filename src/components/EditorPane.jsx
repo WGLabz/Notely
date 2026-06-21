@@ -67,58 +67,22 @@ export function EditorPane({
     const previewElement = previewRef.current;
     if (!editorElement || !previewElement) return undefined;
     let syncingSource = null;
+    let editorRaf = 0;
+    let previewRaf = 0;
 
-    const headingLines = [];
-    const lines = (value || "").split(/\r?\n/);
-    lines.forEach((line, index) => {
-      if (/^#{1,6}\s+/.test(line.trim())) {
-        headingLines.push(index + 1);
-      }
-    });
-
-    const previewHeadings = Array.from(previewElement.querySelectorAll("h1, h2, h3, h4, h5, h6"));
+    const releaseSyncLock = () => {
+      requestAnimationFrame(() => {
+        syncingSource = null;
+      });
+    };
 
     const syncPreviewFromEditor = () => {
-      const lineHeight = typeof editorElement.getLineHeight === "function"
-        ? editorElement.getLineHeight()
-        : parseFloat(window.getComputedStyle(editorElement).lineHeight) || 20;
-      const currentLine = Math.floor(editorElement.scrollTop / lineHeight) + 1;
-
-      if (headingLines.length && previewHeadings.length) {
-        let headingIndex = -1;
-        for (let index = 0; index < headingLines.length; index += 1) {
-          if (headingLines[index] <= currentLine) {
-            headingIndex = index;
-          } else {
-            break;
-          }
-        }
-
-        if (headingIndex >= 0 && previewHeadings[headingIndex]) {
-          const currentHeadingLine = headingLines[headingIndex];
-          const nextHeadingLine = headingLines[headingIndex + 1] || lines.length + 1;
-          const sectionRatio =
-            (currentLine - currentHeadingLine) / Math.max(nextHeadingLine - currentHeadingLine, 1);
-
-          const currentHeadingTop = previewHeadings[headingIndex].offsetTop;
-          const nextHeadingTop = previewHeadings[headingIndex + 1]
-            ? previewHeadings[headingIndex + 1].offsetTop
-            : previewElement.scrollHeight - previewElement.clientHeight;
-
-          const targetTop =
-            currentHeadingTop +
-            Math.max(Math.min(sectionRatio, 1), 0) * Math.max(nextHeadingTop - currentHeadingTop, 0);
-          syncingSource = "editor";
-          previewElement.scrollTop = targetTop;
-          return;
-        }
-      }
-
       const sourceScrollable = editorElement.scrollHeight - editorElement.clientHeight;
       const targetScrollable = previewElement.scrollHeight - previewElement.clientHeight;
       const ratio = sourceScrollable > 0 ? editorElement.scrollTop / sourceScrollable : 0;
       syncingSource = "editor";
       previewElement.scrollTop = ratio * Math.max(targetScrollable, 0);
+      releaseSyncLock();
     };
 
     const syncEditorFromPreview = () => {
@@ -127,22 +91,23 @@ export function EditorPane({
       const ratio = sourceScrollable > 0 ? previewElement.scrollTop / sourceScrollable : 0;
       syncingSource = "preview";
       editorElement.scrollTop = ratio * Math.max(targetScrollable, 0);
+      releaseSyncLock();
     };
 
     const handleEditorScroll = () => {
       if (syncingSource === "preview") {
-        syncingSource = null;
         return;
       }
-      syncPreviewFromEditor();
+      cancelAnimationFrame(editorRaf);
+      editorRaf = requestAnimationFrame(syncPreviewFromEditor);
     };
 
     const handlePreviewScroll = () => {
       if (syncingSource === "editor") {
-        syncingSource = null;
         return;
       }
-      syncEditorFromPreview();
+      cancelAnimationFrame(previewRaf);
+      previewRaf = requestAnimationFrame(syncEditorFromPreview);
     };
 
     editorElement.addEventListener("scroll", handleEditorScroll, { passive: true });
@@ -150,10 +115,12 @@ export function EditorPane({
     syncPreviewFromEditor();
 
     return () => {
+      cancelAnimationFrame(editorRaf);
+      cancelAnimationFrame(previewRaf);
       editorElement.removeEventListener("scroll", handleEditorScroll);
       previewElement.removeEventListener("scroll", handlePreviewScroll);
     };
-  }, [mode, textareaRef, value, editorReadyTick]);
+  }, [mode, textareaRef, editorReadyTick]);
 
   const startSplitResize = (event) => {
     const pane = splitPaneRef.current;

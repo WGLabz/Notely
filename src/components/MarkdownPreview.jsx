@@ -428,18 +428,24 @@ export function MarkdownPreview({ content, basePath, externalRef, onNotify, onCo
   const handleSaveCrop = async (croppedDataUrl) => {
     if (!basePath || !cropState.assetPath) return;
     setCropSaving(true);
+    const targetAssetPath = cropState.assetPath;
+
+    // Optimistically update preview and cache so the crop appears immediately.
+    imageResolveCacheRef.current.set(targetAssetPath, croppedDataUrl);
+    if (previewRef.current) {
+      previewRef.current.querySelectorAll("img").forEach((image) => {
+        if ((image.getAttribute("data-asset-path") || "") === targetAssetPath) {
+          image.src = croppedDataUrl;
+        }
+      });
+    }
+
     try {
-      await replaceImage(basePath, cropState.assetPath, croppedDataUrl);
-      if (previewRef.current) {
-        previewRef.current.querySelectorAll("img").forEach((image) => {
-          if ((image.getAttribute("data-asset-path") || "") === cropState.assetPath) {
-            image.src = croppedDataUrl;
-          }
-        });
-      }
+      await replaceImage(basePath, targetAssetPath, croppedDataUrl);
       onNotify?.("Image cropped and saved.", "success");
       setCropState({ open: false, src: "", assetPath: "", imageLabel: "" });
     } catch (error) {
+      imageResolveCacheRef.current.delete(targetAssetPath);
       onNotify?.(error?.message || "Unable to save cropped image.", "error");
     } finally {
       setCropSaving(false);
