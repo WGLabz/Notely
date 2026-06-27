@@ -7,6 +7,9 @@ const path = require('path');
 const fs = require('fs');
 const { DatabaseSync } = require('node:sqlite');
 const { getPendingMigrations, getMigration } = require('./migrations');
+const { createLogger } = require('../utils/logger');
+
+const log = createLogger('DatabaseManager');
 
 class DatabaseManager {
   constructor(appDataDir) {
@@ -31,15 +34,46 @@ class DatabaseManager {
       
       // Enable foreign keys
       this.db.exec('PRAGMA foreign_keys = ON');
+
+      // Write-Ahead Logging improves concurrency and crash durability;
+      // synchronous=NORMAL is the recommended pairing for WAL.
+      try {
+        this.db.exec('PRAGMA journal_mode = WAL');
+        this.db.exec('PRAGMA synchronous = NORMAL');
+        this.db.exec('PRAGMA busy_timeout = 5000');
+      } catch (pragmaError) {
+        log.warn('Could not enable WAL mode', pragmaError);
+      }
       
       // Run pending migrations
       this._runMigrations();
       
       this.isInitialized = true;
-      console.log(`[DatabaseManager] Initialized at ${this.dbPath}`);
+      log.info('Initialized', { dbPath: this.dbPath });
       return true;
     } catch (error) {
-      console.error('[DatabaseManager] Initialization failed:', error);
+      log.error('Initialization failed', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Run a function inside a database transaction, rolling back on error.
+   * The callback must be synchronous (node:sqlite is synchronous).
+   */
+  transaction(fn) {
+    if (!this.db) throw new Error('Database not initialized');
+    this.db.exec('BEGIN');
+    try {
+      const result = fn();
+      this.db.exec('COMMIT');
+      return result;
+    } catch (error) {
+      try {
+        this.db.exec('ROLLBACK');
+      } catch (rollbackError) {
+        log.error('Rollback failed', rollbackError);
+      }
       throw error;
     }
   }
@@ -70,28 +104,32 @@ class DatabaseManager {
     const pending = getPendingMigrations(currentVersion);
 
     if (pending.length === 0) {
-      console.log('[DatabaseManager] Schema up-to-date');
+      log.debug('Schema up-to-date');
       return;
     }
 
-    console.log(`[DatabaseManager] Running ${pending.length} migrations...`);
+    log.info(`Running ${pending.length} migrations`);
 
     pending.forEach(migration => {
       try {
-        this.db.exec(migration.sql);
-        
-        this.db.prepare(`
-          INSERT INTO ai_migrations_log (migration_version, migration_name, applied_at)
-          VALUES (?, ?, ?)
-        `).run(
-          migration.version,
-          migration.name,
-          new Date().toISOString()
-        );
+        // Apply the migration DDL and record it atomically so a crash can't
+        // leave the schema changed but unlogged (or vice versa).
+        this.transaction(() => {
+          this.db.exec(migration.sql);
 
-        console.log(`[DatabaseManager] ✓ Migration ${migration.version}: ${migration.name}`);
+          this.db.prepare(`
+            INSERT INTO ai_migrations_log (migration_version, migration_name, applied_at)
+            VALUES (?, ?, ?)
+          `).run(
+            migration.version,
+            migration.name,
+            new Date().toISOString()
+          );
+        });
+
+        log.info(`Applied migration ${migration.version}: ${migration.name}`);
       } catch (error) {
-        console.error(`[DatabaseManager] ✗ Migration ${migration.version} failed:`, error);
+        log.error(`Migration ${migration.version} failed`, error);
         throw error;
       }
     });
