@@ -29,6 +29,7 @@ const { buildWebsiteHtml } = require("./lib/websiteTemplate.cjs");
 const { buildAppMenu } = require("./lib/appMenu.cjs");
 const { createWebsiteRenderer } = require("./lib/websiteRenderer.cjs");
 const { createImageMedia } = require("./lib/imageMedia.cjs");
+const { createTerminalIpc } = require("./lib/terminalIpc.cjs");
 
 const rendererUrl = process.env.ELECTRON_RENDERER_URL;
 const projectRoot = app.getAppPath();
@@ -60,8 +61,6 @@ let webPreviewPort = 0;
 const webPreviewContentOverrides = new Map();
 let webPreviewScopeRoot = "";
 let webPreviewScopeLabel = "Project";
-const terminalSessions = new Map();
-let nextTerminalSessionId = 1;
 let p2pService = null;
 let aiAgent = null;
 const FULL_SYNC_BATCH_SIZE = 25;
@@ -1045,6 +1044,15 @@ const {
   renderImageHtmlWithAnnotation
 } = imageMedia;
 
+const terminalIpc = createTerminalIpc({
+  BrowserWindow,
+  pty,
+  filePathWithin,
+  ensureDir,
+  getNotesRoot: () => notesRoot,
+  getActiveProject,
+});
+
 const {
   renderRootWebsitePage,
   renderMarkdownWebsitePage,
@@ -1683,11 +1691,7 @@ function createWindow() {
   mainWindow = win;
 
   win.on("closed", () => {
-    for (const [sessionId, session] of terminalSessions.entries()) {
-      if (session.windowId === win.id) {
-        disposeTerminalSession(sessionId);
-      }
-    }
+    terminalIpc.disposeForWindow(win.id);
 
     if (mainWindow === win) {
       mainWindow = null;
@@ -1743,9 +1747,7 @@ app.on("before-quit", () => {
     webPreviewPort = 0;
   }
 
-  for (const sessionId of terminalSessions.keys()) {
-    disposeTerminalSession(sessionId);
-  }
+  terminalIpc.disposeAll();
 
   webPreviewContentOverrides.clear();
   webPreviewScopeRoot = "";
@@ -1817,119 +1819,7 @@ ipcMain.handle("settings:set-notes-root", (_event, payload) => {
     ignoredByEnv: Boolean(process.env.NOTES_ROOT)
   };
 });
-
-function resolveTerminalCwd(rawCwd) {
-  const requested = String(rawCwd || "").trim();
-  const fallback = getActiveProject()?.rootPath || notesRoot;
-  const resolved = path.resolve(requested || fallback);
-  if (!filePathWithin(notesRoot, resolved)) {
-    throw new Error("Invalid terminal path.");
-  }
-  ensureDir(resolved);
-  return resolved;
-}
-
-function disposeTerminalSession(sessionId) {
-  const session = terminalSessions.get(sessionId);
-  if (!session) return;
-
-  terminalSessions.delete(sessionId);
-  try {
-    session.onDataDisposable?.dispose?.();
-    session.onExitDisposable?.dispose?.();
-    session.process.kill();
-  } catch {
-    // Ignore cleanup errors.
-  }
-}
-
-function getOwnedTerminalSession(event, sessionId) {
-  const win = BrowserWindow.fromWebContents(event.sender);
-  if (!win || win.isDestroyed()) {
-    throw new Error("Terminal window is unavailable.");
-  }
-
-  const session = terminalSessions.get(sessionId);
-  if (!session) {
-    throw new Error("Terminal session not found.");
-  }
-
-  if (session.windowId !== win.id) {
-    throw new Error("Terminal session ownership mismatch.");
-  }
-
-  return session;
-}
-
-ipcMain.handle("terminal:create", (event, payload) => {
-  const win = BrowserWindow.fromWebContents(event.sender);
-  if (!win || win.isDestroyed()) {
-    throw new Error("Terminal window is unavailable.");
-  }
-
-  const cwd = resolveTerminalCwd(payload?.cwd);
-  const sessionId = String(nextTerminalSessionId++);
-  const shell = process.platform === "win32" ? (process.env.ComSpec || "cmd.exe") : (process.env.SHELL || "bash");
-  const shellArgs = process.platform === "win32" ? [] : ["-l"];
-  const child = pty.spawn(shell, shellArgs, {
-    cwd,
-    env: { ...process.env, TERM: "xterm-256color" },
-    name: "xterm-256color",
-    cols: 120,
-    rows: 30,
-    useConpty: process.platform === "win32"
-  });
-
-  const onDataDisposable = child.onData((chunk) => {
-    if (win.isDestroyed()) return;
-    win.webContents.send("terminal:data", { sessionId, data: String(chunk || "") });
-  });
-
-  const onExitDisposable = child.onExit(({ exitCode }) => {
-    if (!win.isDestroyed()) {
-      win.webContents.send("terminal:exit", { sessionId, code: Number.isInteger(exitCode) ? exitCode : null });
-    }
-    terminalSessions.delete(sessionId);
-  });
-
-  terminalSessions.set(sessionId, {
-    process: child,
-    windowId: win.id,
-    onDataDisposable,
-    onExitDisposable
-  });
-
-  return {
-    sessionId,
-    cwd
-  };
-});
-
-ipcMain.handle("terminal:write", (event, payload) => {
-  const sessionId = String(payload?.sessionId || "").trim();
-  const data = String(payload?.data || "");
-  const session = getOwnedTerminalSession(event, sessionId);
-  session.process.write(data);
-  return true;
-});
-
-ipcMain.handle("terminal:resize", (event, payload) => {
-  const sessionId = String(payload?.sessionId || "").trim();
-  const cols = Math.max(2, Number(payload?.cols || 0) | 0);
-  const rows = Math.max(2, Number(payload?.rows || 0) | 0);
-  if (!sessionId) return true;
-  const session = getOwnedTerminalSession(event, sessionId);
-  session.process.resize(cols, rows);
-  return true;
-});
-
-ipcMain.handle("terminal:kill", (event, payload) => {
-  const sessionId = String(payload?.sessionId || "").trim();
-  if (!sessionId) return true;
-  getOwnedTerminalSession(event, sessionId);
-  disposeTerminalSession(sessionId);
-  return true;
-});
+terminalIpc.registerHandlers(ipcMain);
 
 ipcMain.handle("projects:list", () => listProjectsState());
 
