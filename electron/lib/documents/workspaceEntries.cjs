@@ -1,4 +1,4 @@
-const { shouldHideDirectory } = require("../folderPolicy.cjs");
+const { shouldHideDirectory } = require("../core/folderPolicy.cjs");
 
 const DEFAULT_WALK_EXCLUDE_DIRS = new Set([
   ".notes-app", ".versions", "node_modules", ".git", ".svn", ".hg",
