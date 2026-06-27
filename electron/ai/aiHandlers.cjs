@@ -349,7 +349,11 @@ async function handleSetAPIKey(event, payload) {
  */
 async function handleGetAPIKey(event, payload) {
   try {
-    const provider = assertProvider(payload?.provider);
+    const requestedProvider = String(payload?.provider || '').trim().toLowerCase();
+    if (!requestedProvider || !ALLOWED_PROVIDERS.has(requestedProvider)) {
+      return new AIQueryResponse(true, { apiKey: null });
+    }
+    const provider = requestedProvider;
 
     const AIConfig = require('../../src/ai/utils/AIConfig');
     const config = new AIConfig();

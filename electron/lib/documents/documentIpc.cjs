@@ -26,6 +26,7 @@ function registerDocumentIpcHandlers(ipcMain, deps) {
     buildNoteDelta,
     hasMatchingFileBackedVersion,
     createVersionSnapshot,
+    getMetadataStore,
     metadataStore,
     ensureDir,
     ensureWebPreviewServer,
@@ -36,6 +37,14 @@ function registerDocumentIpcHandlers(ipcMain, deps) {
     buildPdfExportMarkdown,
     buildPdfExportHtml,
   } = deps;
+
+  function resolveMetadataStore() {
+    const store = typeof getMetadataStore === "function" ? getMetadataStore() : metadataStore;
+    if (!store) {
+      throw new Error("Metadata store is not initialized yet.");
+    }
+    return store;
+  }
 
   ipcMain.handle("documents:list", (_event, payload) => {
     const activeProject = getActiveProject();
@@ -159,7 +168,7 @@ function registerDocumentIpcHandlers(ipcMain, deps) {
       if (!hasMatchingFileBackedVersion(resolved, previousHash)) {
         const versionPath = createVersionSnapshot(resolved, previous, saveReason);
 
-        metadataStore.addHistory({
+        resolveMetadataStore().addHistory({
           filePath: resolved,
           versionPath,
           fileHash: previousHash,
@@ -174,7 +183,7 @@ function registerDocumentIpcHandlers(ipcMain, deps) {
 
   ipcMain.handle("documents:history", (_event, filePath) => {
     const resolved = path.resolve(filePath);
-    return metadataStore.getHistory(resolved);
+    return resolveMetadataStore().getHistory(resolved);
   });
 
   ipcMain.handle("documents:restore", (_event, payload) => {
@@ -195,7 +204,7 @@ function registerDocumentIpcHandlers(ipcMain, deps) {
     const restored = fs.readFileSync(versionPath, "utf8");
     fs.writeFileSync(resolved, restored, "utf8");
 
-    metadataStore.addHistory({
+    resolveMetadataStore().addHistory({
       filePath: resolved,
       versionPath: rollbackPath,
       fileHash: hashContent(current),

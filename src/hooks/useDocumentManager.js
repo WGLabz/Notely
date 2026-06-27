@@ -138,7 +138,7 @@ export function useDocumentManager({ notify }) {
       setHistory(await getHistory(saved.filePath));
       await loadDocumentsData();
       if (!silent) {
-        notify("Document saved.", "success");
+        notify("Note saved.", "success");
       }
     } catch (err) {
       setError(err?.message || "Unable to save document.");

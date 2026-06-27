@@ -480,6 +480,7 @@ registerDocumentIpcHandlers(ipcMain, {
   buildNoteDelta: (payload) => p2pSyncEngine.buildNoteDelta(payload),
   hasMatchingFileBackedVersion: (filePath, fileHash) => p2pSyncEngine.hasMatchingFileBackedVersion(filePath, fileHash),
   createVersionSnapshot: (...args) => p2pSyncEngine.createVersionSnapshot(...args),
+  getMetadataStore: () => metadataStore,
   metadataStore,
   ensureDir,
   ensureWebPreviewServer: webPreview.ensureWebPreviewServer,

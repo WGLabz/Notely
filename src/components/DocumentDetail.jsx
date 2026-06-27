@@ -595,7 +595,7 @@ export function DocumentDetail({
 
   const handleManualSave = async () => {
     try {
-      await onSave({ reason: "manual-save" });
+      await onSave({ reason: "manual-save", silent: true });
       onNotify?.("Note saved.", "success");
     } catch (error) {
       onNotify?.(error?.message || "Unable to save note.", "error");
