@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Notely desktop markdown notes app.",
-  "license": "UNLICENSED",
+  "license": "CC-BY-NC-4.0",
   "author": {
     "name": "Notely Team",
     "email": "hello@notely.app"
