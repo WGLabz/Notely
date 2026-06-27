@@ -4,5 +4,6 @@ dist/
 .notes-app/
 build/
 .artifacts/
+release/
 notes/
 notes/.notes-app/
