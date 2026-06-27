@@ -591,7 +591,11 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({ content, b
           ) : (
             <div
               key={`${part.type}-${index}`}
-              dangerouslySetInnerHTML={{ __html: renderMarkdown(normalizeMarkdownImagePaths(part.value)) }}
+              dangerouslySetInnerHTML={{
+                __html: renderMarkdown(normalizeMarkdownImagePaths(part.value), {
+                  sourceLineOffset: part.startLine || 0,
+                }),
+              }}
             />
           )
         )}

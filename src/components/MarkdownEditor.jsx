@@ -284,6 +284,16 @@ function createEditorAdapter(view) {
     getLineHeight() {
       return parseFloat(window.getComputedStyle(view.contentDOM).lineHeight) || 20;
     },
+    getTopLine() {
+      const block = view.lineBlockAtHeight(view.scrollDOM.scrollTop);
+      return view.state.doc.lineAt(block.from).number;
+    },
+    scrollToLine(lineNumber) {
+      const safeLine = Math.max(1, Math.min(Number(lineNumber) || 1, view.state.doc.lines));
+      const line = view.state.doc.line(safeLine);
+      const block = view.lineBlockAt(line.from);
+      view.scrollDOM.scrollTop = block.top;
+    },
     addEventListener(type, listener, options) {
       view.scrollDOM.addEventListener(type, listener, options);
     },

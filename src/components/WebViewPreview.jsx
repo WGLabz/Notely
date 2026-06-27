@@ -24,7 +24,11 @@ export function WebViewPreview({ content }) {
           ) : (
             <div
               key={`${part.type}-${index}`}
-              dangerouslySetInnerHTML={{ __html: renderMarkdown(normalizeMarkdownImagePaths(part.value)) }}
+              dangerouslySetInnerHTML={{
+                __html: renderMarkdown(normalizeMarkdownImagePaths(part.value), {
+                  sourceLineOffset: part.startLine || 0,
+                }),
+              }}
             />
           )
         )}

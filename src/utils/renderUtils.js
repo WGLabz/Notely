@@ -31,6 +31,15 @@ function getImageDisplayName(src, fallback) {
 const defaultImageRenderer = md.renderer.rules.image
   || ((tokens, idx, options, env, self) => self.renderToken(tokens, idx, options));
 
+md.core.ruler.push("notely-source-lines", (state) => {
+  const offset = Number(state.env?.sourceLineOffset) || 0;
+  state.tokens.forEach((token) => {
+    if (token.nesting === 1 && Array.isArray(token.map)) {
+      token.attrSet("data-source-line", String(token.map[0] + offset + 1));
+    }
+  });
+});
+
 md.renderer.rules.image = (tokens, idx, options, env, self) => {
   const token = tokens[idx];
   const src = token.attrGet("src") || "";
@@ -39,29 +48,36 @@ md.renderer.rules.image = (tokens, idx, options, env, self) => {
   return `<span class="markdown-image-frame">${imageHtml}<span class="markdown-image-name" title="${escapeHtml(label)}">${escapeHtml(label)}</span></span>`;
 };
 
-export function renderMarkdown(content) {
-  return md.render(content || "");
+export function renderMarkdown(content, options = {}) {
+  return md.render(content || "", options);
 }
 
 export function parseMermaidBlocks(content) {
   const chunks = [];
   const regex = /```mermaid\s*([\s\S]*?)```/gi;
   let lastIndex = 0;
+  let currentLine = 0;
   let match;
+
+  const countLines = (value) => (String(value || "").match(/\n/g) || []).length;
 
   while ((match = regex.exec(content || ""))) {
     if (match.index > lastIndex) {
-      chunks.push({ type: "markdown", value: content.slice(lastIndex, match.index) });
+      const markdownValue = content.slice(lastIndex, match.index);
+      chunks.push({ type: "markdown", value: markdownValue, startLine: currentLine });
+      currentLine += countLines(markdownValue);
     }
-    chunks.push({ type: "mermaid", value: match[1].trim() });
+
+    chunks.push({ type: "mermaid", value: match[1].trim(), startLine: currentLine });
+    currentLine += countLines(match[0]);
     lastIndex = regex.lastIndex;
   }
 
   if (lastIndex < (content || "").length) {
-    chunks.push({ type: "markdown", value: content.slice(lastIndex) });
+    chunks.push({ type: "markdown", value: content.slice(lastIndex), startLine: currentLine });
   }
 
-  return chunks.length ? chunks : [{ type: "markdown", value: content || "" }];
+  return chunks.length ? chunks : [{ type: "markdown", value: content || "", startLine: 0 }];
 }
 
 export function normalizeMarkdownImagePaths(content) {
