@@ -3478,6 +3478,8 @@ button {
 
 .preview .markdown-image-annotation {
   position: absolute;
+  left: 10px;
+  top: 10px;
   z-index: 3;
   max-width: min(60%, 420px);
   padding: 6px 9px;
@@ -3491,26 +3493,6 @@ button {
   text-overflow: ellipsis;
   white-space: nowrap;
   pointer-events: none;
-}
-
-.preview .markdown-image-annotation.bottom-left {
-  left: 10px;
-  bottom: 38px;
-}
-
-.preview .markdown-image-annotation.bottom-right {
-  right: 10px;
-  bottom: 38px;
-}
-
-.preview .markdown-image-annotation.top-left {
-  left: 10px;
-  top: 10px;
-}
-
-.preview .markdown-image-annotation.top-right {
-  right: 10px;
-  top: 10px;
 }
 
 .preview .markdown-image-frame {

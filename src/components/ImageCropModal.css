@@ -65,6 +65,8 @@
 
 .image-annotation-preview {
   position: absolute;
+  left: 12px;
+  top: 12px;
   max-width: min(60%, 460px);
   padding: 7px 10px;
   border-radius: 4px;
@@ -77,26 +79,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   pointer-events: none;
-}
-
-.image-annotation-preview.bottom-left {
-  left: 12px;
-  bottom: 12px;
-}
-
-.image-annotation-preview.bottom-right {
-  right: 12px;
-  bottom: 12px;
-}
-
-.image-annotation-preview.top-left {
-  left: 12px;
-  top: 12px;
-}
-
-.image-annotation-preview.top-right {
-  right: 12px;
-  top: 12px;
 }
 
 .image-crop-selection {

@@ -38,7 +38,7 @@ function applyImageAnnotation(image, annotation) {
   if (!text) return;
 
   const overlay = document.createElement("span");
-  overlay.className = `markdown-image-annotation ${annotation?.position || "bottom-left"}`;
+  overlay.className = "markdown-image-annotation";
   overlay.textContent = text;
   frame.appendChild(overlay);
 }

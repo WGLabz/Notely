@@ -16,13 +16,6 @@ const ASPECT_RATIO_MAP = {
   "16:9": 16 / 9,
 };
 
-const ANNOTATION_POSITIONS = [
-  { value: "bottom-left", label: "Bottom left" },
-  { value: "bottom-right", label: "Bottom right" },
-  { value: "top-left", label: "Top left" },
-  { value: "top-right", label: "Top right" },
-];
-
 function clamp01(value) {
   return Math.min(1, Math.max(0, Number(value) || 0));
 }
@@ -163,7 +156,6 @@ export function ImageCropModal({
   const [rotating, setRotating] = useState(false);
   const [hasImageEdits, setHasImageEdits] = useState(false);
   const [annotationText, setAnnotationText] = useState("");
-  const [annotationPosition, setAnnotationPosition] = useState("bottom-left");
   const [annotationDirty, setAnnotationDirty] = useState(false);
 
   useEffect(() => {
@@ -174,7 +166,6 @@ export function ImageCropModal({
       setWorkingImageSrc("");
       setHasImageEdits(false);
       setAnnotationText("");
-      setAnnotationPosition("bottom-left");
       setAnnotationDirty(false);
       interactionRef.current = null;
       return;
@@ -184,7 +175,6 @@ export function ImageCropModal({
     setRotationAngle(0);
     setHasImageEdits(false);
     setAnnotationText(initialAnnotation?.text || "");
-    setAnnotationPosition(initialAnnotation?.position || "bottom-left");
     setAnnotationDirty(false);
 
     const focusTimer = window.setTimeout(() => {
@@ -204,7 +194,7 @@ export function ImageCropModal({
 
   const hasAnnotation = annotationText.trim().length > 0;
   const currentAnnotation = hasAnnotation
-    ? { text: annotationText.trim(), position: annotationPosition }
+    ? { text: annotationText.trim(), position: "top-left" }
     : null;
 
   const getRelativePoint = (event) => {
@@ -457,7 +447,7 @@ export function ImageCropModal({
           >
             <img ref={imageRef} src={workingImageSrc || imageSrc} alt={imageLabel || "Image to edit"} draggable={false} />
             {hasAnnotation ? (
-              <div className={`image-annotation-preview ${annotationPosition}`} aria-hidden="true">
+              <div className="image-annotation-preview" aria-hidden="true">
                 {annotationText.trim()}
               </div>
             ) : null}
@@ -534,20 +524,6 @@ export function ImageCropModal({
               disabled={saving || rotating}
               aria-label="Image annotation text"
             />
-            <select
-              className="image-crop-aspect-select"
-              value={annotationPosition}
-              onChange={(event) => {
-                setAnnotationPosition(event.target.value);
-                setAnnotationDirty(true);
-              }}
-              disabled={saving || rotating || !hasAnnotation}
-              aria-label="Annotation position"
-            >
-              {ANNOTATION_POSITIONS.map((position) => (
-                <option key={position.value} value={position.value}>{position.label}</option>
-              ))}
-            </select>
             <button
               type="button"
               className="small-button"
@@ -555,7 +531,6 @@ export function ImageCropModal({
                 setSelection(null);
                 setRotationAngle(0);
                 setAnnotationText("");
-                setAnnotationPosition("bottom-left");
                 setAnnotationDirty(true);
               }}
               disabled={saving || rotating || (!selection && rotationAngle === 0 && !hasAnnotation && !annotationDirty)}

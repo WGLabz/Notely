@@ -372,7 +372,7 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
                   title="Right-click to edit"
                 />
                 {imageAnnotation?.text ? (
-                  <span className={`media-preview-image-annotation ${imageAnnotation.position || "bottom-left"}`}>
+                  <span className="media-preview-image-annotation">
                     {imageAnnotation.text}
                   </span>
                 ) : null}
