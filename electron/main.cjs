@@ -33,6 +33,7 @@ const { createTerminalIpc } = require("./lib/terminalIpc.cjs");
 const { registerCoreIpcHandlers } = require("./lib/coreIpc.cjs");
 const { registerDocumentIpcHandlers } = require("./lib/documentIpc.cjs");
 const { registerSyncIpcHandlers } = require("./lib/syncIpc.cjs");
+const { createWebPreview } = require("./lib/webPreview.cjs");
 
 const rendererUrl = process.env.ELECTRON_RENDERER_URL;
 const projectRoot = app.getAppPath();
@@ -59,11 +60,6 @@ let versionsRoot = "";
 const ROOT_PROJECT_SLUG = "__root__";
 let activeProjectSlug = ROOT_PROJECT_SLUG;
 let mainWindow = null;
-let webPreviewServer = null;
-let webPreviewPort = 0;
-const webPreviewContentOverrides = new Map();
-let webPreviewScopeRoot = "";
-let webPreviewScopeLabel = "Project";
 let p2pService = null;
 let aiAgent = null;
 const FULL_SYNC_BATCH_SIZE = 25;
@@ -965,59 +961,11 @@ function walkFiles(rootDir, options = {}) {
   return files;
 }
 
-function getWebPreviewScopeRoot() {
-  const activeProject = getActiveProject();
-  if (activeProject?.rootPath) {
-    return path.resolve(activeProject.rootPath);
-  }
-  return path.resolve(notesRoot);
-}
-
-function getWebPreviewScopeLabel() {
-  const activeProject = getActiveProject();
-  if (!activeProject) return "Project";
-  return activeProject.isRoot ? "Root" : activeProject.name;
-}
-
 const WALK_EXCLUDE_DIRS = new Set([
   ".notes-app", ".versions", "node_modules", ".git", ".svn", ".hg",
   "dist", "build", ".artifacts", ".cache", "__pycache__", "removed",
   ".venv", "venv", ".next", ".nuxt", "coverage"
 ]);
-
-function resolveRelativeToNotesRoot(relPath) {
-  const scopeRoot = webPreviewScopeRoot || getWebPreviewScopeRoot();
-  const normalized = normalizeToPosix(String(relPath || "")).replace(/^\/+/, "");
-  const resolved = path.resolve(scopeRoot, normalized);
-  if (!filePathWithin(scopeRoot, resolved)) {
-    return null;
-  }
-  // Block access inside excluded directories
-  const relNorm = normalizeToPosix(path.relative(scopeRoot, resolved));
-  if (relNorm.split("/").some((part) => WALK_EXCLUDE_DIRS.has(part))) {
-    return null;
-  }
-  return {
-    normalized,
-    resolved
-  };
-}
-
-function writeHtmlResponse(res, html, statusCode = 200) {
-  res.writeHead(statusCode, {
-    "Content-Type": "text/html; charset=utf-8",
-    "Cache-Control": "no-store"
-  });
-  res.end(html);
-}
-
-function writeTextResponse(res, text, statusCode = 400) {
-  res.writeHead(statusCode, {
-    "Content-Type": "text/plain; charset=utf-8",
-    "Cache-Control": "no-store"
-  });
-  res.end(text);
-}
 
 const imageMedia = createImageMedia({
   fs,
@@ -1056,13 +1004,26 @@ const terminalIpc = createTerminalIpc({
   getActiveProject,
 });
 
-const {
-  renderRootWebsitePage,
-  renderMarkdownWebsitePage,
-  renderPdfNotePage,
-  buildSearchIndex,
-  renderSearchPage
-} = createWebsiteRenderer({
+let websiteRenderers;
+
+const webPreview = createWebPreview({
+  fs,
+  path,
+  http,
+  spawn,
+  process,
+  filePathWithin,
+  normalizeToPosix,
+  encodePathForUrl,
+  decodeUrlPath,
+  contentTypeForFile,
+  walkExcludeDirs: WALK_EXCLUDE_DIRS,
+  getNotesRoot: () => notesRoot,
+  getActiveProject,
+  getRenderers: () => websiteRenderers,
+});
+
+websiteRenderers = createWebsiteRenderer({
   path,
   fs,
   MarkdownIt,
@@ -1076,152 +1037,10 @@ const {
   renderImageHtmlWithAnnotation,
   buildWebsiteHtml,
   WALK_EXCLUDE_DIRS,
-  getScopeRoot: () => webPreviewScopeRoot || getWebPreviewScopeRoot(),
-  getScopeLabel: () => webPreviewScopeLabel,
+  getScopeRoot: () => webPreview.getScopeRoot(),
+  getScopeLabel: () => webPreview.getScopeLabel(),
   getNotesRoot: () => notesRoot
 });
-
-function handleWebPreviewRequest(req, res) {
-  const requestUrl = new URL(req.url || "/", "http://127.0.0.1");
-  const pathname = requestUrl.pathname || "/";
-
-  if (pathname === "/" || pathname === "/index.html") {
-    const noteQuery = requestUrl.searchParams.get("note");
-    if (noteQuery) {
-      const redirectPath = `/view/${encodePathForUrl(noteQuery)}`;
-      res.writeHead(302, { Location: redirectPath });
-      res.end();
-      return;
-    }
-
-    writeHtmlResponse(res, renderRootWebsitePage());
-    return;
-  }
-
-  if (pathname === "/search") {
-    writeHtmlResponse(res, renderSearchPage());
-    return;
-  }
-
-  if (pathname === "/search-index.json") {
-    res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
-    res.end(JSON.stringify(buildSearchIndex()));
-    return;
-  }
-
-  if (pathname.startsWith("/view/")) {
-    const relMdPath = normalizeToPosix(decodeUrlPath(pathname, "/view/"));
-    const section = requestUrl.searchParams.get("section") === "raw" ? "raw" : "cleansed";
-    const resolved = resolveRelativeToNotesRoot(relMdPath);
-    if (!resolved || path.extname(resolved.resolved).toLowerCase() !== ".md" || !fs.existsSync(resolved.resolved)) {
-      writeTextResponse(res, "Note not found.", 404);
-      return;
-    }
-
-    const rawContent = webPreviewContentOverrides.get(resolved.resolved)
-      || fs.readFileSync(resolved.resolved, "utf8");
-    writeHtmlResponse(res, renderMarkdownWebsitePage(resolved.normalized, rawContent, { section }));
-    return;
-  }
-
-  if (pathname.startsWith("/pdf/")) {
-    const relMdPath = normalizeToPosix(decodeUrlPath(pathname, "/pdf/"));
-    const resolved = resolveRelativeToNotesRoot(relMdPath);
-    const section = requestUrl.searchParams.get("section") === "raw" ? "raw" : "cleansed";
-    if (!resolved || path.extname(resolved.resolved).toLowerCase() !== ".md" || !fs.existsSync(resolved.resolved)) {
-      writeTextResponse(res, "Note not found.", 404);
-      return;
-    }
-
-    const markdownContent = webPreviewContentOverrides.get(resolved.resolved)
-      || fs.readFileSync(resolved.resolved, "utf8");
-    writeHtmlResponse(res, renderPdfNotePage(resolved.normalized, markdownContent, { section }));
-    return;
-  }
-
-  if (pathname.startsWith("/raw/")) {
-    const relPath = normalizeToPosix(decodeUrlPath(pathname, "/raw/"));
-    const resolved = resolveRelativeToNotesRoot(relPath);
-    if (!resolved || !fs.existsSync(resolved.resolved) || fs.statSync(resolved.resolved).isDirectory()) {
-      writeTextResponse(res, "Asset not found.", 404);
-      return;
-    }
-
-    res.writeHead(200, {
-      "Content-Type": contentTypeForFile(resolved.resolved),
-      "Cache-Control": "no-store"
-    });
-    fs.createReadStream(resolved.resolved).pipe(res);
-    return;
-  }
-
-  writeTextResponse(res, "Not found.", 404);
-}
-
-async function ensureWebPreviewServer() {
-  if (webPreviewServer && webPreviewPort) {
-    return `http://127.0.0.1:${webPreviewPort}`;
-  }
-
-  await new Promise((resolve, reject) => {
-    const server = http.createServer((req, res) => {
-      try {
-        handleWebPreviewRequest(req, res);
-      } catch {
-        writeTextResponse(res, "Unable to render website preview.", 500);
-      }
-    });
-
-    server.once("error", (error) => {
-      reject(error);
-    });
-
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      if (!address || typeof address === "string") {
-        reject(new Error("Unable to determine web preview port."));
-        return;
-      }
-      webPreviewServer = server;
-      webPreviewPort = address.port;
-      resolve();
-    });
-  });
-
-  return `http://127.0.0.1:${webPreviewPort}`;
-}
-
-function tryOpenInChrome(targetUrl) {
-
-  if (process.platform !== "win32") {
-    return false;
-  }
-
-  const candidates = [
-    path.join(process.env.PROGRAMFILES || "", "Google", "Chrome", "Application", "chrome.exe"),
-    path.join(process.env["PROGRAMFILES(X86)"] || "", "Google", "Chrome", "Application", "chrome.exe"),
-    path.join(process.env.LOCALAPPDATA || "", "Google", "Chrome", "Application", "chrome.exe")
-  ].filter(Boolean);
-
-  for (const chromePath of candidates) {
-    if (!chromePath || !fs.existsSync(chromePath)) {
-      continue;
-    }
-
-    try {
-      const child = spawn(chromePath, ["--new-window", targetUrl], {
-        detached: true,
-        stdio: "ignore"
-      });
-      child.unref();
-      return true;
-    } catch {
-      // Try next candidate.
-    }
-  }
-
-  return false;
-}
 
 function listRootEntries(rootDir) {
   return listDirectoryEntries(rootDir, { includeProjectSlug: true });
@@ -1499,45 +1318,6 @@ class MetadataStore {
   }
 }
 
-async function prepareDocumentPreview(filePath, content) {
-  const resolved = path.resolve(String(filePath || ""));
-  const isValidMarkdownPath =
-    filePathWithin(notesRoot, resolved)
-    && path.extname(resolved).toLowerCase() === ".md"
-    && fs.existsSync(resolved)
-    && filePathWithin(getWebPreviewScopeRoot(), resolved);
-
-  if (!isValidMarkdownPath) {
-    throw new Error("Invalid document path.");
-  }
-
-  if (typeof content === "string") {
-    webPreviewContentOverrides.set(resolved, content);
-  } else if (content && typeof content === "object") {
-    const header = typeof content.header === "string" ? content.header.trim() : "";
-    const rawNotes = typeof content.rawNotes === "string" ? content.rawNotes.trim() : "";
-    const cleansed = typeof content.cleansed === "string" ? content.cleansed.trim() : "";
-    const overrideContent = [
-      header,
-      "# RawNotes",
-      rawNotes,
-      "# Cleansed",
-      cleansed
-    ].join("\n\n").trim();
-
-    webPreviewContentOverrides.set(resolved, overrideContent);
-  }
-
-  webPreviewScopeRoot = getWebPreviewScopeRoot();
-  webPreviewScopeLabel = getWebPreviewScopeLabel();
-
-  const baseUrl = await ensureWebPreviewServer();
-  return {
-    resolved,
-    previewUrl: `${baseUrl}/view/${encodePathForUrl(normalizeToPosix(path.relative(webPreviewScopeRoot, resolved)))}?section=cleansed`
-  };
-}
-
 let metadataStore;
 
 function buildContentSecurityPolicy() {
@@ -1744,17 +1524,9 @@ app.on("window-all-closed", () => {
 app.on("before-quit", () => {
   shutdownAISystem();
 
-  if (webPreviewServer) {
-    webPreviewServer.close();
-    webPreviewServer = null;
-    webPreviewPort = 0;
-  }
+  webPreview.dispose();
 
   terminalIpc.disposeAll();
-
-  webPreviewContentOverrides.clear();
-  webPreviewScopeRoot = "";
-  webPreviewScopeLabel = "Project";
 
   if (p2pService) {
     p2pService.shutdown();
@@ -1844,9 +1616,9 @@ registerDocumentIpcHandlers(ipcMain, {
   createVersionSnapshot,
   metadataStore,
   ensureDir,
-  ensureWebPreviewServer,
-  prepareDocumentPreview,
-  tryOpenInChrome,
+  ensureWebPreviewServer: webPreview.ensureWebPreviewServer,
+  prepareDocumentPreview: webPreview.prepareDocumentPreview,
+  tryOpenInChrome: webPreview.tryOpenInChrome,
   getLastPdfExportPath,
   rememberPdfExportPath,
   buildPdfExportMarkdown,
