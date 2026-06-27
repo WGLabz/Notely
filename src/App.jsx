@@ -38,7 +38,6 @@ import {
   renameDocument as renameDocumentApi,
   saveDocument as saveDocumentApi,
   setNotesRootSetting,
-  setActiveProject,
   getHistory,
   getP2PStatus,
   startP2PDiscovery,
@@ -107,7 +106,7 @@ function extractEditableAIText(value) {
   return fenceMatch ? fenceMatch[1].trim() : text;
 }
 
-function normalizePaletteIntent(options = {}, contextSummary = null) {
+function normalizePaletteIntent(options = {}, _contextSummary = null) {
   const requestedTarget = options?.target || null;
   const defaultTarget = "auto";
 
@@ -214,7 +213,7 @@ export default function App() {
   const [mode, setMode] = useState(initialEditorMode);
   const [error, setError] = useState("");
   const [toasts, setToasts] = useState([]);
-  const [projects, setProjects] = useState([]);
+  const [_projects, setProjects] = useState([]);
   const [activeProject, setActiveProjectState] = useState(null);
   const [newNoteTitle, setNewNoteTitle] = useState("");
   const [creatingNote, setCreatingNote] = useState(false);
@@ -263,7 +262,7 @@ export default function App() {
   const [conflictResolutionFiles, setConflictResolutionFiles] = useState(null);
   const [conflictResolutionLoading, setConflictResolutionLoading] = useState(false);
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
-  const [aiLoading, setAiLoading] = useState(false);
+  const [_aiLoading, setAiLoading] = useState(false);
   const [aiQueryLoading, setAiQueryLoading] = useState(false);
   const [aiQueryError, setAiQueryError] = useState("");
   const [aiContextSummary, setAiContextSummary] = useState({
@@ -436,8 +435,8 @@ export default function App() {
 
     const confirmed = window.confirm(
       dirty
-        ? `Move \"${current.title}\" to the removed folder and discard unsaved changes?`
-        : `Move \"${current.title}\" to the removed folder?`
+        ? `Move "${current.title}" to the removed folder and discard unsaved changes?`
+        : `Move "${current.title}" to the removed folder?`
     );
     if (!confirmed) return false;
 
@@ -490,34 +489,6 @@ export default function App() {
       }
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function handleSwitchProject(slug) {
-    if (!slug) return;
-    if (activeProject?.slug === slug) return;
-
-    if (current && dirty) {
-      const confirmed = window.confirm("You have unsaved changes. Switch project and discard unsaved changes?");
-      if (!confirmed) return;
-    }
-
-    setError("");
-    setLoading(true);
-    try {
-      const result = await setActiveProject(slug);
-      applyProjectState(result);
-      setCurrent(null);
-      setHistory([]);
-      const baseFolder = result?.activeProject?.rootPath || "";
-      setLandingFolderPath(baseFolder);
-      setDocuments(await listDocuments(baseFolder));
-      notify("Project switched.", "success");
-    } catch (err) {
-      setError(err?.message || "Unable to switch project.");
-      notify(err?.message || "Unable to switch project.", "error");
-    } finally {
-      setLoading(false);
     }
   }
 

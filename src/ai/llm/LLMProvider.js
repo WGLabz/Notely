@@ -24,7 +24,7 @@ class LLMProvider {
    * @param {Object} options - Generation options
    * @returns {Promise<Object>} { text, tokensUsed, model }
    */
-  async generateText(prompt, options = {}) {
+  async generateText(prompt, _options = {}) {
     throw new Error('generateText() must be implemented by subclass');
   }
 
@@ -33,7 +33,7 @@ class LLMProvider {
    * @param {string|Array<string>} texts - Text(s) to embed
    * @returns {Promise<Array<number>|Array<Array<number>>>} Embedding vector(s)
    */
-  async generateEmbeddings(texts) {
+  async generateEmbeddings(_texts) {
     throw new Error('generateEmbeddings() must be implemented by subclass');
   }
 
@@ -43,7 +43,7 @@ class LLMProvider {
    * @param {Object} options - Generation options
    * @returns {Promise<Object>} { text, tokensUsed, model }
    */
-  async generateChatCompletion(messages, options = {}) {
+  async generateChatCompletion(messages, _options = {}) {
     throw new Error('generateChatCompletion() must be implemented by subclass');
   }
 

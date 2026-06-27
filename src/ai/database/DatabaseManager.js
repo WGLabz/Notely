@@ -6,7 +6,7 @@
 const path = require('path');
 const fs = require('fs');
 const { DatabaseSync } = require('node:sqlite');
-const { getPendingMigrations, getMigration } = require('./migrations');
+const { getPendingMigrations } = require('./migrations');
 const { createLogger } = require('../utils/logger');
 
 const log = createLogger('DatabaseManager');

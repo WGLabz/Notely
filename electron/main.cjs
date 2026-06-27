@@ -882,27 +882,6 @@ function handleIncomingP2PSyncEvent({ peerId, peerName, event }) {
   }
 }
 
-function listMarkdownFiles(rootDir) {
-  ensureDir(rootDir);
-  return fs.readdirSync(rootDir, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".md"))
-    .map((entry) => {
-      const filePath = path.join(rootDir, entry.name);
-      const content = fs.readFileSync(filePath, "utf8");
-      const parsed = parseDocument(content, filePath);
-      const stat = fs.statSync(filePath);
-      return {
-        filePath,
-        fileName: parsed.fileName,
-        title: parsed.title,
-        metadata: parsed.metadata,
-        updatedAt: stat.mtime.toISOString(),
-        hash: parsed.hash
-      };
-    })
-    .sort((a, b) => a.title.localeCompare(b.title));
-}
-
 function shouldHideDirectory(name) {
   const lowerName = String(name || "").toLowerCase();
   return lowerName.startsWith(".") || lowerName === "images" || lowerName === "removed";
@@ -1033,7 +1012,7 @@ function escapeHtml(value) {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
+    .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
 
@@ -2130,7 +2109,7 @@ function buildSearchIndex() {
       const raw = fs.readFileSync(resolved, "utf8");
       const parsed = parseDocument(raw, resolved);
       const text = [parsed.header || "", parsed.rawNotes || "", parsed.cleansed || ""]
-        .join(" ").replace(/[#*_`>\[\]()]/g, " ").replace(/\s+/g, " ").trim().slice(0, 4000);
+        .join(" ").replace(/[#*_`>[\]()]/g, " ").replace(/\s+/g, " ").trim().slice(0, 4000);
       return { path: relMdPath, title: parsed.title || path.basename(relMdPath, ".md"), text };
     } catch {
       return null;
@@ -2778,7 +2757,7 @@ class MetadataStore {
           created_at TEXT NOT NULL
         );
       `);
-    } catch (error) {
+    } catch {
       this.state = fs.existsSync(this.jsonPath)
         ? JSON.parse(fs.readFileSync(this.jsonPath, "utf8"))
         : { history: [] };

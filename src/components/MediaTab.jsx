@@ -38,10 +38,6 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
   const addInputRef = useRef(null);
   const replaceInputRef = useRef(null);
 
-  const linkedPathSet = useMemo(() => {
-    return new Set(linkedImages.map((image) => image.path));
-  }, [linkedImages]);
-
   const referencedPathSet = useMemo(() => {
     return new Set(Object.keys(imageUsage).filter((pathValue) => (imageUsage[pathValue]?.referenceCount || 0) > 0));
   }, [imageUsage]);

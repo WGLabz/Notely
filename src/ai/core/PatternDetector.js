@@ -88,7 +88,7 @@ class PatternDetector {
     });
 
     // Calculate averages
-    for (const [type, data] of Object.entries(queryPatterns)) {
+    for (const [_type, data] of Object.entries(queryPatterns)) {
       data.avgTokens = data.count > 0 ? data.totalTokens / data.count : 0;
     }
 
@@ -160,7 +160,6 @@ class PatternDetector {
    */
   detectRelationshipPatterns(minStrength = 0.5) {
     const docs = this.documents.getAllDocuments();
-    const patterns = [];
 
     // Find frequently co-edited documents
     const coEditCounts = {};

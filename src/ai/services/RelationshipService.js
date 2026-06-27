@@ -2,8 +2,6 @@
  * RelationshipService - Analyzes and manages document relationships
  */
 
-const crypto = require('crypto');
-
 class RelationshipService {
   constructor(databaseManager, embeddingService, documentService) {
     this.db = databaseManager;
@@ -21,7 +19,6 @@ class RelationshipService {
       const similar = await this.embeddingService.findSimilarDocuments(sourceFile, topK);
 
       // Get explicit relationships from links
-      const sourceContent = this.documentService.getDocumentContent(sourceFile);
       const sourceMetadata = this.documentService.getDocumentMetadata(sourceFile);
       const links = sourceMetadata?.links || [];
 

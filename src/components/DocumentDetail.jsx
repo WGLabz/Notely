@@ -4,14 +4,12 @@ import {
   Save,
   RotateCcw,
   ChevronRight,
-  ChevronLeft,
   FileText,
   FilePenLine,
   FileDown,
   PenLine,
   SplitSquareHorizontal,
   Eye,
-  Globe,
   Clock,
   MapPin,
   User,
@@ -25,8 +23,6 @@ import {
   Filter,
   Sparkles,
   ListTree,
-  MessageSquare,
-  Settings,
 } from "lucide-react";
 import { EditorPane } from "./EditorPane";
 import { MediaTab } from "./MediaTab";
@@ -277,7 +273,6 @@ export function DocumentDetail({
   menuAction,
   onNotify,
   onBack,
-  onOpenAI,
   onOpenAIRequest,
   onInlineAIRequest,
   onRegisterAIEditor,

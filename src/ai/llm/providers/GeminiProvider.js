@@ -294,7 +294,7 @@ class GeminiProvider extends LLMProvider {
         });
       }
 
-      messages.forEach((msg, idx) => {
+      messages.forEach((msg) => {
         contents.push({
           role: msg.role === 'assistant' ? 'model' : 'user',
           parts: [{ text: msg.content }]

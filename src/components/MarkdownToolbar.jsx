@@ -280,13 +280,6 @@ export function MarkdownToolbar({
     onNotify?.(result.message, "success");
   }
 
-  function getIssueActionLabel(issue) {
-    if (!issue) return null;
-    if (getIssueFixType(issue)) return "Quick fix";
-    if (issue.suggestion) return "Apply suggestion";
-    return null;
-  }
-
   function insertTableTemplate() {
     const rows = normalizedTableRows;
     const columns = normalizedTableColumns;

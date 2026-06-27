@@ -135,7 +135,7 @@ class QueryExecutor {
    * Handle content generation
    * @private
    */
-  async _handleGenerate(query, context) {
+  async _handleGenerate(query, _context) {
     const llm = this.agent.llmRegistry.getActiveProvider();
 
     const response = await llm.generateText(query, {
@@ -187,7 +187,7 @@ class QueryExecutor {
    * Handle general queries (pass to LLM)
    * @private
    */
-  async _handleGeneral(query, context) {
+  async _handleGeneral(query, _context) {
     const llm = this.agent.llmRegistry.getActiveProvider();
 
     const response = await llm.generateText(query, {

@@ -49,15 +49,6 @@ const KNOWN_ABBREVIATIONS = new Set([
   "mhz", "ghz", "cpu", "gpu", "ram", "rom", "io", "ui", "ux",
 ]);
 
-function extractWords(text) {
-  // Extract words from text, handling markdown syntax
-  return text
-    .toLowerCase()
-    .replace(/[#*_`\[\](){}|\\]/g, " ") // Remove markdown syntax
-    .split(/\s+/)
-    .filter((word) => word.length > 0);
-}
-
 function isValidWord(word) {
   const cleanWord = word.replace(/[^\w'-]/g, "").toLowerCase();
   
@@ -167,14 +158,6 @@ function isSentenceLike(text) {
 
   const wordCount = normalized.split(/\s+/).filter(Boolean).length;
   return wordCount >= 5 && normalized.length >= 20;
-}
-
-function isProseLike(text) {
-  const normalized = stripMarkdownArtifacts(text || "");
-  if (!normalized) return false;
-
-  const wordCount = normalized.split(/\s+/).filter(Boolean).length;
-  return wordCount >= 1;
 }
 
 function isShortProseFragment(text) {
@@ -465,40 +448,6 @@ function extractMarkdownProseLines(content) {
 
 function extractMarkdownSpellingLines(content) {
   return extractMarkdownLanguageLines(content, shouldSpellCheckLine);
-}
-
-function maskMarkdownCodePreservingLayout(text) {
-  const lines = (text || "").split("\n");
-  const maskedLines = [];
-  let inCodeBlock = false;
-  let fenceMarker = "";
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    const fenceMatch = trimmed.match(/^(```+|~~~+)/);
-
-    if (fenceMatch) {
-      if (!inCodeBlock) {
-        inCodeBlock = true;
-        fenceMarker = fenceMatch[1];
-      } else if (trimmed.startsWith(fenceMarker)) {
-        inCodeBlock = false;
-        fenceMarker = "";
-      }
-
-      maskedLines.push(" ".repeat(line.length));
-      continue;
-    }
-
-    if (inCodeBlock) {
-      maskedLines.push(" ".repeat(line.length));
-      continue;
-    }
-
-    maskedLines.push(line.replace(/`[^`]*`/g, (match) => " ".repeat(match.length)));
-  }
-
-  return maskedLines.join("\n");
 }
 
 function runLocalGrammarFallback(proseLines) {

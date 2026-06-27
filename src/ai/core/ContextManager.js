@@ -2,8 +2,6 @@
  * ContextManager - Manages workspace context and document indexing
  */
 
-const crypto = require('crypto');
-
 class ContextManager {
   constructor(databaseManager, documentService) {
     this.db = databaseManager;
@@ -176,7 +174,7 @@ Last workspace update: ${workspace.lastUpdated}
 
     if (context.relatedDocuments && context.relatedDocuments.length > 0) {
       prompt += `Related documents:\n`;
-      context.relatedDocuments.forEach((doc, idx) => {
+      context.relatedDocuments.forEach((doc) => {
         prompt += `- ${doc.path} (relevance: ${(doc.relevance * 100).toFixed(0)}%)\n`;
       });
     }
@@ -197,7 +195,7 @@ Last workspace update: ${workspace.lastUpdated}
         console.log('[ContextManager] Restored cached workspace metadata');
         // Could use this to speed up initialization
       }
-    } catch (error) {
+    } catch {
       // Ignore cache load errors
     }
   }

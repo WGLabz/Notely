@@ -9,17 +9,6 @@ function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
 }
 
-function clearDirectory(dirPath) {
-  if (!fs.existsSync(dirPath)) {
-    return;
-  }
-
-  for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
-    const entryPath = path.join(dirPath, entry.name);
-    fs.rmSync(entryPath, { recursive: true, force: true });
-  }
-}
-
 function listTopLevelExeFiles(dirPath) {
   if (!fs.existsSync(dirPath)) {
     return [];

@@ -2,7 +2,7 @@
  * Utility functions for extracting and managing media (images, videos, audio, PDFs, etc.)
  */
 
-import { getMediaType, MEDIA_TYPES } from "./mediaTypeUtils";
+import { MEDIA_TYPES } from "./mediaTypeUtils";
 
 export function extractImagesFromMarkdown(content) {
   if (!content) return [];

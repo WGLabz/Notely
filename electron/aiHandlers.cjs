@@ -229,7 +229,7 @@ async function handleQuery(event, payload) {
 /**
  * Handle status request
  */
-async function handleStatus(event, payload) {
+async function handleStatus(_event, _payload) {
   try {
     if (!aiAgent) {
       return new AIQueryResponse(true, { initialized: false });
@@ -263,7 +263,7 @@ async function handleGenerateEmbeddings(event, payload) {
 /**
  * Handle relationship graph building
  */
-async function handleBuildGraph(event, payload) {
+async function handleBuildGraph(_event, _payload) {
   try {
     if (!aiInitialized || !aiAgent?.isInitialized) {
       throw new Error('AI agent not initialized');
@@ -280,7 +280,7 @@ async function handleBuildGraph(event, payload) {
 /**
  * Handle pattern detection
  */
-async function handleDetectPatterns(event, payload) {
+async function handleDetectPatterns(_event, _payload) {
   try {
     if (!aiInitialized || !aiAgent?.isInitialized) {
       throw new Error('AI agent not initialized');
@@ -365,7 +365,7 @@ async function handleGetAPIKey(event, payload) {
 /**
  * Handle get preferences
  */
-async function handleGetPreferences(event, payload) {
+async function handleGetPreferences(_event, _payload) {
   try {
     const AIConfig = require('../src/ai/utils/AIConfig');
     const config = new AIConfig();
@@ -432,7 +432,7 @@ async function handleTestConnection(event, payload) {
 /**
  * Handle clear data
  */
-async function handleClearData(event, payload) {
+async function handleClearData(_event, _payload) {
   try {
     if (!aiAgent) {
       throw new Error('AI agent not available');
@@ -459,7 +459,7 @@ async function handleClearData(event, payload) {
 /**
  * Handle shutdown
  */
-async function handleShutdown(event, payload) {
+async function handleShutdown(_event, _payload) {
   try {
     if (aiAgent) {
       aiAgent.shutdown();

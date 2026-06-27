@@ -117,7 +117,7 @@ class Agent {
   /**
    * Generate embeddings for workspace
    */
-  async generateEmbeddings(forceRefresh = false) {
+  async generateEmbeddings(_forceRefresh = false) {
     try {
       const docs = this.documentService.getAllDocuments();
       console.log(`[Agent] Generating embeddings for ${docs.length} documents...`);

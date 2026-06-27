@@ -317,7 +317,6 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
   aiEnabled = true,
   onOpenAIRequest,
   onOpenAISettings,
-  onInlineAIContinue,
   ghostSuggestion,
   onAcceptInlineGhost,
   onRejectInlineGhost,
@@ -326,7 +325,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
   const viewRef = useRef(null);
   const menuRef = useRef(null);
   const [contextMenu, setContextMenu] = useState(null);
-  const [activeLine, setActiveLine] = useState(1);
+  const [_activeLine, setActiveLine] = useState(1);
   const [docLength, setDocLength] = useState(String(value || "").length);
 
   const valueLength = String(value || "").length;
