@@ -1,3 +1,5 @@
+const { shouldHideDirectory } = require("./folderPolicy.cjs");
+
 function createMainHelpers(deps) {
   const {
     fs,
@@ -146,9 +148,7 @@ function createMainHelpers(deps) {
       },
       ...fs.readdirSync(notesRoot, { withFileTypes: true })
         .filter((entry) => entry.isDirectory())
-        .filter((entry) => !entry.name.startsWith("."))
-        .filter((entry) => entry.name !== "images")
-        .filter((entry) => entry.name !== "removed")
+        .filter((entry) => !shouldHideDirectory(entry.name))
         .map((entry) => ({
           slug: entry.name,
           name: entry.name,

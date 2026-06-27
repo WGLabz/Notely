@@ -1,3 +1,5 @@
+const { shouldHideDirectory } = require("./folderPolicy.cjs");
+
 const DEFAULT_WALK_EXCLUDE_DIRS = new Set([
   ".notes-app", ".versions", "node_modules", ".git", ".svn", ".hg",
   "dist", "build", ".artifacts", ".cache", "__pycache__", "removed",
@@ -12,11 +14,6 @@ function createWorkspaceEntries(deps) {
     parseDocument,
     walkExcludeDirs = DEFAULT_WALK_EXCLUDE_DIRS,
   } = deps;
-
-  function shouldHideDirectory(name) {
-    const lowerName = String(name || "").toLowerCase();
-    return lowerName.startsWith(".") || lowerName === "images" || lowerName === "removed";
-  }
 
   function walkFiles(rootDir, options = {}) {
     const excludeDirs = new Set(options.excludeDirs || []);

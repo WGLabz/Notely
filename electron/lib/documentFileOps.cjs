@@ -35,7 +35,7 @@ function createDocumentFileOps(deps) {
 
     while (fs.existsSync(filePath)) {
       fileName = `${safeBaseName}-${counter}.md`;
-      filePath = path.join(rootDir, fileName);
+      filePath = path.join(targetDir, fileName);
       counter += 1;
     }
 
