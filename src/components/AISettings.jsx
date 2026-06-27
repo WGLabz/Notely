@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import './AISettings.css';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import {
   aiClearData,
   aiGetApiKey,
@@ -31,6 +32,7 @@ const AISettings = ({ isOpen, onClose }) => {
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
   const [testResult, setTestResult] = useState(null);
+  const dialogRef = useFocusTrap(isOpen);
 
   useEffect(() => {
     if (isOpen) {
@@ -177,7 +179,7 @@ const AISettings = ({ isOpen, onClose }) => {
 
   return (
     <div className="overlay-dialog" onClick={onClose} role="dialog" aria-modal="true" aria-label="AI settings">
-      <div className="overlay-dialog-card ai-settings-dialog-card" onClick={(event) => event.stopPropagation()}>
+      <div ref={dialogRef} className="overlay-dialog-card ai-settings-dialog-card" onClick={(event) => event.stopPropagation()}>
         <div className="overlay-dialog-header ai-settings-dialog-header">
           <div className="ai-settings-title-group">
             <h2>AI Settings</h2>

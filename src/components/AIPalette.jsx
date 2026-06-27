@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./AIPalette.css";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 
 const TARGET_OPTIONS = [
   { id: "selection", label: "Selection" },
@@ -239,6 +240,7 @@ export default function AIPalette({
   const [selectedDiffRows, setSelectedDiffRows] = useState({});
   const inputRef = useRef(null);
   const lastAutoRunRequestIdRef = useRef("");
+  const dialogRef = useFocusTrap(isOpen, inputRef);
 
   const availableApplyOptions = useMemo(
     () => APPLY_OPTIONS.map((option) => ({
@@ -414,7 +416,14 @@ export default function AIPalette({
 
   return (
     <div className="ai-palette-overlay" onClick={onClose}>
-      <div className="ai-palette" onClick={(event) => event.stopPropagation()}>
+      <div
+        ref={dialogRef}
+        className="ai-palette"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`AI Assistant for ${noteTitle}`}
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="ai-palette-header">
           <div>
             <div className="ai-palette-title">AI Assistant</div>
