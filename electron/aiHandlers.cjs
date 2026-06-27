@@ -4,14 +4,15 @@
  */
 
 const { ipcMain } = require('electron');
+const fs = require('fs');
 const path = require('path');
 
 let IPC_EVENTS, AIQueryRequest, AIQueryResponse;
 
 try {
-  // In packaged app: electron/ and dist/ are siblings in app.asar
-  // In dev: electron/ and src/ are siblings, but we use dist which is created by build
-  const ipcProtocolPath = path.join(__dirname, '..', 'dist', 'ai', 'utils', 'ipcProtocol.js');
+  const distProtocolPath = path.join(__dirname, '..', 'dist', 'ai', 'utils', 'ipcProtocol.js');
+  const srcProtocolPath = path.join(__dirname, '..', 'src', 'ai', 'utils', 'ipcProtocol.js');
+  const ipcProtocolPath = fs.existsSync(distProtocolPath) ? distProtocolPath : srcProtocolPath;
   console.log('[AI] Attempting to load ipcProtocol from:', ipcProtocolPath);
   ({ IPC_EVENTS, AIQueryRequest, AIQueryResponse } = require(ipcProtocolPath));
   console.log('[AI] Successfully loaded ipcProtocol');
@@ -22,14 +23,41 @@ try {
   IPC_EVENTS = {
     AI_INIT: 'ai:init',
     AI_QUERY: 'ai:query',
-    AI_DESTROY: 'ai:destroy'
+    AI_STATUS: 'ai:status',
+    AI_GENERATE_EMBEDDINGS: 'ai:embeddings:generate',
+    AI_BUILD_GRAPH: 'ai:graph:build',
+    AI_DETECT_PATTERNS: 'ai:patterns:detect',
+    AI_SET_API_KEY: 'ai:config:set-api-key',
+    AI_GET_API_KEY: 'ai:config:get-api-key',
+    AI_SHUTDOWN: 'ai:shutdown'
   };
-  AIQueryRequest = class {};
-  AIQueryResponse = class {};
+  AIQueryRequest = class {
+    constructor(query, context = {}) {
+      this.query = query;
+      this.context = context;
+      this.timestamp = new Date().toISOString();
+    }
+  };
+  AIQueryResponse = class {
+    constructor(success, data = {}, error = null) {
+      this.success = success;
+      this.data = data;
+      this.error = error;
+      this.timestamp = new Date().toISOString();
+    }
+  };
 }
 
 let aiAgent = null;
 let aiInitialized = false;
+let handlersRegistered = false;
+
+function registerHandler(channel, handler) {
+  if (!channel || typeof channel !== 'string') {
+    throw new Error(`Invalid AI IPC channel: ${channel}`);
+  }
+  ipcMain.handle(channel, handler);
+}
 
 /**
  * Initialize IPC handlers
@@ -38,35 +66,41 @@ function initializeAIHandlers(electronApp, agent) {
   aiAgent = agent;
   aiInitialized = Boolean(agent?.isInitialized);
 
+  if (handlersRegistered) {
+    console.log('[AI IPC] Handlers already initialized; updated agent reference');
+    return;
+  }
+
   // AI Initialization
-  ipcMain.handle(IPC_EVENTS.AI_INIT, handleInitialize);
+  registerHandler(IPC_EVENTS.AI_INIT, handleInitialize);
 
   // AI Query
-  ipcMain.handle(IPC_EVENTS.AI_QUERY, handleQuery);
+  registerHandler(IPC_EVENTS.AI_QUERY, handleQuery);
 
   // Status
-  ipcMain.handle(IPC_EVENTS.AI_STATUS, handleStatus);
+  registerHandler(IPC_EVENTS.AI_STATUS, handleStatus);
 
   // Embeddings
-  ipcMain.handle(IPC_EVENTS.AI_GENERATE_EMBEDDINGS, handleGenerateEmbeddings);
+  registerHandler(IPC_EVENTS.AI_GENERATE_EMBEDDINGS, handleGenerateEmbeddings);
 
   // Relationship graph
-  ipcMain.handle(IPC_EVENTS.AI_BUILD_GRAPH, handleBuildGraph);
+  registerHandler(IPC_EVENTS.AI_BUILD_GRAPH, handleBuildGraph);
 
   // Pattern detection
-  ipcMain.handle(IPC_EVENTS.AI_DETECT_PATTERNS, handleDetectPatterns);
+  registerHandler(IPC_EVENTS.AI_DETECT_PATTERNS, handleDetectPatterns);
 
   // Configuration
-  ipcMain.handle(IPC_EVENTS.AI_SET_API_KEY, handleSetAPIKey);
-  ipcMain.handle(IPC_EVENTS.AI_GET_API_KEY, handleGetAPIKey);
-  ipcMain.handle('ai:config:get-preferences', handleGetPreferences);
-  ipcMain.handle('ai:config:set-preferences', handleSetPreferences);
-  ipcMain.handle('ai:config:test-connection', handleTestConnection);
-  ipcMain.handle('ai:config:clear-data', handleClearData);
+  registerHandler(IPC_EVENTS.AI_SET_API_KEY, handleSetAPIKey);
+  registerHandler(IPC_EVENTS.AI_GET_API_KEY, handleGetAPIKey);
+  registerHandler('ai:config:get-preferences', handleGetPreferences);
+  registerHandler('ai:config:set-preferences', handleSetPreferences);
+  registerHandler('ai:config:test-connection', handleTestConnection);
+  registerHandler('ai:config:clear-data', handleClearData);
 
   // Shutdown
-  ipcMain.handle(IPC_EVENTS.AI_SHUTDOWN, handleShutdown);
+  registerHandler(IPC_EVENTS.AI_SHUTDOWN, handleShutdown);
 
+  handlersRegistered = true;
   console.log('[AI IPC] Handlers initialized');
 }
 
