@@ -16,6 +16,13 @@ const ASPECT_RATIO_MAP = {
   "16:9": 16 / 9,
 };
 
+const ANNOTATION_POSITIONS = [
+  { value: "bottom-left", label: "Bottom left" },
+  { value: "bottom-right", label: "Bottom right" },
+  { value: "top-left", label: "Top left" },
+  { value: "top-right", label: "Top right" },
+];
+
 function clamp01(value) {
   return Math.min(1, Math.max(0, Number(value) || 0));
 }
@@ -140,6 +147,7 @@ export function ImageCropModal({
   open,
   imageSrc,
   imageLabel,
+  initialAnnotation = null,
   saving = false,
   onClose,
   onSave,
@@ -154,6 +162,9 @@ export function ImageCropModal({
   const [rotationAngle, setRotationAngle] = useState(0);
   const [rotating, setRotating] = useState(false);
   const [hasImageEdits, setHasImageEdits] = useState(false);
+  const [annotationText, setAnnotationText] = useState("");
+  const [annotationPosition, setAnnotationPosition] = useState("bottom-left");
+  const [annotationDirty, setAnnotationDirty] = useState(false);
 
   useEffect(() => {
     if (!open) {
@@ -162,6 +173,9 @@ export function ImageCropModal({
       setRotationAngle(0);
       setWorkingImageSrc("");
       setHasImageEdits(false);
+      setAnnotationText("");
+      setAnnotationPosition("bottom-left");
+      setAnnotationDirty(false);
       interactionRef.current = null;
       return;
     }
@@ -169,6 +183,9 @@ export function ImageCropModal({
     setWorkingImageSrc(imageSrc || "");
     setRotationAngle(0);
     setHasImageEdits(false);
+    setAnnotationText(initialAnnotation?.text || "");
+    setAnnotationPosition(initialAnnotation?.position || "bottom-left");
+    setAnnotationDirty(false);
 
     const focusTimer = window.setTimeout(() => {
       closeButtonRef.current?.focus();
@@ -177,13 +194,18 @@ export function ImageCropModal({
     return () => {
       window.clearTimeout(focusTimer);
     };
-  }, [open, imageSrc, onClose]);
+  }, [open, imageSrc, initialAnnotation, onClose]);
 
   const activeAspectRatio = ASPECT_RATIO_MAP[aspectPreset] || null;
 
   const hasSelection = useMemo(() => {
     return Boolean(selection && selection.width > 0.01 && selection.height > 0.01);
   }, [selection]);
+
+  const hasAnnotation = annotationText.trim().length > 0;
+  const currentAnnotation = hasAnnotation
+    ? { text: annotationText.trim(), position: annotationPosition }
+    : null;
 
   const getRelativePoint = (event) => {
     if (!imageRef.current) return null;
@@ -265,9 +287,9 @@ export function ImageCropModal({
 
   const handleSave = async () => {
     if (!imageRef.current || saving || rotating) return;
-    if (!hasSelection && !hasImageEdits) return;
-    if (!hasSelection) {
-      await onSave?.(workingImageSrc || imageSrc);
+    if (!hasSelection && !hasImageEdits && !annotationDirty) return;
+    if (!hasSelection && !hasImageEdits) {
+      await onSave?.(null, currentAnnotation);
       return;
     }
 
@@ -276,10 +298,10 @@ export function ImageCropModal({
     const naturalHeight = image.naturalHeight || image.height;
     if (!naturalWidth || !naturalHeight) return;
 
-    const sx = Math.floor(selection.x * naturalWidth);
-    const sy = Math.floor(selection.y * naturalHeight);
-    const sw = Math.max(1, Math.floor(selection.width * naturalWidth));
-    const sh = Math.max(1, Math.floor(selection.height * naturalHeight));
+    const sx = hasSelection ? Math.floor(selection.x * naturalWidth) : 0;
+    const sy = hasSelection ? Math.floor(selection.y * naturalHeight) : 0;
+    const sw = hasSelection ? Math.max(1, Math.floor(selection.width * naturalWidth)) : naturalWidth;
+    const sh = hasSelection ? Math.max(1, Math.floor(selection.height * naturalHeight)) : naturalHeight;
 
     const canvas = document.createElement("canvas");
     canvas.width = sw;
@@ -289,8 +311,8 @@ export function ImageCropModal({
     if (!ctx) return;
 
     ctx.drawImage(image, sx, sy, sw, sh, 0, 0, sw, sh);
-    const croppedDataUrl = canvas.toDataURL("image/png");
-    await onSave?.(croppedDataUrl);
+    const editedDataUrl = canvas.toDataURL("image/png");
+    await onSave?.(editedDataUrl, currentAnnotation);
   };
 
   const handleAspectPresetChange = (event) => {
@@ -434,6 +456,11 @@ export function ImageCropModal({
             onPointerCancel={handlePointerUp}
           >
             <img ref={imageRef} src={workingImageSrc || imageSrc} alt={imageLabel || "Image to edit"} draggable={false} />
+            {hasAnnotation ? (
+              <div className={`image-annotation-preview ${annotationPosition}`} aria-hidden="true">
+                {annotationText.trim()}
+              </div>
+            ) : null}
             {selection ? (
               <div
                 className="image-crop-selection"
@@ -494,14 +521,44 @@ export function ImageCropModal({
               disabled={saving || rotating}
               aria-label="Rotation degrees"
             />
+            <input
+              className="image-annotation-input"
+              type="text"
+              maxLength="80"
+              value={annotationText}
+              onChange={(event) => {
+                setAnnotationText(event.target.value);
+                setAnnotationDirty(true);
+              }}
+              placeholder="Annotation"
+              disabled={saving || rotating}
+              aria-label="Image annotation text"
+            />
+            <select
+              className="image-crop-aspect-select"
+              value={annotationPosition}
+              onChange={(event) => {
+                setAnnotationPosition(event.target.value);
+                setAnnotationDirty(true);
+              }}
+              disabled={saving || rotating || !hasAnnotation}
+              aria-label="Annotation position"
+            >
+              {ANNOTATION_POSITIONS.map((position) => (
+                <option key={position.value} value={position.value}>{position.label}</option>
+              ))}
+            </select>
             <button
               type="button"
               className="small-button"
               onClick={() => {
                 setSelection(null);
                 setRotationAngle(0);
+                setAnnotationText("");
+                setAnnotationPosition("bottom-left");
+                setAnnotationDirty(true);
               }}
-              disabled={saving || rotating || (!selection && rotationAngle === 0)}
+              disabled={saving || rotating || (!selection && rotationAngle === 0 && !hasAnnotation && !annotationDirty)}
             >
               Reset
             </button>
@@ -509,7 +566,7 @@ export function ImageCropModal({
               type="button"
               className="small-button"
               onClick={handleSave}
-              disabled={(!hasSelection && !hasImageEdits) || saving || rotating}
+              disabled={(!hasSelection && !hasImageEdits && !annotationDirty) || saving || rotating}
             >
               {saving ? "Saving..." : rotating ? "Previewing..." : "Apply"}
             </button>

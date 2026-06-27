@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Copy, Eye, ImageOff, ImagePlus, RefreshCw, Upload, Trash2 } from "lucide-react";
+import { AlertTriangle, Copy, ExternalLink, Eye, ImageOff, ImagePlus, ListTree, RefreshCw, Upload, Trash2, X } from "lucide-react";
 import { extractImagesFromMarkdown } from "../utils/mediaUtils";
 import { getMediaTypeFromExtension } from "../utils/mediaUtils";
-import { MediaStats } from "./MediaStats";
 import { MediaPreviewPane } from "./MediaPreviewPane";
 import {
   getImageUsage,
@@ -13,10 +12,11 @@ import {
   replaceImage,
 } from "../services/electronService";
 import { readFileAsDataUrl } from "../utils/mediaTypeUtils";
+import { formatFileSize } from "../utils/imageProcessingUtils";
 import { formatImageDeleteResult } from "../utils/imageDeleteResult";
 import "../styles/media.css";
 
-export function MediaTab({ content, basePath, onNotify }) {
+export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
   const linkedImages = useMemo(() => extractImagesFromMarkdown(content), [content]);
   const [allImages, setAllImages] = useState([]);
   const [imageUsage, setImageUsage] = useState({});
@@ -31,7 +31,9 @@ export function MediaTab({ content, basePath, onNotify }) {
   const [searchText, setSearchText] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [sortType, setSortType] = useState("name-asc");
+  const [uploadTarget, setUploadTarget] = useState("note");
   const [selectedMediaPreview, setSelectedMediaPreview] = useState(null);
+  const [usageInspectorImage, setUsageInspectorImage] = useState(null);
   const addInputRef = useRef(null);
   const replaceInputRef = useRef(null);
 
@@ -171,11 +173,59 @@ export function MediaTab({ content, basePath, onNotify }) {
     }));
   }, [allImages, mediaSizes]);
 
+  const mediaSummary = useMemo(() => {
+    return mediaItemsWithSize.reduce(
+      (summary, image) => {
+        const referenced = (image.referenceCount || 0) > 0 || referencedPathSet.has(image.path);
+        return {
+          total: summary.total + 1,
+          used: summary.used + (referenced ? 1 : 0),
+          unused: summary.unused + (referenced ? 0 : 1),
+          size: summary.size + (image.fileSize || 0),
+        };
+      },
+      { total: 0, used: 0, unused: 0, size: 0 }
+    );
+  }, [mediaItemsWithSize, referencedPathSet]);
+
   useEffect(() => {
     if (!actionInfo) return undefined;
     const timer = window.setTimeout(() => setActionInfo(""), 2200);
     return () => window.clearTimeout(timer);
   }, [actionInfo]);
+
+  const healthReport = useMemo(() => {
+    const duplicateGroupsByName = new Map();
+    const missingFiles = [];
+    const unusedFiles = [];
+    const previewFailures = [];
+
+    allImages.forEach((image) => {
+      const referenced = (image.referenceCount || 0) > 0 || referencedPathSet.has(image.path);
+      const fileName = (image.path.split(/[\\/]/).pop() || image.path).toLowerCase();
+
+      if (!duplicateGroupsByName.has(fileName)) {
+        duplicateGroupsByName.set(fileName, []);
+      }
+      duplicateGroupsByName.get(fileName).push(image);
+
+      if (image.missingFile) missingFiles.push(image);
+      if (!referenced) unusedFiles.push(image);
+      if (thumbnailFailures[image.id]) previewFailures.push(image);
+    });
+
+    const duplicateGroups = Array.from(duplicateGroupsByName.values()).filter((group) => group.length > 1);
+    const duplicatePathSet = new Set(duplicateGroups.flatMap((group) => group.map((image) => image.path)));
+
+    return {
+      missingFiles,
+      unusedFiles,
+      previewFailures,
+      duplicateGroups,
+      duplicatePathSet,
+      issueCount: missingFiles.length + unusedFiles.length + previewFailures.length + duplicateGroups.length,
+    };
+  }, [allImages, referencedPathSet, thumbnailFailures]);
 
   const filteredImages = useMemo(() => {
     const normalizedSearch = searchText.trim().toLowerCase();
@@ -188,6 +238,9 @@ export function MediaTab({ content, basePath, onNotify }) {
       // Apply usage filter
       if (filterType === "referenced" && !referenced) return false;
       if (filterType === "unused" && referenced) return false;
+      if (filterType === "missing" && !image.missingFile) return false;
+      if (filterType === "duplicates" && !healthReport.duplicatePathSet.has(image.path)) return false;
+      if (filterType === "preview-failed" && !thumbnailFailures[image.id]) return false;
 
       // Apply media type filters
       if (filterType === "images" && mediaType !== "image") return false;
@@ -221,7 +274,7 @@ export function MediaTab({ content, basePath, onNotify }) {
     });
 
     return visible;
-  }, [allImages, filterType, referencedPathSet, searchText, sortType]);
+  }, [allImages, filterType, healthReport.duplicatePathSet, referencedPathSet, searchText, sortType, thumbnailFailures]);
 
   const linkedCount = useMemo(() => {
     return allImages.filter((image) => (image.referenceCount || 0) > 0 || referencedPathSet.has(image.path)).length;
@@ -238,10 +291,11 @@ export function MediaTab({ content, basePath, onNotify }) {
     setActionInfo("");
     try {
       const dataUrl = await readFileAsDataUrl(file);
-      await saveImage(file.name, dataUrl, basePath);
+      const savedPath = await saveImage(file.name, dataUrl, basePath, { storageTarget: uploadTarget });
       setRefreshKey((value) => value + 1);
-      setActionInfo("Media added successfully.");
-      onNotify?.("Media added.", "success");
+      const targetLabel = uploadTarget === "workspace" ? "workspace library" : "note folder";
+      setActionInfo(`Media added to ${targetLabel}.`);
+      onNotify?.(`Media added to ${targetLabel}: ${savedPath}`, "success");
     } catch (error) {
       setActionError(error?.message || "Unable to add media.");
       onNotify?.(error?.message || "Unable to add media.", "error");
@@ -371,9 +425,78 @@ export function MediaTab({ content, basePath, onNotify }) {
     });
   }
 
+  async function handleOpenUsageDocument(filePath) {
+    if (!filePath || typeof onOpenDocument !== "function") return;
+    setUsageInspectorImage(null);
+    await onOpenDocument(filePath);
+  }
+
   return (
     <div>
-      <MediaStats allMedia={mediaItemsWithSize} onDeleteUnused={handleDeleteUnusedMedia} isDeleting={busy} />
+      <div className={`media-health-panel ${healthReport.issueCount ? "warn" : "ok"}`}>
+        <div className="media-health-main">
+          <div className="media-health-title">
+            <AlertTriangle size={15} />
+            <strong>Workspace Health</strong>
+            <span className="media-health-status">
+              {healthReport.issueCount ? `${healthReport.issueCount} item${healthReport.issueCount === 1 ? "" : "s"} to review` : "No issues"}
+            </span>
+            <span className="media-health-summary">
+              {mediaSummary.total} media · {formatFileSize(mediaSummary.size)} · {mediaSummary.used} used · {mediaSummary.unused} unused
+            </span>
+          </div>
+        </div>
+        <div className="media-health-actions">
+          <button
+            className="media-health-chip"
+            type="button"
+            onClick={() => setFilterType("missing")}
+            disabled={!healthReport.missingFiles.length}
+            title="Show media links whose files are missing"
+          >
+            Missing {healthReport.missingFiles.length}
+          </button>
+          <button
+            className="media-health-chip"
+            type="button"
+            onClick={() => setFilterType("unused")}
+            disabled={!healthReport.unusedFiles.length}
+            title="Show media files not referenced by any note"
+          >
+            Unused {healthReport.unusedFiles.length}
+          </button>
+          <button
+            className="media-health-chip"
+            type="button"
+            onClick={() => setFilterType("duplicates")}
+            disabled={!healthReport.duplicateGroups.length}
+            title="Show files with duplicate names"
+          >
+            Duplicates {healthReport.duplicateGroups.length}
+          </button>
+          <button
+            className="media-health-chip"
+            type="button"
+            onClick={() => setFilterType("preview-failed")}
+            disabled={!healthReport.previewFailures.length}
+            title="Show media whose preview failed to load"
+          >
+            Preview failed {healthReport.previewFailures.length}
+          </button>
+          {healthReport.unusedFiles.length ? (
+            <button
+              className="media-health-clean"
+              type="button"
+              onClick={handleDeleteUnusedMedia}
+              disabled={busy}
+              title="Delete all unused media files"
+            >
+              <Trash2 size={13} />
+              Clean unused
+            </button>
+          ) : null}
+        </div>
+      </div>
 
       <div className="media-toolbar">
         <input
@@ -387,6 +510,9 @@ export function MediaTab({ content, basePath, onNotify }) {
           <option value="all">All Media</option>
           <option value="referenced">Referenced Only</option>
           <option value="unused">Unused Only</option>
+          <option value="missing">Missing Files</option>
+          <option value="duplicates">Duplicate Names</option>
+          <option value="preview-failed">Preview Failed</option>
           <optgroup label="By Type">
             <option value="images">Images Only</option>
             <option value="videos">Videos Only</option>
@@ -401,6 +527,19 @@ export function MediaTab({ content, basePath, onNotify }) {
           <option value="referenced-first">Referenced First</option>
         </select>
         <div className="media-toolbar-actions">
+          <label className="media-upload-target" title="Choose where newly added media is stored">
+            <span>Save to</span>
+            <select
+              className="media-select"
+              value={uploadTarget}
+              onChange={(event) => setUploadTarget(event.target.value)}
+              disabled={busy}
+              aria-label="Media upload target"
+            >
+              <option value="note">Note folder</option>
+              <option value="workspace">Workspace library</option>
+            </select>
+          </label>
           {unusedCount > 0 && (
             <button
               className="small-button danger"
@@ -522,6 +661,17 @@ export function MediaTab({ content, basePath, onNotify }) {
                   )}
                 </div>
                 <p className="media-path" title={image.path}>{image.path}</p>
+                {referenced ? (
+                  <button
+                    className="media-usage-link"
+                    type="button"
+                    onClick={() => setUsageInspectorImage(image)}
+                    title="Inspect note usage"
+                  >
+                    <ListTree size={12} />
+                    <span>{image.referenceCount || 0} note{(image.referenceCount || 0) === 1 ? "" : "s"}</span>
+                  </button>
+                ) : null}
                 <div className="media-item-actions">
                   <button
                     className="small-button icon-only"
@@ -532,6 +682,13 @@ export function MediaTab({ content, basePath, onNotify }) {
                   </button>
                   <button className="small-button icon-only" onClick={() => handleCopyMarkdown(image)} title="Copy markdown">
                     <Copy size={14} />
+                  </button>
+                  <button
+                    className="small-button icon-only"
+                    onClick={() => setUsageInspectorImage(image)}
+                    title="Inspect usage"
+                  >
+                    <ListTree size={14} />
                   </button>
                   <button
                     className="small-button icon-only"
@@ -570,6 +727,54 @@ export function MediaTab({ content, basePath, onNotify }) {
           </div>
         </div>
       )}
+
+      {usageInspectorImage ? (
+        <div className="media-usage-overlay" role="dialog" aria-modal="true" aria-label="Media usage inspector">
+          <div className="media-usage-dialog">
+            <div className="media-usage-header">
+              <div>
+                <h3>Media Usage</h3>
+                <p title={usageInspectorImage.path}>{usageInspectorImage.path}</p>
+              </div>
+              <button
+                className="small-button icon-only"
+                type="button"
+                onClick={() => setUsageInspectorImage(null)}
+                aria-label="Close usage inspector"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            {(usageInspectorImage.referencedBy || []).length ? (
+              <div className="media-usage-list">
+                {usageInspectorImage.referencedBy.map((documentRef) => (
+                  <div className="media-usage-row" key={documentRef.filePath}>
+                    <div className="media-usage-row-text">
+                      <strong>{documentRef.title || documentRef.fileName || "Untitled note"}</strong>
+                      <span title={documentRef.filePath}>{documentRef.filePath}</span>
+                    </div>
+                    {typeof onOpenDocument === "function" ? (
+                      <button
+                        className="small-button"
+                        type="button"
+                        onClick={() => handleOpenUsageDocument(documentRef.filePath)}
+                      >
+                        <ExternalLink size={13} />
+                        <span>Open</span>
+                      </button>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="media-usage-empty">
+                <p>This media item is not referenced by any note in the current workspace.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

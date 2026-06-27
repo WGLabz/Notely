@@ -13,7 +13,7 @@ import {
   getImageFileSize,
   formatFileSize,
 } from "../utils/imageProcessingUtils";
-import { readImage, replaceImage } from "../services/electronService";
+import { readImage, replaceImage, getImageAnnotation, setImageAnnotation } from "../services/electronService";
 import "../styles/mediaPreview.css";
 
 // Initialize the pdf.js worker once via a Vite-bundled module worker so it
@@ -55,6 +55,7 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
   const [imageInfo, setImageInfo] = useState(null);
   const [showCropModal, setShowCropModal] = useState(false);
   const [editImageSrc, setEditImageSrc] = useState("");
+  const [imageAnnotation, setImageAnnotationState] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
   const imageRef = useRef(null);
   const menuRef = useRef(null);
@@ -107,6 +108,7 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
     setImageInfo(null);
     setShowCropModal(false);
     setEditImageSrc("");
+    setImageAnnotationState(null);
     setContextMenu(null);
 
     if (!resolvedPath) return;
@@ -117,8 +119,22 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
 
     if (mediaType === "image" && mediaPath) {
       loadImage(resolvedPath);
+      loadImageAnnotation();
     }
   }, [mediaPath, mediaType, resolvedPath, showOriginalImages]);
+
+  const loadImageAnnotation = async () => {
+    if (!basePath || !mediaPath || /^(data:|blob:|https?:)/i.test(mediaPath)) {
+      setImageAnnotationState(null);
+      return;
+    }
+
+    try {
+      setImageAnnotationState(await getImageAnnotation(basePath, mediaPath));
+    } catch {
+      setImageAnnotationState(null);
+    }
+  };
 
   const loadImage = async (path) => {
     try {
@@ -174,6 +190,7 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
     try {
       const fullImage = await readFullImage();
       setEditImageSrc(fullImage || displayedImage || resolvedPath || "");
+      await loadImageAnnotation();
       setShowCropModal(true);
       setContextMenu(null);
     } catch (err) {
@@ -181,27 +198,32 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
     }
   };
 
-  const handleSaveCrop = async (editedDataUrl) => {
+  const handleSaveCrop = async (editedDataUrl, annotation) => {
     try {
-      setDisplayedImage(editedDataUrl);
       setShowCropModal(false);
-      const dimensions = await getImageDimensions(editedDataUrl);
-      setImageInfo({
-        ...imageInfo,
-        dimensions,
-        fileSize: getImageFileSize(editedDataUrl),
-        formattedSize: formatFileSize(getImageFileSize(editedDataUrl)),
-      });
       if (basePath && mediaPath && !/^(data:|blob:|https?:)/i.test(mediaPath)) {
-        await replaceImage(basePath, mediaPath, editedDataUrl);
-        if (!showOriginalImages) {
-          try {
-            const thumbnail = await readImage(basePath, mediaPath, { thumbnail: true });
-            setDisplayedImage(thumbnail || editedDataUrl);
-          } catch {
-            setDisplayedImage(editedDataUrl);
+        if (editedDataUrl) {
+          setDisplayedImage(editedDataUrl);
+          const dimensions = await getImageDimensions(editedDataUrl);
+          setImageInfo({
+            ...imageInfo,
+            dimensions,
+            fileSize: getImageFileSize(editedDataUrl),
+            formattedSize: formatFileSize(getImageFileSize(editedDataUrl)),
+          });
+          await replaceImage(basePath, mediaPath, editedDataUrl);
+          if (!showOriginalImages) {
+            try {
+              const thumbnail = await readImage(basePath, mediaPath, { thumbnail: true });
+              setDisplayedImage(thumbnail || editedDataUrl);
+            } catch {
+              setDisplayedImage(editedDataUrl);
+            }
           }
         }
+
+        const savedAnnotation = await setImageAnnotation(basePath, mediaPath, annotation);
+        setImageAnnotationState(savedAnnotation);
         onMediaChanged?.(mediaPath);
       }
     } catch (err) {
@@ -340,14 +362,21 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
             </div>
 
             <div className="media-preview-image-container">
-              <img
-                ref={imageRef}
-                src={displayedImage || resolvedPath}
-                alt="Preview"
-                onError={() => setError("Failed to load image")}
-                onContextMenu={handleImageContextMenu}
-                title="Right-click to crop"
-              />
+              <div className="media-preview-image-frame">
+                <img
+                  ref={imageRef}
+                  src={displayedImage || resolvedPath}
+                  alt="Preview"
+                  onError={() => setError("Failed to load image")}
+                  onContextMenu={handleImageContextMenu}
+                  title="Right-click to edit"
+                />
+                {imageAnnotation?.text ? (
+                  <span className={`media-preview-image-annotation ${imageAnnotation.position || "bottom-left"}`}>
+                    {imageAnnotation.text}
+                  </span>
+                ) : null}
+              </div>
             </div>
 
             {imageInfo && (
@@ -442,6 +471,7 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
           open={showCropModal}
           imageSrc={editImageSrc}
           imageLabel={mediaPath.split("/").pop()}
+          initialAnnotation={imageAnnotation}
           onClose={() => {
             setShowCropModal(false);
             setEditImageSrc("");

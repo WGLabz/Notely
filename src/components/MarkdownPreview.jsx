@@ -4,7 +4,7 @@ import {
   parseMermaidBlocks,
   normalizeMarkdownImagePaths,
 } from "../utils/renderUtils";
-import { readImage, replaceImage, deleteImage, renameImage } from "../services/electronService";
+import { readImage, replaceImage, deleteImage, renameImage, getImageAnnotation, setImageAnnotation } from "../services/electronService";
 import { readFileAsDataUrl } from "../utils/mediaTypeUtils";
 import { createImageMarkdown } from "../utils/markdownUtils";
 import { getMediaTypeFromExtension } from "../utils/mediaUtils";
@@ -30,6 +30,19 @@ function getImageActionElement(target) {
   return framedImage instanceof HTMLImageElement ? framedImage : null;
 }
 
+function applyImageAnnotation(image, annotation) {
+  const frame = image?.closest?.(".markdown-image-frame");
+  if (!frame) return;
+  frame.querySelector(".markdown-image-annotation")?.remove();
+  const text = String(annotation?.text || "").trim();
+  if (!text) return;
+
+  const overlay = document.createElement("span");
+  overlay.className = `markdown-image-annotation ${annotation?.position || "bottom-left"}`;
+  overlay.textContent = text;
+  frame.appendChild(overlay);
+}
+
 export const MarkdownPreview = memo(function MarkdownPreviewContent({ content, basePath, externalRef, onNotify, onContentChange, onMediaClick, showOriginalImages = false }) {
   const previewRef = useRef(null);
   const menuRef = useRef(null);
@@ -42,6 +55,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({ content, b
     src: "",
     assetPath: "",
     imageLabel: "",
+    annotation: null,
   });
   const [contextMenu, setContextMenu] = useState(null);
   const [menuIndex, setMenuIndex] = useState(0);
@@ -76,6 +90,12 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({ content, b
       if (cache.has(cacheKey)) {
         const cached = cache.get(cacheKey);
         if (!cancelled && cached) image.src = cached;
+        try {
+          const annotation = await getImageAnnotation(basePath, assetPath);
+          if (!cancelled) applyImageAnnotation(image, annotation);
+        } catch {
+          if (!cancelled) applyImageAnnotation(image, null);
+        }
         return;
       }
 
@@ -87,6 +107,13 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({ content, b
         }
       } catch {
         // Keep original src if resolution fails.
+      }
+
+      try {
+        const annotation = await getImageAnnotation(basePath, assetPath);
+        if (!cancelled) applyImageAnnotation(image, annotation);
+      } catch {
+        if (!cancelled) applyImageAnnotation(image, null);
       }
     };
 
@@ -296,10 +323,16 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({ content, b
 
     const assetPath = contextMenu.assetPath;
     let fullSizeSrc = contextMenu.src;
+    let annotation = null;
     try {
       fullSizeSrc = await readImage(basePath, assetPath);
     } catch {
       // Fall back to the rendered preview image if the full-size read fails.
+    }
+    try {
+      annotation = await getImageAnnotation(basePath, assetPath);
+    } catch {
+      annotation = null;
     }
 
     setCropState({
@@ -307,7 +340,28 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({ content, b
       src: fullSizeSrc,
       assetPath,
       imageLabel: contextMenu.imageLabel,
+      annotation,
     });
+    closeContextMenu();
+  };
+
+  const viewImageFromMenu = () => {
+    if (!contextMenu) return;
+    if (typeof onMediaClick !== "function") {
+      onNotify?.("Image viewer is unavailable in this view.", "info");
+      closeContextMenu();
+      return;
+    }
+
+    const imagePath = contextMenu.assetPath || contextMenu.src || "";
+    if (!imagePath) {
+      closeContextMenu();
+      return;
+    }
+
+    const ext = imagePath.split(/[?#]/)[0].split(".").pop()?.toLowerCase();
+    const mediaType = getMediaTypeFromExtension(ext) || "image";
+    onMediaClick({ path: imagePath, type: mediaType });
     closeContextMenu();
   };
 
@@ -468,6 +522,12 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({ content, b
 
   const menuActions = [
     {
+      key: "view",
+      label: "View image",
+      onSelect: viewImageFromMenu,
+      disabled: false,
+    },
+    {
       key: "crop",
       label: "Edit image",
       onSelect: openCropFromMenu,
@@ -542,31 +602,42 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({ content, b
 
   const closeCropModal = () => {
     if (cropSaving) return;
-    setCropState({ open: false, src: "", assetPath: "", imageLabel: "" });
+    setCropState({ open: false, src: "", assetPath: "", imageLabel: "", annotation: null });
   };
 
-  const handleSaveCrop = async (croppedDataUrl) => {
+  const handleSaveCrop = async (editedDataUrl, annotation) => {
     if (!basePath || !cropState.assetPath) return;
     setCropSaving(true);
     const targetAssetPath = cropState.assetPath;
 
-    // Optimistically update preview so the edit appears immediately.
-    imageResolveCacheRef.current.delete(imageCacheKey(targetAssetPath));
-    if (previewRef.current) {
-      previewRef.current.querySelectorAll("img").forEach((image) => {
-        if ((image.getAttribute("data-asset-path") || "") === targetAssetPath) {
-          image.src = croppedDataUrl;
-        }
-      });
-    }
-
     try {
-      await replaceImage(basePath, targetAssetPath, croppedDataUrl);
-      onNotify?.("Image cropped and saved.", "success");
-      setCropState({ open: false, src: "", assetPath: "", imageLabel: "" });
+      if (editedDataUrl) {
+        imageResolveCacheRef.current.delete(imageCacheKey(targetAssetPath));
+        imageResolveCacheRef.current.delete(imageCacheKey(targetAssetPath, "original"));
+        if (previewRef.current) {
+          previewRef.current.querySelectorAll("img").forEach((image) => {
+            if ((image.getAttribute("data-asset-path") || "") === targetAssetPath) {
+              image.src = editedDataUrl;
+            }
+          });
+        }
+        await replaceImage(basePath, targetAssetPath, editedDataUrl);
+      }
+
+      const savedAnnotation = await setImageAnnotation(basePath, targetAssetPath, annotation);
+      if (previewRef.current) {
+        previewRef.current.querySelectorAll("img").forEach((image) => {
+          if ((image.getAttribute("data-asset-path") || "") === targetAssetPath) {
+            applyImageAnnotation(image, savedAnnotation);
+          }
+        });
+      }
+
+      onNotify?.(editedDataUrl ? "Image edit saved." : "Image annotation saved.", "success");
+      setCropState({ open: false, src: "", assetPath: "", imageLabel: "", annotation: null });
     } catch (error) {
       imageResolveCacheRef.current.delete(imageCacheKey(targetAssetPath));
-      onNotify?.(error?.message || "Unable to save cropped image.", "error");
+      onNotify?.(error?.message || "Unable to save image edit.", "error");
     } finally {
       setCropSaving(false);
     }
@@ -642,6 +713,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({ content, b
         open={cropState.open}
         imageSrc={cropState.src}
         imageLabel={cropState.imageLabel}
+        initialAnnotation={cropState.annotation}
         saving={cropSaving}
         onClose={closeCropModal}
         onSave={handleSaveCrop}
