@@ -30,6 +30,7 @@ const { buildAppMenu } = require("./lib/appMenu.cjs");
 const { createWebsiteRenderer } = require("./lib/websiteRenderer.cjs");
 const { createImageMedia } = require("./lib/imageMedia.cjs");
 const { createTerminalIpc } = require("./lib/terminalIpc.cjs");
+const { registerCoreIpcHandlers } = require("./lib/coreIpc.cjs");
 
 const rendererUrl = process.env.ELECTRON_RENDERER_URL;
 const projectRoot = app.getAppPath();
@@ -1777,62 +1778,24 @@ ipcMain.on("app-menu:update-context", (event, context) => {
   Menu.setApplicationMenu(buildAppMenu(win, win.__menuContext));
 });
 
-ipcMain.handle("settings:get-notes-root", () => ({
-  notesRoot,
-  notesRootSource: process.env.NOTES_ROOT ? "env" : "config"
-}));
-
-ipcMain.handle("settings:pick-folder", async () => {
-  const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
-  const result = await dialog.showOpenDialog(win, {
-    properties: ["openDirectory", "createDirectory"],
-    title: "Select notes folder"
-  });
-
-  if (result.canceled || !result.filePaths?.length) {
-    return null;
-  }
-
-  return result.filePaths[0];
+registerCoreIpcHandlers(ipcMain, {
+  BrowserWindow,
+  dialog,
+  process,
+  path,
+  ensureDir,
+  readUserSettings,
+  writeUserSettings,
+  applyNotesRoot,
+  getNotesRoot: () => notesRoot,
+  listProjectsState,
+  getActiveProjectSlug: () => activeProjectSlug,
+  setActiveProjectSlug: (slug) => {
+    activeProjectSlug = slug;
+  },
 });
 
-ipcMain.handle("settings:set-notes-root", (_event, payload) => {
-  const nextPath = String(payload?.notesRoot || "").trim();
-  if (!nextPath) {
-    throw new Error("Notes folder path is required.");
-  }
-
-  const resolved = path.resolve(nextPath);
-  ensureDir(resolved);
-
-  const settings = readUserSettings();
-  settings.notesRoot = resolved;
-  writeUserSettings(settings);
-
-  if (!process.env.NOTES_ROOT) {
-    applyNotesRoot(resolved);
-  }
-
-  return {
-    notesRoot: resolved,
-    restartRequired: Boolean(process.env.NOTES_ROOT),
-    ignoredByEnv: Boolean(process.env.NOTES_ROOT)
-  };
-});
 terminalIpc.registerHandlers(ipcMain);
-
-ipcMain.handle("projects:list", () => listProjectsState());
-
-ipcMain.handle("projects:set-active", (_event, payload) => {
-  const slug = String(payload?.slug || "").trim();
-  const exists = listProjectsState().projects.some((item) => item.slug === slug);
-  if (!exists) {
-    throw new Error("Project not found.");
-  }
-
-  activeProjectSlug = slug;
-  return listProjectsState();
-});
 
 ipcMain.handle("p2p:start-discovery", () => {
   if (!p2pService) {
