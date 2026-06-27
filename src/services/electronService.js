@@ -404,9 +404,14 @@ export async function downloadPdf(payload) {
   return api.downloadPdf(payload);
 }
 
-export async function saveImage(fileName, base64Data, basePath) {
+export async function saveImage(fileName, base64Data, basePath, options = {}) {
   const api = getNotesApi();
-  return api.saveImage({ fileName, base64Data, basePath });
+  return api.saveImage({
+    fileName,
+    base64Data,
+    basePath,
+    storageTarget: options.storageTarget,
+  });
 }
 
 export async function listImages(basePath) {
@@ -425,6 +430,20 @@ export async function getImageUsage(basePath) {
 export async function readImage(basePath, assetPath, options = {}) {
   const api = getNotesApi();
   return api.readImage({ basePath, assetPath, thumbnail: Boolean(options.thumbnail) });
+}
+
+export async function getImageAnnotation(basePath, assetPath) {
+  const api = getNotesApi();
+  if (typeof api.getImageAnnotation !== "function") return null;
+  return api.getImageAnnotation({ basePath, assetPath });
+}
+
+export async function setImageAnnotation(basePath, assetPath, annotation) {
+  const api = getNotesApi();
+  if (typeof api.setImageAnnotation !== "function") {
+    throw new Error("Image annotation action unavailable. Please restart the app.");
+  }
+  return api.setImageAnnotation({ basePath, assetPath, annotation });
 }
 
 export async function deleteImage(basePath, assetPath, options = {}) {

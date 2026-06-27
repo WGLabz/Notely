@@ -51,6 +51,7 @@ const FULL_SYNC_MAX_FILES = 1000;
 const THUMBNAIL_DIR_NAME = "thumbnails";
 const THUMBNAIL_MAX_WIDTH = 360;
 const THUMBNAIL_JPEG_QUALITY = 72;
+const VERSION_HISTORY_LIMIT = 50;
 const RASTER_IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".bmp", ".ico"]);
 
 async function initializeAIForWorkspace() {
@@ -95,6 +96,32 @@ function readUserSettings() {
 function writeUserSettings(nextSettings) {
   ensureDir(path.dirname(userConfigPath));
   fs.writeFileSync(userConfigPath, JSON.stringify(nextSettings, null, 2), "utf8");
+}
+
+function getLastPdfExportPath() {
+  const settings = readUserSettings();
+  const lastPath = typeof settings?.lastPdfExportPath === "string"
+    ? settings.lastPdfExportPath.trim()
+    : "";
+  if (!lastPath) return "";
+
+  try {
+    const resolvedLastPath = path.resolve(lastPath);
+    if (fs.existsSync(path.dirname(resolvedLastPath))) {
+      return resolvedLastPath;
+    }
+  } catch {
+    return "";
+  }
+
+  return "";
+}
+
+function rememberPdfExportPath(filePath) {
+  if (!filePath || typeof filePath !== "string") return;
+  const settings = readUserSettings();
+  settings.lastPdfExportPath = path.resolve(filePath);
+  writeUserSettings(settings);
 }
 
 function resolveInitialNotesRoot() {
@@ -409,6 +436,47 @@ function createVersionSnapshot(filePath, content, tag) {
   const versionPath = path.join(versionDir, `${stamp}-${slugify(tag || "snapshot")}.md`);
   fs.writeFileSync(versionPath, content, "utf8");
   return versionPath;
+}
+
+function isFileBackedVersionPath(versionPath) {
+  if (!versionPath || typeof versionPath !== "string") return false;
+  try {
+    const resolvedVersionPath = path.resolve(versionPath);
+    return filePathWithin(versionsRoot, resolvedVersionPath) && path.extname(resolvedVersionPath).toLowerCase() === ".md";
+  } catch {
+    return false;
+  }
+}
+
+function pruneVersionHistory(filePath, limit = VERSION_HISTORY_LIMIT) {
+  if (!metadataStore || !filePath) return;
+  const safeLimit = Math.max(1, Number(limit) || VERSION_HISTORY_LIMIT);
+  const fileBackedEntries = metadataStore.getHistory(filePath)
+    .filter((entry) => isFileBackedVersionPath(entry.versionPath));
+
+  for (const entry of fileBackedEntries.slice(safeLimit)) {
+    const resolvedVersionPath = path.resolve(entry.versionPath);
+    try {
+      if (fs.existsSync(resolvedVersionPath)) {
+        fs.unlinkSync(resolvedVersionPath);
+      }
+    } catch {
+      // History cleanup is best-effort; stale metadata is removed below.
+    }
+    metadataStore.deleteHistoryVersion(filePath, entry.versionPath);
+  }
+}
+
+function hasMatchingFileBackedVersion(filePath, fileHash) {
+  if (!metadataStore || !filePath || !fileHash) return false;
+  return metadataStore.getHistory(filePath).some((entry) => {
+    if (entry.fileHash !== fileHash || !isFileBackedVersionPath(entry.versionPath)) return false;
+    try {
+      return fs.existsSync(path.resolve(entry.versionPath));
+    } catch {
+      return false;
+    }
+  });
 }
 
 function createSyncConflictCopy(filePath, peerId, incomingContent) {
@@ -822,6 +890,51 @@ function shouldHideDirectory(name) {
   return lowerName.startsWith(".") || lowerName === "images" || lowerName === "removed";
 }
 
+function extractPreviewImagesFromMarkdown(content, sourceFilePath, limit = 4) {
+  const markdownImagePattern = /!\[[^\]]*\]\((<[^>]+>|[^)]+)\)/g;
+  const images = [];
+  const seen = new Set();
+  let match;
+
+  while (images.length < limit && (match = markdownImagePattern.exec(String(content || "")))) {
+    const rawPath = String(match[1] || "").trim();
+    const assetPath = rawPath.startsWith("<") && rawPath.endsWith(">")
+      ? rawPath.slice(1, -1)
+      : rawPath;
+    if (!assetPath || /^(https?:|data:|blob:)/i.test(assetPath)) continue;
+
+    const key = `${sourceFilePath}:${assetPath}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    images.push({
+      path: assetPath,
+      sourceFilePath,
+      name: path.basename(assetPath.split(/[?#]/)[0] || assetPath)
+    });
+  }
+
+  return images;
+}
+
+function collectFolderPreviewImages(folderPath, limit = 4) {
+  const images = [];
+  const markdownFiles = walkFiles(folderPath, { excludeDirs: Array.from(WALK_EXCLUDE_DIRS) })
+    .filter((item) => path.extname(item).toLowerCase() === ".md");
+
+  for (const markdownFile of markdownFiles) {
+    if (images.length >= limit) break;
+    try {
+      const content = fs.readFileSync(markdownFile, "utf8");
+      images.push(...extractPreviewImagesFromMarkdown(content, markdownFile, limit - images.length));
+    } catch {
+      // Folder thumbnails are best-effort.
+    }
+  }
+
+  return images.slice(0, limit);
+}
+
 function listDirectoryEntries(rootDir, options = {}) {
   ensureDir(rootDir);
   const { includeProjectSlug = false } = options;
@@ -844,7 +957,8 @@ function listDirectoryEntries(rootDir, options = {}) {
           filePath: entryPath,
           title: entry.name,
           metadata: {},
-          updatedAt: stat.mtime.toISOString()
+          updatedAt: stat.mtime.toISOString(),
+          previewImages: collectFolderPreviewImages(entryPath)
         };
       }
 
@@ -857,6 +971,7 @@ function listDirectoryEntries(rootDir, options = {}) {
         title: parsed.title,
         metadata: parsed.metadata,
         updatedAt: stat.mtime.toISOString(),
+        previewImages: extractPreviewImagesFromMarkdown(content, entryPath),
         hash: parsed.hash
       };
     })
@@ -2246,7 +2361,7 @@ function buildPdfExportMarkdown(document, options = {}) {
   ].filter(Boolean).join("\n");
 }
 
-function buildPdfExportHtml({ title, markdownContent, baseHref, sourceDir, downsampleImages = false }) {
+function buildPdfExportHtml({ title, markdownContent, baseHref, sourceDir, downsampleImages = false, pdfQualityPreset = "full" }) {
   const markdown = new MarkdownIt({
     html: false,
     linkify: true,
@@ -2291,7 +2406,7 @@ function buildPdfExportHtml({ title, markdownContent, baseHref, sourceDir, downs
     <base href="${baseHref}" />
     <title>${escapeHtml(title)}</title>
     <style>
-${buildPdfStyles()}
+  ${buildPdfStyles({ compact: pdfQualityPreset === "compact" })}
     </style>
   </head>
   <body>
@@ -2302,7 +2417,13 @@ ${buildPdfStyles()}
 </html>`;
 }
 
-function buildPdfStyles() {
+function buildPdfStyles({ compact = false } = {}) {
+  const bodyFontSize = compact ? "13px" : "14px";
+  const bodyLineHeight = compact ? "1.55" : "1.65";
+  const paragraphMargin = compact ? "10px" : "14px";
+  const h1Size = compact ? "22px" : "24px";
+  const h2Size = compact ? "16px" : "17px";
+
   return `
     :root {
       color-scheme: light;
@@ -2314,8 +2435,8 @@ function buildPdfStyles() {
       font-family: "Segoe UI", "Inter", Arial, sans-serif;
       color: #0d1f26;
       background: #ffffff;
-      line-height: 1.65;
-      font-size: 14px;
+      line-height: ${bodyLineHeight};
+      font-size: ${bodyFontSize};
     }
 
     .markdown-body {
@@ -2323,7 +2444,7 @@ function buildPdfStyles() {
     }
 
     h1 {
-      font-size: 24px;
+      font-size: ${h1Size};
       line-height: 1.2;
       margin: 0 0 16px;
       padding-bottom: 12px;
@@ -2331,7 +2452,7 @@ function buildPdfStyles() {
     }
 
     h2 {
-      font-size: 17px;
+      font-size: ${h2Size};
       line-height: 1.3;
       margin: 24px 0 10px;
       padding-bottom: 6px;
@@ -2344,7 +2465,7 @@ function buildPdfStyles() {
     }
 
     p, ul, ol, blockquote, pre, table {
-      margin: 0 0 14px;
+      margin: 0 0 ${paragraphMargin};
     }
 
     ul, ol {
@@ -2589,11 +2710,13 @@ class MetadataStore {
         INSERT INTO history_entries (file_path, version_path, file_hash, reason, created_at)
         VALUES (?, ?, ?, ?, ?)
       `).run(entry.filePath, entry.versionPath, entry.fileHash, entry.reason, entry.createdAt);
+      pruneVersionHistory(entry.filePath);
       return;
     }
 
     this.state.history.push(entry);
     fs.writeFileSync(this.jsonPath, JSON.stringify(this.state, null, 2));
+    pruneVersionHistory(entry.filePath);
   }
 
   getHistory(filePath) {
@@ -3713,6 +3836,10 @@ ipcMain.handle("documents:save", (_event, payload) => {
   const previous = fs.readFileSync(resolved, "utf8");
 
   const next = buildDocumentContent(payload);
+  if (next === previous) {
+    return parseDocument(next, resolved);
+  }
+
   fs.writeFileSync(resolved, next, "utf8");
 
   emitLocalP2PSyncEvent({
@@ -3730,21 +3857,18 @@ ipcMain.handle("documents:save", (_event, payload) => {
   });
 
   if (!isAutoSave) {
-    const slug = slugify(path.basename(resolved));
-    const versionDir = path.join(versionsRoot, slug);
-    ensureDir(versionDir);
+    const previousHash = hashContent(previous);
+    if (!hasMatchingFileBackedVersion(resolved, previousHash)) {
+      const versionPath = createVersionSnapshot(resolved, previous, saveReason);
 
-    const stamp = nowStamp();
-    const versionPath = path.join(versionDir, `${stamp}.md`);
-    fs.writeFileSync(versionPath, previous, "utf8");
-
-    metadataStore.addHistory({
-      filePath: resolved,
-      versionPath,
-      fileHash: hashContent(previous),
-      reason: saveReason,
-      createdAt: new Date().toISOString()
-    });
+      metadataStore.addHistory({
+        filePath: resolved,
+        versionPath,
+        fileHash: previousHash,
+        reason: saveReason,
+        createdAt: new Date().toISOString()
+      });
+    }
   }
 
   return parseDocument(next, resolved);
@@ -3831,16 +3955,20 @@ ipcMain.handle("documents:download-pdf", async (_event, payload) => {
 
   const includeRawNotes = Boolean(payload?.includeRawNotes);
   const includeCleansed = Boolean(payload?.includeCleansed);
-  const downsampleImages = Boolean(payload?.downsampleImages);
+  const pdfQualityPreset = ["full", "balanced", "compact"].includes(payload?.pdfQualityPreset)
+    ? payload.pdfQualityPreset
+    : "full";
+  const downsampleImages = Boolean(payload?.downsampleImages) || pdfQualityPreset !== "full";
   if (!includeRawNotes && !includeCleansed) {
     throw new Error("Select at least one section to export.");
   }
 
   const focusedWindow = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0] || null;
   const defaultName = `${path.basename(resolved, ".md") || "note"}.pdf`;
+  const lastPdfExportPath = getLastPdfExportPath();
   const saveResult = await dialog.showSaveDialog(focusedWindow, {
     title: "Save note as PDF",
-    defaultPath: path.join(path.dirname(resolved), defaultName),
+    defaultPath: lastPdfExportPath || path.join(path.dirname(resolved), defaultName),
     filters: [{ name: "PDF", extensions: ["pdf"] }]
   });
 
@@ -3861,7 +3989,8 @@ ipcMain.handle("documents:download-pdf", async (_event, payload) => {
       markdownContent,
       baseHref,
       sourceDir: path.dirname(resolved),
-      downsampleImages
+      downsampleImages,
+      pdfQualityPreset
     });
     fs.writeFileSync(tempHtmlPath, html, "utf8");
 
@@ -3885,6 +4014,7 @@ ipcMain.handle("documents:download-pdf", async (_event, payload) => {
       });
 
       fs.writeFileSync(saveResult.filePath, pdfData);
+      rememberPdfExportPath(saveResult.filePath);
     } finally {
       if (!pdfWindow.isDestroyed()) {
         pdfWindow.close();
@@ -3937,7 +4067,7 @@ ipcMain.handle("documents:delete-version", (_event, payload) => {
 });
 
 ipcMain.handle("images:save", (_event, payload) => {
-  const { fileName, base64Data, basePath } = payload || {};
+  const { fileName, base64Data, basePath, storageTarget } = payload || {};
   if (!fileName || typeof fileName !== "string") {
     throw new Error("Invalid image filename.");
   }
@@ -3945,10 +4075,12 @@ ipcMain.handle("images:save", (_event, payload) => {
     throw new Error("Invalid image payload.");
   }
 
-  // Prefer saving next to the active note (per-note images/), fall back to
-  // the workspace-level notesRoot/images when no basePath is provided.
+  // Prefer saving next to the active note (per-note images/), with an explicit
+  // workspace target for shared media library uploads.
   let imagesDir;
-  if (basePath && typeof basePath === "string") {
+  const saveToWorkspace = storageTarget === "workspace";
+  let savedToWorkspace = saveToWorkspace;
+  if (!saveToWorkspace && basePath && typeof basePath === "string") {
     const resolvedBase = path.resolve(basePath);
     const normalizedNotesRoot = path.resolve(notesRoot).toLowerCase();
     if (resolvedBase.toLowerCase().startsWith(normalizedNotesRoot)) {
@@ -3957,6 +4089,7 @@ ipcMain.handle("images:save", (_event, payload) => {
   }
   if (!imagesDir) {
     imagesDir = path.join(notesRoot, "images");
+    savedToWorkspace = true;
   }
   ensureDir(imagesDir);
 
@@ -3982,7 +4115,7 @@ ipcMain.handle("images:save", (_event, payload) => {
   ensureImageThumbnail(imagePath);
 
   // Return relative path for markdown insertion
-  return `./images/${finalName}`;
+  return savedToWorkspace ? `/images/${finalName}` : `./images/${finalName}`;
 });
 
 ipcMain.handle("images:list", (_event, payload) => {
@@ -4027,7 +4160,7 @@ ipcMain.handle("images:list", (_event, payload) => {
 
   return [
     ...localNames.map((name) => `./images/${name}`),
-    ...rootNames.map((name) => `./images/${name}`),
+    ...rootNames.map((name) => `/images/${name}`),
   ];
 });
 
@@ -4057,7 +4190,11 @@ function collectImageUsage(basePath) {
       const resolvedAssetPath = resolveImageAssetPath(markdownFile, assetPath);
       if (!resolvedAssetPath) continue;
 
-      const relativeAssetPath = `./images/${path.basename(resolvedAssetPath)}`;
+      const rootImagesDir = path.resolve(notesRoot, "images").toLowerCase();
+      const resolvedImageDir = path.dirname(path.resolve(resolvedAssetPath)).toLowerCase();
+      const relativeAssetPath = resolvedImageDir === rootImagesDir
+        ? `/images/${path.basename(resolvedAssetPath)}`
+        : `./images/${path.basename(resolvedAssetPath)}`;
       if (seenInDocument.has(relativeAssetPath)) continue;
       seenInDocument.add(relativeAssetPath);
 
@@ -4126,6 +4263,7 @@ function resolveImageAssetPath(basePath, assetPath) {
       }
     }
     const baseDir = path.dirname(path.resolve(basePath));
+    const isWorkspaceImageLink = /^[/\\]+images[/\\]/i.test(decodedAsset);
     const normalizedAsset = decodedAsset
       .replace(/^\.\//, "")
       .replace(/^[/\\]+images[/\\]/i, "images/");
@@ -4135,7 +4273,9 @@ function resolveImageAssetPath(basePath, assetPath) {
     // back to the workspace-level notesRoot/images. For any other relative
     // path, resolve from the markdown file directory.
     const candidates = [];
-    if (/^images[\\/]/i.test(normalizedAsset)) {
+    if (isWorkspaceImageLink) {
+      candidates.push(path.resolve(notesRoot, normalizedAsset));
+    } else if (/^images[\\/]/i.test(normalizedAsset)) {
       candidates.push(path.resolve(baseDir, normalizedAsset));
       candidates.push(path.resolve(notesRoot, normalizedAsset));
     } else {
@@ -4219,6 +4359,37 @@ function clearThumbnailCacheForImage(imagePath) {
   }
 }
 
+function getImageAnnotationsPath() {
+  return path.join(appDataDir, "image-annotations.json");
+}
+
+function getImageAnnotationKey(resolvedAssetPath) {
+  return normalizeToPosix(path.relative(notesRoot, path.resolve(resolvedAssetPath))).toLowerCase();
+}
+
+function readImageAnnotations() {
+  const annotationsPath = getImageAnnotationsPath();
+  if (!fs.existsSync(annotationsPath)) return {};
+  try {
+    const parsed = JSON.parse(fs.readFileSync(annotationsPath, "utf8"));
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeImageAnnotations(annotations) {
+  ensureDir(path.dirname(getImageAnnotationsPath()));
+  fs.writeFileSync(getImageAnnotationsPath(), JSON.stringify(annotations || {}, null, 2), "utf8");
+}
+
+function normalizeImageAnnotation(annotation) {
+  const text = String(annotation?.text || "").trim().slice(0, 80);
+  const allowedPositions = new Set(["bottom-left", "bottom-right", "top-left", "top-right"]);
+  const position = allowedPositions.has(annotation?.position) ? annotation.position : "bottom-left";
+  return text ? { text, position } : null;
+}
+
 function removeImageReferencesForAsset(resolvedAssetPath, options = {}) {
   const normalizedTarget = path.resolve(resolvedAssetPath).toLowerCase();
   const normalizedBasePath = options.basePath
@@ -4284,6 +4455,47 @@ ipcMain.handle("images:usage", (_event, payload) => {
   return collectImageUsage(basePath);
 });
 
+ipcMain.handle("images:get-annotation", (_event, payload) => {
+  const { basePath, assetPath } = payload || {};
+  if (!basePath || typeof basePath !== "string") {
+    throw new Error("Invalid base path.");
+  }
+  if (!assetPath || typeof assetPath !== "string") {
+    throw new Error("Invalid asset path.");
+  }
+
+  const resolvedAssetPath = resolveImageAssetPath(basePath, assetPath);
+  if (!resolvedAssetPath) return null;
+  const annotations = readImageAnnotations();
+  return normalizeImageAnnotation(annotations[getImageAnnotationKey(resolvedAssetPath)]);
+});
+
+ipcMain.handle("images:set-annotation", (_event, payload) => {
+  const { basePath, assetPath, annotation } = payload || {};
+  if (!basePath || typeof basePath !== "string") {
+    throw new Error("Invalid base path.");
+  }
+  if (!assetPath || typeof assetPath !== "string") {
+    throw new Error("Invalid asset path.");
+  }
+
+  const resolvedAssetPath = resolveImageAssetPath(basePath, assetPath);
+  if (!resolvedAssetPath) {
+    throw new Error("Image file not found.");
+  }
+
+  const annotations = readImageAnnotations();
+  const key = getImageAnnotationKey(resolvedAssetPath);
+  const normalized = normalizeImageAnnotation(annotation);
+  if (normalized) {
+    annotations[key] = normalized;
+  } else {
+    delete annotations[key];
+  }
+  writeImageAnnotations(annotations);
+  return normalized;
+});
+
 ipcMain.handle("images:delete", (_event, payload) => {
   const { basePath, assetPath, removeAllReferences } = payload || {};
   if (!basePath || typeof basePath !== "string") {
@@ -4306,6 +4518,9 @@ ipcMain.handle("images:delete", (_event, payload) => {
   let movedPath = null;
   if (shouldDeleteFile) {
     clearThumbnailCacheForImage(resolvedAssetPath);
+    const annotations = readImageAnnotations();
+    delete annotations[getImageAnnotationKey(resolvedAssetPath)];
+    writeImageAnnotations(annotations);
     movedPath = moveFileToRemoved(resolvedAssetPath, "images");
   }
 
@@ -4382,6 +4597,15 @@ ipcMain.handle("images:rename", (_event, payload) => {
   if (normalizedCandidate.toLowerCase() !== normalizedCurrent.toLowerCase()) {
     finalPath = getUniquePath(normalizedCandidate);
     fs.renameSync(normalizedCurrent, finalPath);
+  }
+
+  const annotations = readImageAnnotations();
+  const oldAnnotationKey = getImageAnnotationKey(normalizedCurrent);
+  const nextAnnotation = annotations[oldAnnotationKey];
+  if (nextAnnotation) {
+    delete annotations[oldAnnotationKey];
+    annotations[getImageAnnotationKey(finalPath)] = nextAnnotation;
+    writeImageAnnotations(annotations);
   }
 
   return `./images/${path.basename(finalPath)}`;
