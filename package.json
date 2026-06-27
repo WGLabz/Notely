@@ -18,10 +18,14 @@
     "pack:win": "npm run release:clean && npm run assets:icon && npm run build && node scripts/run-electron-builder.cjs --win --dir",
     "dist:win": "npm run release:clean && npm run assets:icon && npm run build && node scripts/run-electron-builder.cjs --win nsis portable && npm run release:collect",
     "lint:markdown": "markdownlint-cli2",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "node ./node_modules/vitest/vitest.mjs run",
     "test:p2p": "node scripts/p2p-harness.cjs",
     "test:p2p:packaged": "node scripts/p2p-packaged-validation.cjs",
-    "ci:check": "npm run build && npm run lint:markdown && npm run test"
+    "ci:check": "npm run lint && npm run build && npm run lint:markdown && npm run test"
   },
   "dependencies": {
     "@codemirror/lang-markdown": "^6.5.0",
@@ -44,14 +48,20 @@
     "remark-preset-lint-recommended": "^7.0.1"
   },
   "devDependencies": {
+    "@eslint/js": "^9.18.0",
     "@vitejs/plugin-react": "^4.5.0",
     "concurrently": "^9.1.2",
     "electron": "^37.2.0",
     "electron-builder": "^24.13.3",
+    "eslint": "^9.18.0",
+    "eslint-plugin-react": "^7.37.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "globals": "^15.14.0",
     "jsdom": "^29.1.1",
     "markdownlint-cli2": "^0.18.1",
     "png-to-ico": "^2.1.8",
     "pngjs": "^7.0.0",
+    "prettier": "^3.4.0",
     "vite": "^6.3.5",
     "vitest": "^2.1.8",
     "wait-on": "^8.0.3"

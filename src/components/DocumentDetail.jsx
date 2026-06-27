@@ -883,9 +883,6 @@ export function DocumentDetail({
     return buildDiffRows(compareLatestText, comparePreviousText, { ignoreWhitespace: smartMode });
   }, [compareLatestText, comparePreviousText, smartMode]);
 
-  const handleDeleteVersion = async (entry) => {
-    const confirmed = window.confirm("Delete this older version? This cannot be undone.");
-    if (!confirmed) return;
   const handleRestoreVersion = async (entry) => {
     const confirmed = window.confirm("Restore this version into the editor? Review it, then save to keep the restored content.");
     if (!confirmed) return;
@@ -906,6 +903,10 @@ export function DocumentDetail({
       onNotify?.(error?.message || "Unable to restore version.", "error");
     }
   };
+
+  const handleDeleteVersion = async (entry) => {
+    const confirmed = window.confirm("Delete this older version? This cannot be undone.");
+    if (!confirmed) return;
 
     try {
       await deleteVersion(document.filePath, entry.versionPath);

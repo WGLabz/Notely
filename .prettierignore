@@ -1,0 +1,9 @@
+dist
+build
+release
+.artifacts
+node_modules
+.notes-app
+.versions
+package-lock.json
+*.md

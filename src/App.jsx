@@ -4,6 +4,7 @@ import { ArrowUp, FolderOpen, FolderPlus, Image as ImageIcon, LayoutGrid, Notebo
 import { DocumentList } from "./components/DocumentList";
 import { DocumentDetail } from "./components/DocumentDetail";
 import { EmbeddedTerminal } from "./components/EmbeddedTerminal";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { P2PStatusPanel } from "./components/P2PStatusPanel";
 import { WorkspaceActivityPanel } from "./components/WorkspaceActivityPanel";
 import { ConflictResolutionPanel } from "./components/ConflictResolutionPanel";
@@ -1741,25 +1742,29 @@ export default function App() {
           onOpenAISettings={() => setAiSettingsOpen(true)}
           onOpenDocument={handleOpenReferencedDocument}
           aiSidebar={aiPanelVisible && isAIConfigured ? (
-            <AIChatPanel
-              onHide={() => setAiPanelVisible(false)}
-              onClear={handleClearAIChat}
-              onSend={handleAIChatSend}
-              onApply={handleApplyAIResult}
-              isLoading={aiQueryLoading}
-              error={aiQueryError || null}
-              contextSummary={aiContextSummary}
-              intent={aiPaletteIntent}
-              messages={aiChatMessages}
-              noteTitle={current?.title || "Current Note"}
-            />
+            <ErrorBoundary label="AI chat">
+              <AIChatPanel
+                onHide={() => setAiPanelVisible(false)}
+                onClear={handleClearAIChat}
+                onSend={handleAIChatSend}
+                onApply={handleApplyAIResult}
+                isLoading={aiQueryLoading}
+                error={aiQueryError || null}
+                contextSummary={aiContextSummary}
+                intent={aiPaletteIntent}
+                messages={aiChatMessages}
+                noteTitle={current?.title || "Current Note"}
+              />
+            </ErrorBoundary>
           ) : null}
         />
       )}
 
       {showTerminal ? (
         <div className="terminal-dock open">
-          <EmbeddedTerminal cwd={terminalCwd} onClose={() => setShowTerminal(false)} />
+          <ErrorBoundary label="Terminal">
+            <EmbeddedTerminal cwd={terminalCwd} onClose={() => setShowTerminal(false)} />
+          </ErrorBoundary>
         </div>
       ) : null}
 
