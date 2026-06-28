@@ -395,6 +395,56 @@ button {
   font-size: 13px;
 }
 
+.keyboard-shortcuts-card {
+  width: min(720px, calc(100vw - 32px));
+  max-height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.keyboard-shortcuts-table-wrap {
+  border: 1px solid #d2ddd9;
+  border-radius: 10px;
+  overflow: auto;
+  max-height: min(62vh, 460px);
+  background: #ffffff;
+}
+
+.keyboard-shortcuts-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.keyboard-shortcuts-table th,
+.keyboard-shortcuts-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid #e6eeeb;
+  text-align: left;
+  font-size: 12px;
+}
+
+.keyboard-shortcuts-table th {
+  position: sticky;
+  top: 0;
+  background: #f3f8f6;
+  color: #556f76;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
+.keyboard-shortcuts-table td kbd {
+  min-height: 22px;
+  padding: 0 8px;
+  border: 1px solid #d2ddd9;
+  border-radius: 6px;
+  background: #f8fbfa;
+  color: #3f5e66;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+}
+
 .assets-dialog-card {
   width: min(980px, calc(100vw - 32px));
   max-height: calc(100vh - 64px);

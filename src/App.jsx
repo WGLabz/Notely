@@ -4,6 +4,7 @@ import { DocumentList } from "./components/DocumentList";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { CommandPalette } from "./components/CommandPalette";
 import { GlobalSearchOverlay } from "./components/GlobalSearchOverlay";
+import { KeyboardShortcutsModal } from "./components/KeyboardShortcutsModal";
 
 // Heavy / rarely-used surfaces are code-split so they don't bloat startup.
 const EmbeddedTerminal = lazy(() =>
@@ -72,6 +73,7 @@ export default function App() {
   const [landingAssetsOpen, setLandingAssetsOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
+  const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false);
 
   const {
     documents,
@@ -241,10 +243,12 @@ export default function App() {
     function onGlobalKeyDown(event) {
       const isCmdK = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k";
       const isGlobalSearch = (event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "f";
+      const isShortcutHelp = (event.ctrlKey || event.metaKey) && event.key === "/";
 
       if (isCmdK) {
         event.preventDefault();
         setGlobalSearchOpen(false);
+        setShortcutsModalOpen(false);
         setCommandPaletteOpen(true);
         return;
       }
@@ -252,7 +256,16 @@ export default function App() {
       if (isGlobalSearch) {
         event.preventDefault();
         setCommandPaletteOpen(false);
+        setShortcutsModalOpen(false);
         setGlobalSearchOpen(true);
+        return;
+      }
+
+      if (isShortcutHelp) {
+        event.preventDefault();
+        setCommandPaletteOpen(false);
+        setGlobalSearchOpen(false);
+        setShortcutsModalOpen(true);
       }
     }
 
@@ -431,6 +444,7 @@ export default function App() {
     { id: "new-note", label: "Create New Note", group: "Notes", shortcut: "Ctrl/Cmd+N" },
     { id: "new-folder", label: "Create New Folder", group: "Notes" },
     { id: "open-global-search", label: "Open Global Search", group: "Search", shortcut: "Ctrl/Cmd+Shift+F" },
+    { id: "open-shortcuts", label: "Open Keyboard Shortcuts", group: "Help", shortcut: "Ctrl/Cmd+/" },
     { id: "open-notes-folder", label: "Open Notes Folder Settings", group: "Workspace" },
     { id: "open-assets", label: "Open Assets Library", group: "Workspace" },
     { id: "open-workspace-activity", label: "Open Workspace Activity", group: "Sync" },
@@ -471,6 +485,11 @@ export default function App() {
 
     if (commandId === "open-global-search") {
       setGlobalSearchOpen(true);
+      return;
+    }
+
+    if (commandId === "open-shortcuts") {
+      setShortcutsModalOpen(true);
       return;
     }
 
@@ -1225,6 +1244,11 @@ export default function App() {
         currentDocument={current}
         onClose={() => setGlobalSearchOpen(false)}
         onOpenResult={handleOpenGlobalSearchResult}
+      />
+
+      <KeyboardShortcutsModal
+        isOpen={shortcutsModalOpen}
+        onClose={() => setShortcutsModalOpen(false)}
       />
 
     </div>
