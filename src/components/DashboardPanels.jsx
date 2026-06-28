@@ -85,27 +85,27 @@ export function DashboardPanels({ documents, loading, onOpen, onAction, favorite
             <p className="dashboard-empty">No recent notes available.</p>
           )}
         </article>
-      </div>
 
-      <article className="dashboard-panel favorites">
-        <div className="dashboard-panel-head">
-          <h2>Favorites</h2>
-        </div>
-        {favoriteSlice.length ? (
-          <ul className="dashboard-recent-list">
-            {favoriteSlice.map((note) => (
-              <li key={note.filePath}>
-                <button type="button" onClick={() => onOpen(note)}>
-                  <span>{note.title}</span>
-                  <small>{formatDate(note.updatedAt)}</small>
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="dashboard-empty">No favorites yet. Star notes from the list.</p>
-        )}
-      </article>
+        <article className="dashboard-bar-section favorites">
+          <div className="dashboard-panel-head">
+            <h2>Favorites</h2>
+          </div>
+          {favoriteSlice.length ? (
+            <ul className="dashboard-recent-list compact">
+              {favoriteSlice.map((note) => (
+                <li key={note.filePath}>
+                  <button type="button" onClick={() => onOpen(note)}>
+                    <span>{note.title}</span>
+                    <small>{formatDate(note.updatedAt)}</small>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="dashboard-empty">No favorites yet. Star notes from the list.</p>
+          )}
+        </article>
+      </div>
     </section>
   );
 }

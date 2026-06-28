@@ -1584,7 +1584,7 @@ button {
   box-shadow: 0 10px 20px rgba(15, 33, 35, 0.08);
   padding: 12px;
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 1.1fr);
   gap: 10px;
   align-items: start;
 }
