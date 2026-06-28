@@ -60,13 +60,13 @@ function GraphNode({ data }) {
 const NODE_TYPES = { graphNode: GraphNode };
 
 // ── Layout: arrange nodes by folder in a grid ─────────────────────────────────
-const NODE_WIDTH = 170;
-const NODE_HEIGHT = 50;
+const NODE_WIDTH = 190;
+const NODE_HEIGHT = 58;
 const FOLDER_COLS = 4;
-const H_GAP = 60;
-const V_GAP = 44;
-const FOLDER_H_GAP = 100;
-const FOLDER_V_GAP = 120;
+const H_GAP = 70;
+const V_GAP = 50;
+const FOLDER_H_GAP = 120;
+const FOLDER_V_GAP = 140;
 
 function computeLayout(rawNodes, folderColorMap) {
   // Group by folder
