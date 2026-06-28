@@ -149,6 +149,114 @@ button {
   box-shadow: 0 18px 40px rgba(15, 35, 40, 0.18);
 }
 
+.command-palette-card {
+  width: min(720px, calc(100vw - 32px));
+  max-height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+}
+
+.command-palette-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.command-palette-input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid #d2ddd9;
+  border-radius: 10px;
+  padding: 0 12px;
+  font-size: 14px;
+  color: #173038;
+}
+
+.command-palette-input:focus {
+  outline: 2px solid #4f7f8a;
+  outline-offset: 1px;
+}
+
+.command-palette-hint {
+  min-width: 36px;
+  height: 24px;
+  border: 1px solid #d2ddd9;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #5e747c;
+  background: #f7fbf9;
+}
+
+.command-palette-results {
+  border: 1px solid #d2ddd9;
+  border-radius: 10px;
+  overflow: auto;
+  min-height: 120px;
+  max-height: min(60vh, 460px);
+  background: #ffffff;
+}
+
+.command-palette-item {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid #e5ece9;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.command-palette-item:last-child {
+  border-bottom: 0;
+}
+
+.command-palette-item:hover,
+.command-palette-item.active {
+  background: #eff6f3;
+}
+
+.command-palette-item-text {
+  display: grid;
+  gap: 3px;
+}
+
+.command-palette-item-text strong {
+  font-size: 13px;
+  color: #163238;
+  font-weight: 700;
+}
+
+.command-palette-item-text small {
+  font-size: 11px;
+  color: #60757b;
+}
+
+.command-palette-item kbd {
+  min-height: 22px;
+  padding: 0 8px;
+  border: 1px solid #d2ddd9;
+  border-radius: 6px;
+  background: #f8fbfa;
+  color: #4b6770;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.command-palette-empty {
+  padding: 14px;
+  color: #60757b;
+  font-size: 13px;
+}
+
 .assets-dialog-card {
   width: min(980px, calc(100vw - 32px));
   max-height: calc(100vh - 64px);

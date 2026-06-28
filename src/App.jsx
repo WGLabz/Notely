@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { FolderOpen, FolderPlus, Image as ImageIcon, LayoutGrid, NotebookPen, Rows3, Terminal, X } from "lucide-react";
 import { DocumentList } from "./components/DocumentList";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { CommandPalette } from "./components/CommandPalette";
 
 // Heavy / rarely-used surfaces are code-split so they don't bloat startup.
 const EmbeddedTerminal = lazy(() =>
@@ -58,6 +59,7 @@ export default function App() {
   const [notesViewMode, setNotesViewMode] = useState(initialViewMode);
   const [showTerminal, setShowTerminal] = useState(false);
   const [landingAssetsOpen, setLandingAssetsOpen] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
   const {
     documents,
@@ -214,6 +216,18 @@ export default function App() {
       // Ignore storage failures.
     }
   }, [mode]);
+
+  useEffect(() => {
+    function onGlobalKeyDown(event) {
+      const isCmdK = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k";
+      if (!isCmdK) return;
+      event.preventDefault();
+      setCommandPaletteOpen(true);
+    }
+
+    window.addEventListener("keydown", onGlobalKeyDown);
+    return () => window.removeEventListener("keydown", onGlobalKeyDown);
+  }, []);
 
   useEffect(() => {
     updateMenuContext({
@@ -382,6 +396,85 @@ export default function App() {
 
   const folderCount = documents.filter((entry) => entry.entryType === "folder").length;
   const noteCount = documents.length - folderCount;
+  const paletteCommands = [
+    { id: "new-note", label: "Create New Note", group: "Notes", shortcut: "Ctrl/Cmd+N" },
+    { id: "new-folder", label: "Create New Folder", group: "Notes" },
+    { id: "open-notes-folder", label: "Open Notes Folder Settings", group: "Workspace" },
+    { id: "open-assets", label: "Open Assets Library", group: "Workspace" },
+    { id: "open-workspace-activity", label: "Open Workspace Activity", group: "Sync" },
+    { id: "open-p2p-status", label: "Open P2P Status", group: "Sync" },
+    { id: "open-ai-settings", label: "Open AI Settings", group: "AI" },
+    { id: "toggle-terminal", label: showTerminal ? "Hide Terminal" : "Show Terminal", group: "View" },
+    {
+      id: "toggle-view-mode",
+      label: notesViewMode === "tile" ? "Switch to Table View" : "Switch to Tile View",
+      group: "View",
+    },
+    {
+      id: "find-in-note",
+      label: "Find in Current Note",
+      group: "Editor",
+      shortcut: "Ctrl/Cmd+F",
+      disabled: !current,
+    },
+  ];
+
+  async function handleRunPaletteCommand(commandId) {
+    setCommandPaletteOpen(false);
+
+    if (commandId === "new-note") {
+      setNoteDialogOpen(true);
+      return;
+    }
+
+    if (commandId === "new-folder") {
+      setFolderDialogOpen(true);
+      return;
+    }
+
+    if (commandId === "open-notes-folder") {
+      setNotesFolderDialogOpen(true);
+      return;
+    }
+
+    if (commandId === "open-assets") {
+      setLandingAssetsOpen(true);
+      return;
+    }
+
+    if (commandId === "open-workspace-activity") {
+      await handleOpenWorkspaceActivity();
+      return;
+    }
+
+    if (commandId === "open-p2p-status") {
+      await handleOpenP2PStatus();
+      return;
+    }
+
+    if (commandId === "open-ai-settings") {
+      setAiSettingsOpen(true);
+      return;
+    }
+
+    if (commandId === "toggle-terminal") {
+      setShowTerminal((open) => !open);
+      return;
+    }
+
+    if (commandId === "toggle-view-mode") {
+      setNotesViewMode((value) => (value === "tile" ? "table" : "tile"));
+      return;
+    }
+
+    if (commandId === "find-in-note") {
+      if (!current) {
+        notify("Open a note to search within it.", "info");
+        return;
+      }
+      setDocumentMenuAction({ action: "find-replace", nonce: Date.now() });
+    }
+  }
   const rootPath = activeProject?.rootPath || notesFolderPath || "";
   const currentLandingPath = landingFolderPath || rootPath;
   const normalizedRootPath = String(rootPath || "").replace(/[\\/]+$/, "");
@@ -1043,6 +1136,13 @@ export default function App() {
           </div>
         </div>
       ) : null}
+
+      <CommandPalette
+        isOpen={commandPaletteOpen}
+        commands={paletteCommands.filter((command) => !command.disabled)}
+        onClose={() => setCommandPaletteOpen(false)}
+        onRun={handleRunPaletteCommand}
+      />
 
     </div>
   );
