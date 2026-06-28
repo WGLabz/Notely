@@ -1,7 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { X, RefreshCw, Zap, Eye, EyeOff, FileText, Folder, Image, Music, Video, File } from "lucide-react";
+import { X, RefreshCw, Zap, Eye, EyeOff } from "lucide-react";
+import {
+  ReactFlow,
+  Background,
+  Controls,
+  MiniMap,
+  useNodesState,
+  useEdgesState,
+  useReactFlow,
+  ReactFlowProvider,
+  Handle,
+  Position,
+  MarkerType,
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
 import { getSemanticGraph } from "../services/electronService.js";
-import { CytoscapeGraph } from "./CytoscapeGraph.jsx";
 import "./WorkspaceGraphPanel.css";
 
 // ── Colour palette ────────────────────────────────────────────────────────────
@@ -25,24 +38,6 @@ function clusterBgColor(idx) {
   return CLUSTER_COLORS[idx % CLUSTER_COLORS.length];
 }
 
-// ── Icon selection based on file type ────────────────────────────────────────
-function getNodeIcon(label, nodeType) {
-  if (nodeType === "media") {
-    const ext = label.split('.').pop()?.toLowerCase();
-    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'].includes(ext)) {
-      return <Image size={12} style={{ marginRight: "4px" }} />;
-    }
-    if (['mp3', 'wav', 'm4a'].includes(ext)) {
-      return <Music size={12} style={{ marginRight: "4px" }} />;
-    }
-    if (['mp4', 'webm', 'mov'].includes(ext)) {
-      return <Video size={12} style={{ marginRight: "4px" }} />;
-    }
-    return <File size={12} style={{ marginRight: "4px" }} />;
-  }
-  return <FileText size={12} style={{ marginRight: "4px" }} />;
-}
-
 // ── Custom node component ─────────────────────────────────────────────────────
 function GraphNode({ data }) {
   const { label, color, selected, dimmed, nodeType } = data;
@@ -55,10 +50,8 @@ function GraphNode({ data }) {
       title={isMedia ? `Media: ${label}` : label}
     >
       <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
-      <div style={{ display: "flex", alignItems: "center", gap: "2px" }}>
-        {getNodeIcon(label, nodeType)}
-        <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
-      </div>
+      {isMedia && <span style={{ marginRight: "4px", fontSize: "0.65em" }}>📎</span>}
+      {label}
       <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
     </div>
   );
@@ -430,6 +423,12 @@ export function WorkspaceGraphPanel({ onClose, onOpenDocument }) {
     return Array.from(folderSet).sort();
   }, [rawData]);
 
+  const folderColorMap = useMemo(() => {
+    const map = new Map();
+    folders.forEach((f, i) => map.set(f, folderColor(f, i)));
+    return map;
+  }, [folders]);
+
   const noteCount = rawData?.nodes?.filter(n => n.nodeType !== 'media')?.length ?? 0;
   const mediaCount = rawData?.nodes?.filter(n => n.nodeType === 'media')?.length ?? 0;
   const edgeCount = rawData?.edges?.length ?? 0;
@@ -470,15 +469,16 @@ export function WorkspaceGraphPanel({ onClose, onOpenDocument }) {
       {/* Toolbar */}
       {!loading && !error && (
         <div className="workspace-graph-toolbar">
-          <button
-            className="small-button"
-            onClick={() => setShowMedia(!showMedia)}
-            disabled={mediaCount === 0}
-            title={mediaCount === 0 ? "No media files in workspace" : (showMedia ? "Hide media files" : "Show media files")}
-          >
-            {showMedia ? <Eye size={14} /> : <EyeOff size={14} />}
-            {showMedia ? 'Media On' : 'Media Off'}
-          </button>
+          {mediaCount > 0 && (
+            <button
+              className="small-button"
+              onClick={() => setShowMedia(!showMedia)}
+              title={showMedia ? "Hide media files" : "Show media files"}
+            >
+              {showMedia ? <Eye size={14} /> : <EyeOff size={14} />}
+              {showMedia ? 'Media On' : 'Media Off'}
+            </button>
+          )}
           <input
             className="workspace-graph-filter-input"
             type="search"
@@ -491,13 +491,13 @@ export function WorkspaceGraphPanel({ onClose, onOpenDocument }) {
             <div className="workspace-graph-legend" aria-label="Folder legend">
               {folders.map((f) => (
                 <span key={f} className="workspace-graph-legend-item">
-                  <Folder size={11} style={{ marginRight: "4px" }} />
+                  <span className="workspace-graph-legend-dot" style={{ background: folderColorMap.get(f) }} />
                   {f === "." ? "root" : f}
                 </span>
               ))}
               {mediaCount > 0 && (
                 <span className="workspace-graph-legend-item">
-                  <File size={11} style={{ marginRight: "4px" }} />
+                  <span className="workspace-graph-legend-dot" style={{ background: "rgba(200,200,200,0.3)", border: "1px dashed #999" }} />
                   media
                 </span>
               )}
@@ -521,13 +521,9 @@ export function WorkspaceGraphPanel({ onClose, onOpenDocument }) {
           <div className="workspace-graph-status">No markdown notes or media found in the active workspace.</div>
         )}
         {!loading && !error && noteCount > 0 && (
-          <CytoscapeGraph
-            rawData={rawData}
-            filter={filter}
-            clusters={clusters}
-            showMedia={showMedia}
-            onOpenDocument={onOpenDocument}
-          />
+          <ReactFlowProvider>
+            <GraphCanvas rawData={rawData} filter={filter} onOpenDocument={onOpenDocument} clusters={clusters} showMedia={showMedia} />
+          </ReactFlowProvider>
         )}
       </div>
     </div>

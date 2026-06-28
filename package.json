@@ -37,8 +37,6 @@
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
     "@xyflow/react": "^12.11.1",
-    "cytoscape": "^3.34.0",
-    "cytoscape-cose-bilkent": "^4.1.0",
     "dictionary-en-us": "^2.2.1",
     "lucide-react": "^0.405.0",
     "markdown-it": "^14.1.0",
