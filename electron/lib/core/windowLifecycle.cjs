@@ -162,6 +162,8 @@ function createWindowLifecycle(deps) {
       densityMode: "comfortable",
       isDevMode,
       dirty: false,
+      canRemoveFolder: false,
+      currentFolderLabel: "",
     };
     Menu.setApplicationMenu(buildAppMenu(win, win.__menuContext));
     mainWindow = win;
@@ -195,6 +197,8 @@ function createWindowLifecycle(deps) {
       densityMode: "comfortable",
       isDevMode: Boolean(rendererUrl) || !app.isPackaged,
       dirty: false,
+      canRemoveFolder: false,
+      currentFolderLabel: "",
     };
     Menu.setApplicationMenu(buildAppMenu(win, context));
   }
@@ -208,7 +212,9 @@ function createWindowLifecycle(deps) {
       viewMode: context?.viewMode === "table" ? "table" : "tile",
       densityMode: context?.densityMode === "compact" ? "compact" : "comfortable",
       isDevMode: Boolean(rendererUrl) || !app.isPackaged,
-      dirty: Boolean(context?.dirty)
+      dirty: Boolean(context?.dirty),
+      canRemoveFolder: Boolean(context?.canRemoveFolder),
+      currentFolderLabel: String(context?.currentFolderLabel || "").trim(),
     };
 
     Menu.setApplicationMenu(buildAppMenu(win, win.__menuContext));
