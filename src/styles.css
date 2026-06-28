@@ -2299,10 +2299,10 @@ button {
 .remove-toggle {
   width: 22px;
   height: 22px;
-  border: 1px solid #e2cbcb;
+  border: 1px solid #d3ddda;
   border-radius: 6px;
-  background: #fff8f8;
-  color: #9c4d4d;
+  background: #ffffff;
+  color: #6a7e84;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2310,9 +2310,9 @@ button {
 }
 
 .remove-toggle:hover {
-  border-color: #bf6464;
-  background: #ffecec;
-  color: #8d2525;
+  border-color: #8ca1a8;
+  background: #f5f8f7;
+  color: #3f5961;
 }
 
 .favorite-toggle:hover {
