@@ -470,6 +470,15 @@ export default function App() {
 
   const folderCount = documents.filter((entry) => entry.entryType === "folder").length;
   const noteCount = documents.length - folderCount;
+  const recentPaletteNotes = [...documents]
+    .filter((entry) => entry.entryType === "file")
+    .sort((left, right) => {
+      const leftTime = new Date(left.updatedAt || 0).getTime();
+      const rightTime = new Date(right.updatedAt || 0).getTime();
+      return rightTime - leftTime;
+    })
+    .slice(0, 8);
+
   const paletteCommands = [
     { id: "new-note", label: "Create New Note", group: "Notes", shortcut: "Ctrl/Cmd+N" },
     { id: "new-folder", label: "Create New Folder", group: "Notes" },
@@ -517,10 +526,27 @@ export default function App() {
       shortcut: "Ctrl/Cmd+F",
       disabled: !current,
     },
+    ...recentPaletteNotes.map((note) => ({
+      id: `open-note:${encodeURIComponent(note.filePath)}`,
+      label: `Open Note: ${note.title}`,
+      group: "Recent",
+    })),
   ];
 
   async function handleRunPaletteCommand(commandId) {
     setCommandPaletteOpen(false);
+
+    if (String(commandId || "").startsWith("open-note:")) {
+      const encodedPath = String(commandId).slice("open-note:".length);
+      const filePath = decodeURIComponent(encodedPath || "");
+      const target = documents.find((entry) => entry.filePath === filePath && entry.entryType === "file");
+      if (!target) {
+        notify("That note is no longer available in this view.", "warning");
+        return;
+      }
+      await handleOpenListItem(target);
+      return;
+    }
 
     if (commandId === "new-note") {
       setNoteDialogOpen(true);
