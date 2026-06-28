@@ -45,7 +45,7 @@ md.renderer.rules.image = (tokens, idx, options, env, self) => {
   const src = token.attrGet("src") || "";
   const label = getImageDisplayName(src, token.content || token.attrGet("alt") || "Image");
   const imageHtml = defaultImageRenderer(tokens, idx, options, env, self);
-  return `<span class="markdown-image-frame">${imageHtml}<span class="markdown-image-name" title="${escapeHtml(label)}">${escapeHtml(label)}</span></span>`;
+  return `<span class="markdown-image-frame">${imageHtml}<span class="markdown-image-actions"><button type="button" class="markdown-image-action" data-image-action="view" aria-label="View image">View</button><button type="button" class="markdown-image-action" data-image-action="edit" aria-label="Annotate image">Annotate</button></span><span class="markdown-image-name" title="${escapeHtml(label)}">${escapeHtml(label)}</span></span>`;
 };
 
 export function renderMarkdown(content, options = {}) {

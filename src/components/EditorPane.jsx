@@ -374,27 +374,26 @@ export function EditorPane({
 
   if (mode === "preview") {
     return (
-      <div
-        className="preview-with-media"
-        style={{
-          display: "grid",
-          gridTemplateRows: selectedMediaPreview ? "1fr 8px 300px" : "1fr",
-          height: "100%",
-          minHeight: 0,
-        }}
-      >
-        <MarkdownPreview
-          content={previewContent}
-          basePath={basePath}
-          onNotify={onNotify}
-          onContentChange={onChange}
-          onMediaClick={setSelectedMediaPreview}
-          showOriginalImages={showOriginalImages}
-        />
-        {selectedMediaPreview && (
-          <>
-            <div className="split-resizer-horizontal" style={{ gridRow: 2 }} />
-            <div style={{ gridRow: 3, minHeight: 0, overflow: "hidden" }}>
+      <>
+        <div
+          className="preview-with-media"
+          style={{
+            height: "100%",
+            minHeight: 0,
+          }}
+        >
+          <MarkdownPreview
+            content={previewContent}
+            basePath={basePath}
+            onNotify={onNotify}
+            onContentChange={onChange}
+            onMediaClick={setSelectedMediaPreview}
+            showOriginalImages={showOriginalImages}
+          />
+        </div>
+        {selectedMediaPreview ? (
+          <div className="media-full-preview-overlay" role="dialog" aria-modal="true" aria-label="Media preview">
+            <div className="media-full-preview-content">
               <MediaPreviewPane
                 mediaPath={selectedMediaPreview.path}
                 mediaType={selectedMediaPreview.type}
@@ -403,9 +402,9 @@ export function EditorPane({
                 onClose={() => setSelectedMediaPreview(null)}
               />
             </div>
-          </>
-        )}
-      </div>
+          </div>
+        ) : null}
+      </>
     );
   }
 
@@ -415,60 +414,60 @@ export function EditorPane({
 
   if (mode === "split") {
     return (
-      <div
-        className="split-pane-with-media"
-        ref={splitPaneRef}
-        style={{
-          display: "grid",
-          gridTemplateRows: selectedMediaPreview ? "1fr 8px 300px" : "1fr",
-          gridTemplateColumns: `minmax(0, ${splitRatio}%) 8px minmax(0, ${100 - splitRatio}%)`,
-          height: "100%",
-        }}
-      >
-        <section className="pane-block">
-          <div className="pane-title toolbar-label-row">
-            <span className="pane-title-label">Editor</span>
-          </div>
-          {showToolbar ? renderToolbar() : null}
-          {showToolbar ? <MarkdownValidationBanner issues={validationIssues} status={validationStatus} /> : null}
-          <div className="markdown-editor">{markdownEditor}</div>
-        </section>
+      <>
         <div
-          className="split-resizer"
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Resize editor and preview"
-          onPointerDown={startSplitResize}
-        />
-        <section className="pane-block">
-          <div className="pane-title">
-            <span className="pane-title-label">Preview</span>
-            <button
-              className={`split-sync-toggle ${scrollSyncEnabled ? "active" : ""}`}
-              type="button"
-              onClick={() => setScrollSyncEnabled((enabled) => !enabled)}
-              title={scrollSyncEnabled ? "Scroll sync is on" : "Scroll sync is off"}
-              aria-pressed={scrollSyncEnabled}
-            >
-              {scrollSyncEnabled ? <Link2 size={13} /> : <Unlink size={13} />}
-              <span>{scrollSyncEnabled ? "Sync scroll" : "Independent scroll"}</span>
-            </button>
-          </div>
-          {showToolbar ? <div className="pane-toolbar-spacer" aria-hidden="true" /> : null}
-          <MarkdownPreview
-            content={previewContent}
-            basePath={basePath}
-            externalRef={previewRef}
-            onNotify={onNotify}
-            onContentChange={onChange}
-            onMediaClick={setSelectedMediaPreview}
-            showOriginalImages={showOriginalImages}
+          className="split-pane-with-media"
+          ref={splitPaneRef}
+          style={{
+            display: "grid",
+            gridTemplateColumns: `minmax(0, ${splitRatio}%) 8px minmax(0, ${100 - splitRatio}%)`,
+            height: "100%",
+          }}
+        >
+          <section className="pane-block">
+            <div className="pane-title toolbar-label-row">
+              <span className="pane-title-label">Editor</span>
+            </div>
+            {showToolbar ? renderToolbar() : null}
+            {showToolbar ? <MarkdownValidationBanner issues={validationIssues} status={validationStatus} /> : null}
+            <div className="markdown-editor">{markdownEditor}</div>
+          </section>
+          <div
+            className="split-resizer"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize editor and preview"
+            onPointerDown={startSplitResize}
           />
-        </section>
-        {selectedMediaPreview && (
-          <>
-            <div className="split-resizer-horizontal" style={{ gridColumn: "1 / -1", gridRow: 2 }} />
-            <div style={{ gridColumn: "1 / -1", gridRow: 3, minHeight: 0, overflow: "hidden" }}>
+          <section className="pane-block">
+            <div className="pane-title">
+              <span className="pane-title-label">Preview</span>
+              <button
+                className={`split-sync-toggle ${scrollSyncEnabled ? "active" : ""}`}
+                type="button"
+                onClick={() => setScrollSyncEnabled((enabled) => !enabled)}
+                title={scrollSyncEnabled ? "Scroll sync is on" : "Scroll sync is off"}
+                aria-pressed={scrollSyncEnabled}
+              >
+                {scrollSyncEnabled ? <Link2 size={13} /> : <Unlink size={13} />}
+                <span>{scrollSyncEnabled ? "Sync scroll" : "Independent scroll"}</span>
+              </button>
+            </div>
+            {showToolbar ? <div className="pane-toolbar-spacer" aria-hidden="true" /> : null}
+            <MarkdownPreview
+              content={previewContent}
+              basePath={basePath}
+              externalRef={previewRef}
+              onNotify={onNotify}
+              onContentChange={onChange}
+              onMediaClick={setSelectedMediaPreview}
+              showOriginalImages={showOriginalImages}
+            />
+          </section>
+        </div>
+        {selectedMediaPreview ? (
+          <div className="media-full-preview-overlay" role="dialog" aria-modal="true" aria-label="Media preview">
+            <div className="media-full-preview-content">
               <MediaPreviewPane
                 mediaPath={selectedMediaPreview.path}
                 mediaType={selectedMediaPreview.type}
@@ -477,9 +476,9 @@ export function EditorPane({
                 onClose={() => setSelectedMediaPreview(null)}
               />
             </div>
-          </>
-        )}
-      </div>
+          </div>
+        ) : null}
+      </>
     );
   }
 

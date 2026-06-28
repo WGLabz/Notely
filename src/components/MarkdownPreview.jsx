@@ -4,7 +4,7 @@ import {
   parseMermaidBlocks,
   normalizeMarkdownImagePaths,
 } from "../utils/renderUtils";
-import { readImage, replaceImage, deleteImage, renameImage, getImageAnnotation, setImageAnnotation } from "../services/electronService";
+import { readImage, replaceImage, deleteImage, renameImage, getImageAnnotation, setImageAnnotation, getImageOriginalStatus, restoreImageOriginal } from "../services/electronService";
 import { readFileAsDataUrl } from "../utils/mediaTypeUtils";
 import { createImageMarkdown } from "../utils/markdownUtils";
 import { getMediaTypeFromExtension } from "../utils/mediaUtils";
@@ -43,6 +43,22 @@ function applyImageAnnotation(image, annotation) {
   frame.appendChild(overlay);
 }
 
+function applyImageOriginalBadge(image, hasOriginal) {
+  const frame = image?.closest?.(".markdown-image-frame");
+  if (!frame) return;
+  frame.querySelector(".markdown-image-original-badge")?.remove();
+  if (!hasOriginal) return;
+
+  const badge = document.createElement("span");
+  badge.className = "markdown-image-original-badge";
+  badge.textContent = "Original saved";
+  frame.appendChild(badge);
+}
+
+function getImagePath(imageElement) {
+  return imageElement?.getAttribute("data-asset-path") || imageElement?.getAttribute("src") || "";
+}
+
 export const MarkdownPreview = memo(function MarkdownPreviewContent({ content, basePath, externalRef, onNotify, onContentChange, onMediaClick, showOriginalImages = false }) {
   const previewRef = useRef(null);
   const menuRef = useRef(null);
@@ -56,6 +72,8 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({ content, b
     assetPath: "",
     imageLabel: "",
     annotation: null,
+    hasOriginal: false,
+    annotationOnly: false,
   });
   const [contextMenu, setContextMenu] = useState(null);
   const [menuIndex, setMenuIndex] = useState(0);
@@ -96,6 +114,12 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({ content, b
         } catch {
           if (!cancelled) applyImageAnnotation(image, null);
         }
+        try {
+          const originalStatus = await getImageOriginalStatus(basePath, assetPath);
+          if (!cancelled) applyImageOriginalBadge(image, Boolean(originalStatus?.hasOriginal));
+        } catch {
+          if (!cancelled) applyImageOriginalBadge(image, false);
+        }
         return;
       }
 
@@ -114,6 +138,12 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({ content, b
         if (!cancelled) applyImageAnnotation(image, annotation);
       } catch {
         if (!cancelled) applyImageAnnotation(image, null);
+      }
+      try {
+        const originalStatus = await getImageOriginalStatus(basePath, assetPath);
+        if (!cancelled) applyImageOriginalBadge(image, Boolean(originalStatus?.hasOriginal));
+      } catch {
+        if (!cancelled) applyImageOriginalBadge(image, false);
       }
     };
 
@@ -157,9 +187,80 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({ content, b
     const previewElement = previewRef.current;
     if (!previewElement) return;
 
+    const openImageViewer = (imageElement, event) => {
+      const src = getImagePath(imageElement);
+      if (!src) return;
+
+      const ext = src.split(".").pop()?.toLowerCase();
+      const mediaType = getMediaTypeFromExtension(ext);
+      if (!mediaType) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      onMediaClick({ path: src, type: mediaType });
+    };
+
+    const openImageEditor = async (imageElement, event) => {
+      const assetPath = imageElement.getAttribute("data-asset-path") || "";
+      const isWorkspaceImage = Boolean(basePath && assetPath && !/^(https?:|data:|blob:)/i.test(assetPath));
+      if (!isWorkspaceImage) {
+        onNotify?.("Image editing is available for workspace images only.", "info");
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      let fullSizeSrc = imageElement.currentSrc || imageElement.src || "";
+      let annotation = null;
+      let hasOriginal = false;
+
+      try {
+        fullSizeSrc = await readImage(basePath, assetPath);
+      } catch {
+        // Fall back to the rendered preview image if the full-size read fails.
+      }
+
+      try {
+        annotation = await getImageAnnotation(basePath, assetPath);
+      } catch {
+        annotation = null;
+      }
+      try {
+        const originalStatus = await getImageOriginalStatus(basePath, assetPath);
+        hasOriginal = Boolean(originalStatus?.hasOriginal);
+      } catch {
+        hasOriginal = false;
+      }
+
+      setCropState({
+        open: true,
+        src: fullSizeSrc,
+        assetPath,
+        imageLabel: imageElement.getAttribute("alt") || assetPath,
+        annotation,
+        hasOriginal,
+        annotationOnly: true,
+      });
+    };
+
     const handleMediaClick = (event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
+
+      const imageAction = target.closest?.("[data-image-action]");
+      if (imageAction instanceof HTMLButtonElement) {
+        const imageElement = getImageActionElement(imageAction);
+        if (!imageElement) return;
+
+        if (imageAction.dataset.imageAction === "edit") {
+          void openImageEditor(imageElement, event);
+          return;
+        }
+
+        openImageViewer(imageElement, event);
+        return;
+      }
 
       // Handle markdown links to media files (e.g., [file](./images/file.pdf))
       const linkElement = target.closest("a");
@@ -180,16 +281,8 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({ content, b
 
       const imageElement = getImageActionElement(target);
       if (imageElement) {
-        const src = imageElement.getAttribute("data-asset-path") || imageElement.getAttribute("src") || "";
-        if (src) {
-          const ext = src.split(".").pop()?.toLowerCase();
-          const mediaType = getMediaTypeFromExtension(ext);
-          if (mediaType) {
-            event.preventDefault();
-            event.stopPropagation();
-            onMediaClick({ path: src, type: mediaType });
-          }
-        }
+        openImageViewer(imageElement, event);
+        return;
       }
 
       // Handle audio/video element clicks
@@ -207,36 +300,12 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({ content, b
       }
     };
 
-    const images = previewElement.querySelectorAll("img");
-    const mediaElements = previewElement.querySelectorAll("audio, video");
-    const mediaLinks = previewElement.querySelectorAll("a[href]");
-
-    images.forEach((img) => {
-      img.addEventListener("click", handleMediaClick);
-      img.style.cursor = "pointer";
-    });
-
-    mediaElements.forEach((el) => {
-      el.addEventListener("click", handleMediaClick);
-    });
-
-    mediaLinks.forEach((link) => {
-      link.addEventListener("click", handleMediaClick);
-    });
+    previewElement.addEventListener("click", handleMediaClick);
 
     return () => {
-      images.forEach((img) => {
-        img.removeEventListener("click", handleMediaClick);
-      });
-      mediaElements.forEach((el) => {
-        el.removeEventListener("click", handleMediaClick);
-      });
-
-      mediaLinks.forEach((link) => {
-        link.removeEventListener("click", handleMediaClick);
-      });
+      previewElement.removeEventListener("click", handleMediaClick);
     };
-  }, [onMediaClick]);
+  }, [basePath, onMediaClick, onNotify]);
 
   useEffect(() => {
     if (!contextMenu) return undefined;
@@ -334,6 +403,13 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({ content, b
     } catch {
       annotation = null;
     }
+    let hasOriginal = false;
+    try {
+      const originalStatus = await getImageOriginalStatus(basePath, assetPath);
+      hasOriginal = Boolean(originalStatus?.hasOriginal);
+    } catch {
+      hasOriginal = false;
+    }
 
     setCropState({
       open: true,
@@ -341,6 +417,8 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({ content, b
       assetPath,
       imageLabel: contextMenu.imageLabel,
       annotation,
+      hasOriginal,
+      annotationOnly: false,
     });
     closeContextMenu();
   };
@@ -406,11 +484,14 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({ content, b
       const dataUrl = await readFileAsDataUrl(file);
       await replaceImage(basePath, replaceState.assetPath, dataUrl);
       imageResolveCacheRef.current.delete(imageCacheKey(replaceState.assetPath));
+      imageResolveCacheRef.current.delete(imageCacheKey(replaceState.assetPath, "original"));
+      const originalStatus = await getImageOriginalStatus(basePath, replaceState.assetPath).catch(() => ({ hasOriginal: false }));
 
       if (previewRef.current) {
         previewRef.current.querySelectorAll("img").forEach((image) => {
           if ((image.getAttribute("data-asset-path") || "") === replaceState.assetPath) {
             image.src = dataUrl;
+            applyImageOriginalBadge(image, Boolean(originalStatus?.hasOriginal));
           }
         });
       }
@@ -602,7 +683,38 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({ content, b
 
   const closeCropModal = () => {
     if (cropSaving) return;
-    setCropState({ open: false, src: "", assetPath: "", imageLabel: "", annotation: null });
+    setCropState({ open: false, src: "", assetPath: "", imageLabel: "", annotation: null, hasOriginal: false, annotationOnly: false });
+  };
+
+  const handleRestoreOriginal = async () => {
+    if (!basePath || !cropState.assetPath || !cropState.hasOriginal) return "";
+    const approved = window.confirm("Restore the original image from .notes-app backup? This will overwrite the current edited image.");
+    if (!approved) return "";
+
+    try {
+      await restoreImageOriginal(basePath, cropState.assetPath);
+      imageResolveCacheRef.current.delete(imageCacheKey(cropState.assetPath));
+      imageResolveCacheRef.current.delete(imageCacheKey(cropState.assetPath, "original"));
+
+      const fullSizeSrc = await readImage(basePath, cropState.assetPath);
+      const previewImage = showOriginalImages
+        ? fullSizeSrc
+        : await readImage(basePath, cropState.assetPath, { thumbnail: true }).catch(() => fullSizeSrc);
+
+      if (previewRef.current) {
+        previewRef.current.querySelectorAll("img").forEach((image) => {
+          if ((image.getAttribute("data-asset-path") || "") === cropState.assetPath) {
+            image.src = previewImage || fullSizeSrc;
+            applyImageOriginalBadge(image, true);
+          }
+        });
+      }
+
+      return fullSizeSrc || previewImage || "";
+    } catch (error) {
+      onNotify?.(error?.message || "Unable to restore original image.", "error");
+      return "";
+    }
   };
 
   const handleSaveCrop = async (editedDataUrl, annotation) => {
@@ -625,16 +737,18 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({ content, b
       }
 
       const savedAnnotation = await setImageAnnotation(basePath, targetAssetPath, annotation);
+      const originalStatus = await getImageOriginalStatus(basePath, targetAssetPath).catch(() => ({ hasOriginal: false }));
       if (previewRef.current) {
         previewRef.current.querySelectorAll("img").forEach((image) => {
           if ((image.getAttribute("data-asset-path") || "") === targetAssetPath) {
             applyImageAnnotation(image, savedAnnotation);
+            applyImageOriginalBadge(image, Boolean(originalStatus?.hasOriginal));
           }
         });
       }
 
       onNotify?.(editedDataUrl ? "Image edit saved." : "Image annotation saved.", "success");
-      setCropState({ open: false, src: "", assetPath: "", imageLabel: "", annotation: null });
+      setCropState({ open: false, src: "", assetPath: "", imageLabel: "", annotation: null, hasOriginal: false, annotationOnly: false });
     } catch (error) {
       imageResolveCacheRef.current.delete(imageCacheKey(targetAssetPath));
       onNotify?.(error?.message || "Unable to save image edit.", "error");
@@ -714,8 +828,11 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({ content, b
         imageSrc={cropState.src}
         imageLabel={cropState.imageLabel}
         initialAnnotation={cropState.annotation}
+        annotationOnly={cropState.annotationOnly}
+        restoreOriginalAvailable={cropState.hasOriginal}
         saving={cropSaving}
         onClose={closeCropModal}
+        onRestoreOriginal={handleRestoreOriginal}
         onSave={handleSaveCrop}
       />
     </>

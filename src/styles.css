@@ -4497,10 +4497,45 @@ button {
   margin: 0;
 }
 
+.preview .markdown-image-actions {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  z-index: 4;
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.preview .markdown-image-frame:hover .markdown-image-actions,
+.preview .markdown-image-frame:focus-within .markdown-image-actions {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.preview .markdown-image-action {
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  background: rgba(10, 28, 32, 0.82);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.preview .markdown-image-action:hover,
+.preview .markdown-image-action:focus-visible {
+  background: rgba(20, 52, 58, 0.92);
+}
+
 .preview .markdown-image-name {
   position: absolute;
   left: 10px;
-  right: 10px;
+  right: 112px;
   bottom: 10px;
   z-index: 2;
   padding: 4px 8px;
@@ -4530,6 +4565,23 @@ button {
   line-height: 1.25;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.preview .markdown-image-original-badge {
+  position: absolute;
+  right: 10px;
+  top: 42px;
+  z-index: 3;
+  max-width: min(50%, 220px);
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(28, 88, 72, 0.86);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
   white-space: nowrap;
   pointer-events: none;
 }

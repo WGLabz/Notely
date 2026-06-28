@@ -20,6 +20,10 @@
   flex-direction: column;
 }
 
+.image-crop-modal.annotation-only {
+  width: min(420px, 92vw);
+}
+
 .image-crop-header {
   padding: 12px 14px;
   border-bottom: 1px solid #e3ece8;
@@ -53,6 +57,14 @@
   margin: 0 auto;
   cursor: crosshair;
   user-select: none;
+}
+
+.image-crop-canvas.annotation-only {
+  cursor: default;
+}
+
+.image-annotation-only-body {
+  padding: 18px 14px 6px;
 }
 
 .image-crop-canvas img {
@@ -177,6 +189,10 @@
   justify-content: flex-end;
 }
 
+.image-crop-actions .small-button {
+  white-space: nowrap;
+}
+
 .image-crop-aspect-label {
   font-size: 12px;
   color: #4a6368;
@@ -214,4 +230,8 @@
   border-radius: 6px;
   padding: 4px 8px;
   min-height: 30px;
+}
+
+.image-annotation-input.annotation-only {
+  width: 100%;
 }

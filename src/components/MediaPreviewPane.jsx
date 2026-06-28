@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { X, Volume2, VolumeX, Pencil, Download, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, Volume2, VolumeX, Pencil, Download, RotateCcw, ChevronLeft, ChevronRight } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 import PdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?worker";
 import { ImageCropModal } from "./ImageCropModal";
@@ -13,7 +13,7 @@ import {
   getImageFileSize,
   formatFileSize,
 } from "../utils/imageProcessingUtils";
-import { readImage, replaceImage, getImageAnnotation, setImageAnnotation } from "../services/electronService";
+import { readImage, replaceImage, getImageAnnotation, setImageAnnotation, getImageOriginalStatus, restoreImageOriginal } from "../services/electronService";
 import "../styles/mediaPreview.css";
 
 // Initialize the pdf.js worker once via a Vite-bundled module worker so it
@@ -55,7 +55,10 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
   const [imageInfo, setImageInfo] = useState(null);
   const [showCropModal, setShowCropModal] = useState(false);
   const [editImageSrc, setEditImageSrc] = useState("");
+  const [annotationOnly, setAnnotationOnly] = useState(false);
   const [imageAnnotation, setImageAnnotationState] = useState(null);
+  const [originalStatus, setOriginalStatus] = useState({ hasOriginal: false });
+  const [restoringOriginal, setRestoringOriginal] = useState(false);
   const [contextMenu, setContextMenu] = useState(null);
   const imageRef = useRef(null);
   const menuRef = useRef(null);
@@ -108,7 +111,10 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
     setImageInfo(null);
     setShowCropModal(false);
     setEditImageSrc("");
+    setAnnotationOnly(false);
     setImageAnnotationState(null);
+    setOriginalStatus({ hasOriginal: false });
+    setRestoringOriginal(false);
     setContextMenu(null);
 
     if (!resolvedPath) return;
@@ -120,6 +126,7 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
     if (mediaType === "image" && mediaPath) {
       loadImage(resolvedPath);
       loadImageAnnotation();
+      loadOriginalStatus();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaPath, mediaType, resolvedPath, showOriginalImages]);
@@ -134,6 +141,19 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
       setImageAnnotationState(await getImageAnnotation(basePath, mediaPath));
     } catch {
       setImageAnnotationState(null);
+    }
+  };
+
+  const loadOriginalStatus = async () => {
+    if (!basePath || !mediaPath || /^(data:|blob:|https?:)/i.test(mediaPath)) {
+      setOriginalStatus({ hasOriginal: false });
+      return;
+    }
+
+    try {
+      setOriginalStatus(await getImageOriginalStatus(basePath, mediaPath));
+    } catch {
+      setOriginalStatus({ hasOriginal: false });
     }
   };
 
@@ -187,10 +207,11 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
     });
   };
 
-  const handleOpenCrop = async () => {
+  const handleOpenCrop = async (options = {}) => {
     try {
       const fullImage = await readFullImage();
       setEditImageSrc(fullImage || displayedImage || resolvedPath || "");
+      setAnnotationOnly(Boolean(options.annotationOnly));
       await loadImageAnnotation();
       setShowCropModal(true);
       setContextMenu(null);
@@ -225,10 +246,49 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
 
         const savedAnnotation = await setImageAnnotation(basePath, mediaPath, annotation);
         setImageAnnotationState(savedAnnotation);
+        await loadOriginalStatus();
         onMediaChanged?.(mediaPath);
       }
     } catch (err) {
       setError(`Failed to save image edit: ${err.message}`);
+    }
+  };
+
+  const handleRestoreOriginal = async () => {
+    if (!basePath || !mediaPath || restoringOriginal || !originalStatus?.hasOriginal) return;
+
+    const approved = window.confirm("Restore the original image from .notes-app backup? This will overwrite the current edited image.");
+    if (!approved) return;
+
+    try {
+      setRestoringOriginal(true);
+      await restoreImageOriginal(basePath, mediaPath);
+      const fullImage = await readImage(basePath, mediaPath);
+      const previewImage = showOriginalImages
+        ? fullImage
+        : await readImage(basePath, mediaPath, { thumbnail: true }).catch(() => fullImage);
+      setDisplayedImage(previewImage || mediaPath);
+
+      try {
+        const dimensions = await getImageDimensions(fullImage || mediaPath);
+        const fileSize = getImageFileSize(fullImage || mediaPath);
+        setImageInfo({
+          dimensions,
+          fileSize,
+          formattedSize: formatFileSize(fileSize),
+        });
+      } catch {
+        setImageInfo(null);
+      }
+
+      await loadOriginalStatus();
+      onMediaChanged?.(mediaPath);
+      return fullImage || previewImage || displayedImage || resolvedPath || "";
+    } catch (err) {
+      setError(`Failed to restore original image: ${err.message}`);
+      return "";
+    } finally {
+      setRestoringOriginal(false);
     }
   };
 
@@ -344,13 +404,26 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
             <div className="media-preview-image-controls">
               <div className="image-action-buttons">
                 <button
-                  className="image-action-button icon-only"
-                  onClick={handleOpenCrop}
-                  title="Edit image"
-                  aria-label="Edit image"
+                  className="image-action-button"
+                  onClick={() => handleOpenCrop({ annotationOnly: true })}
+                  title="Annotate image"
+                  aria-label="Annotate image"
                 >
                   <Pencil size={14} />
+                  <span>Annotate</span>
                 </button>
+                {originalStatus?.hasOriginal ? (
+                  <button
+                    className="image-action-button"
+                    onClick={handleRestoreOriginal}
+                    title="Restore original image"
+                    aria-label="Restore original image"
+                    disabled={restoringOriginal}
+                  >
+                    <RotateCcw size={14} />
+                    <span>{restoringOriginal ? "Restoring..." : "Restore Original"}</span>
+                  </button>
+                ) : null}
                 <button
                   className="image-action-button icon-only"
                   onClick={handleDownloadImage}
@@ -370,7 +443,7 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
                   alt="Preview"
                   onError={() => setError("Failed to load image")}
                   onContextMenu={handleImageContextMenu}
-                  title="Right-click to edit"
+                  title="Use the controls above to annotate or edit"
                 />
                 {imageAnnotation?.text ? (
                   <span className="media-preview-image-annotation">
@@ -473,10 +546,15 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
           imageSrc={editImageSrc}
           imageLabel={mediaPath.split("/").pop()}
           initialAnnotation={imageAnnotation}
+          annotationOnly={annotationOnly}
+          restoreOriginalAvailable={originalStatus?.hasOriginal}
+          restoringOriginal={restoringOriginal}
           onClose={() => {
             setShowCropModal(false);
             setEditImageSrc("");
+            setAnnotationOnly(false);
           }}
+          onRestoreOriginal={handleRestoreOriginal}
           onSave={handleSaveCrop}
         />
       )}
@@ -494,7 +572,7 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
         >
           <button
             className="media-context-menu-item"
-            onClick={handleOpenCrop}
+            onClick={() => handleOpenCrop({ annotationOnly: false })}
           >
             ✏️ Edit image
           </button>

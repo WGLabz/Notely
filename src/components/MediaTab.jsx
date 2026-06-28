@@ -53,7 +53,7 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
 
       try {
         const [folderPaths, usage] = await Promise.all([
-          listImages(basePath, { includeAnnotations: true }),
+          listImages(basePath, { includeAnnotations: true, includeOriginalStatus: true }),
           getImageUsage(basePath),
         ]);
         if (!cancelled) {
@@ -76,6 +76,7 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
               ...linked,
               isLinkedInCurrent: true,
               annotation: record.annotation || null,
+              hasOriginal: Boolean(record.hasOriginal),
               referenceCount: usageEntry?.referenceCount || 0,
               referencedBy: usageEntry?.documents || [],
             };
@@ -89,6 +90,7 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
             id: pathValue,
             isLinkedInCurrent: false,
             annotation: record.annotation || null,
+            hasOriginal: Boolean(record.hasOriginal),
             referenceCount: usageEntry?.referenceCount || 0,
             referencedBy: usageEntry?.documents || [],
           };
@@ -101,6 +103,7 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
               ...linked,
               isLinkedInCurrent: true,
               annotation: annotationByPath.get(linked.path) || null,
+              hasOriginal: false,
               referenceCount: usageEntry?.referenceCount || 0,
               referencedBy: usageEntry?.documents || [],
               missingFile: true,
@@ -651,7 +654,20 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
 
             return (
             <div className="media-item" key={image.id}>
-              <div className="media-preview">
+              <div
+                className="media-preview"
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelectedMediaPreview({ path: image.path, type: mediaType })}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setSelectedMediaPreview({ path: image.path, type: mediaType });
+                  }
+                }}
+                aria-label={`Preview ${fileName}`}
+                title="Click to preview"
+              >
                 {showFallback ? (
                   <div className="media-fallback">
                     <ImageOff size={18} />
@@ -687,6 +703,11 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
                 {annotationText ? (
                   <span className="media-annotation-badge" title={`Annotation: ${annotationText}`}>
                     Note
+                  </span>
+                ) : null}
+                {mediaType === "image" && image.hasOriginal ? (
+                  <span className="media-original-badge" title="Original image backup available in .notes-app">
+                    Original saved
                   </span>
                 ) : null}
                 <span className="media-preview-name" title={fileName}>{fileName}</span>

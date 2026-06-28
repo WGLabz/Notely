@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, X } from "lucide-react";
 import { rotateImage } from "../utils/imageProcessingUtils";
 import "./ImageCropModal.css";
 
@@ -141,8 +142,12 @@ export function ImageCropModal({
   imageSrc,
   imageLabel,
   initialAnnotation = null,
+  annotationOnly = false,
+  restoreOriginalAvailable = false,
+  restoringOriginal = false,
   saving = false,
   onClose,
+  onRestoreOriginal,
   onSave,
 }) {
   const imageRef = useRef(null);
@@ -276,7 +281,14 @@ export function ImageCropModal({
   };
 
   const handleSave = async () => {
-    if (!imageRef.current || saving || rotating) return;
+    if (saving || rotating) return;
+    if (annotationOnly) {
+      if (!annotationDirty) return;
+      await onSave?.(null, currentAnnotation);
+      return;
+    }
+
+    if (!imageRef.current) return;
     if (!hasSelection && !hasImageEdits && !annotationDirty) return;
     if (!hasSelection && !hasImageEdits) {
       await onSave?.(null, currentAnnotation);
@@ -303,6 +315,18 @@ export function ImageCropModal({
     ctx.drawImage(image, sx, sy, sw, sh, 0, 0, sw, sh);
     const editedDataUrl = canvas.toDataURL("image/png");
     await onSave?.(editedDataUrl, currentAnnotation);
+  };
+
+  const handleRestoreOriginal = async () => {
+    if (!restoreOriginalAvailable || restoringOriginal || saving || rotating) return;
+    const restoredImageSrc = await onRestoreOriginal?.();
+    if (!restoredImageSrc) return;
+
+    setWorkingImageSrc(restoredImageSrc);
+    setSelection(null);
+    setAspectPreset("free");
+    setRotationAngle(0);
+    setHasImageEdits(false);
   };
 
   const handleAspectPresetChange = (event) => {
@@ -381,7 +405,13 @@ export function ImageCropModal({
       return;
     }
 
-    if (!selection) return;
+    if (annotationOnly && event.key === "Enter" && !event.shiftKey && !saving) {
+      event.preventDefault();
+      void handleSave();
+      return;
+    }
+
+    if (annotationOnly || !selection) return;
 
     if (event.key === "Enter" && (hasSelection || hasImageEdits) && !saving && !rotating) {
       event.preventDefault();
@@ -425,94 +455,34 @@ export function ImageCropModal({
   };
 
   return (
-    <div className="image-crop-modal-backdrop" role="dialog" aria-modal="true" aria-label="Edit image">
-      <div className="image-crop-modal" ref={modalRef} onKeyDown={handleModalKeyDown}>
+    <div className="image-crop-modal-backdrop" role="dialog" aria-modal="true" aria-label={annotationOnly ? "Annotate image" : "Edit image"}>
+      <div className={`image-crop-modal${annotationOnly ? " annotation-only" : ""}`} ref={modalRef} onKeyDown={handleModalKeyDown}>
         <div className="image-crop-header">
           <div>
-            <h3>Edit Image</h3>
-            <p>{imageLabel || "Draw a rectangle to edit."} Use arrows to move, Alt+arrows to resize.</p>
+            <h3>{annotationOnly ? "Annotate Image" : "Edit Image"}</h3>
+            <p>
+              {annotationOnly
+                ? (imageLabel || "Add a short annotation and save.")
+                : `${imageLabel || "Draw a rectangle to edit."} Use arrows to move, Alt+arrows to resize.`}
+            </p>
           </div>
-          <button ref={closeButtonRef} type="button" className="small-button" onClick={onClose} disabled={saving}>
-            Close
+          <button
+            ref={closeButtonRef}
+            type="button"
+            className="small-button icon-only"
+            onClick={onClose}
+            disabled={saving}
+            aria-label="Close image dialog"
+            title="Close"
+          >
+            <X size={14} />
           </button>
         </div>
 
-        <div className="image-crop-canvas-wrap">
-          <div
-            className="image-crop-canvas"
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerUp}
-          >
-            <img ref={imageRef} src={workingImageSrc || imageSrc} alt={imageLabel || "Image to edit"} draggable={false} />
-            {hasAnnotation ? (
-              <div className="image-annotation-preview" aria-hidden="true">
-                {annotationText.trim()}
-              </div>
-            ) : null}
-            {selection ? (
-              <div
-                className="image-crop-selection"
-                style={selectionToPercent(selection)}
-                aria-hidden="true"
-              >
-                <div className="image-crop-move-zone" data-crop-handle="move" title="Move crop" />
-                <span className="image-crop-handle nw" data-crop-handle="nw" />
-                <span className="image-crop-handle n" data-crop-handle="n" />
-                <span className="image-crop-handle ne" data-crop-handle="ne" />
-                <span className="image-crop-handle e" data-crop-handle="e" />
-                <span className="image-crop-handle se" data-crop-handle="se" />
-                <span className="image-crop-handle s" data-crop-handle="s" />
-                <span className="image-crop-handle sw" data-crop-handle="sw" />
-                <span className="image-crop-handle w" data-crop-handle="w" />
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="image-crop-footer">
-          <p className="image-crop-hint">
-            Left click and drag to select an area.
-          </p>
-          <div className="image-crop-actions">
-            <label className="image-crop-aspect-label" htmlFor="crop-aspect-preset">Aspect</label>
-            <select
-              id="crop-aspect-preset"
-              className="image-crop-aspect-select"
-              value={aspectPreset}
-              onChange={handleAspectPresetChange}
-              disabled={saving || rotating}
-            >
-              {ASPECT_PRESETS.map((preset) => (
-                <option key={preset.value} value={preset.value}>{preset.label}</option>
-              ))}
-            </select>
-            <label className="image-crop-aspect-label" htmlFor="image-rotation-angle">Rotate</label>
+        {annotationOnly ? (
+          <div className="image-annotation-only-body">
             <input
-              id="image-rotation-angle"
-              className="image-crop-rotation-range"
-              type="range"
-              min="0"
-              max="360"
-              step="1"
-              value={rotationAngle}
-              onChange={handleRotationAngleChange}
-              disabled={saving || rotating}
-            />
-            <input
-              className="image-crop-rotation-number"
-              type="number"
-              min="0"
-              max="360"
-              step="1"
-              value={rotationAngle}
-              onChange={handleRotationAngleChange}
-              disabled={saving || rotating}
-              aria-label="Rotation degrees"
-            />
-            <input
-              className="image-annotation-input"
+              className="image-annotation-input annotation-only"
               type="text"
               maxLength="80"
               value={annotationText}
@@ -521,29 +491,138 @@ export function ImageCropModal({
                 setAnnotationDirty(true);
               }}
               placeholder="Annotation"
-              disabled={saving || rotating}
+              disabled={saving}
               aria-label="Image annotation text"
             />
-            <button
-              type="button"
-              className="small-button"
-              onClick={() => {
-                setSelection(null);
-                setRotationAngle(0);
-                setAnnotationText("");
-                setAnnotationDirty(true);
-              }}
-              disabled={saving || rotating || (!selection && rotationAngle === 0 && !hasAnnotation && !annotationDirty)}
+          </div>
+        ) : (
+          <div className="image-crop-canvas-wrap">
+            <div
+              className="image-crop-canvas"
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerUp}
             >
-              Reset
-            </button>
+              <img ref={imageRef} src={workingImageSrc || imageSrc} alt={imageLabel || "Image to edit"} draggable={false} />
+              {hasAnnotation ? (
+                <div className="image-annotation-preview" aria-hidden="true">
+                  {annotationText.trim()}
+                </div>
+              ) : null}
+              {selection ? (
+                <div
+                  className="image-crop-selection"
+                  style={selectionToPercent(selection)}
+                  aria-hidden="true"
+                >
+                  <div className="image-crop-move-zone" data-crop-handle="move" title="Move crop" />
+                  <span className="image-crop-handle nw" data-crop-handle="nw" />
+                  <span className="image-crop-handle n" data-crop-handle="n" />
+                  <span className="image-crop-handle ne" data-crop-handle="ne" />
+                  <span className="image-crop-handle e" data-crop-handle="e" />
+                  <span className="image-crop-handle se" data-crop-handle="se" />
+                  <span className="image-crop-handle s" data-crop-handle="s" />
+                  <span className="image-crop-handle sw" data-crop-handle="sw" />
+                  <span className="image-crop-handle w" data-crop-handle="w" />
+                </div>
+              ) : null}
+            </div>
+          </div>
+        )}
+
+        <div className="image-crop-footer">
+          {annotationOnly ? <div /> : <p className="image-crop-hint">Left click and drag to select an area.</p>}
+          <div className="image-crop-actions">
+            {!annotationOnly ? (
+              <>
+                <label className="image-crop-aspect-label" htmlFor="crop-aspect-preset">Aspect</label>
+                <select
+                  id="crop-aspect-preset"
+                  className="image-crop-aspect-select"
+                  value={aspectPreset}
+                  onChange={handleAspectPresetChange}
+                  disabled={saving || rotating}
+                >
+                  {ASPECT_PRESETS.map((preset) => (
+                    <option key={preset.value} value={preset.value}>{preset.label}</option>
+                  ))}
+                </select>
+                <label className="image-crop-aspect-label" htmlFor="image-rotation-angle">Rotate</label>
+                <input
+                  id="image-rotation-angle"
+                  className="image-crop-rotation-range"
+                  type="range"
+                  min="0"
+                  max="360"
+                  step="1"
+                  value={rotationAngle}
+                  onChange={handleRotationAngleChange}
+                  disabled={saving || rotating}
+                />
+                <input
+                  className="image-crop-rotation-number"
+                  type="number"
+                  min="0"
+                  max="360"
+                  step="1"
+                  value={rotationAngle}
+                  onChange={handleRotationAngleChange}
+                  disabled={saving || rotating}
+                  aria-label="Rotation degrees"
+                />
+              </>
+            ) : null}
+            {!annotationOnly ? (
+              <>
+                <input
+                  className="image-annotation-input"
+                  type="text"
+                  maxLength="80"
+                  value={annotationText}
+                  onChange={(event) => {
+                    setAnnotationText(event.target.value);
+                    setAnnotationDirty(true);
+                  }}
+                  placeholder="Annotation"
+                  disabled={saving || rotating}
+                  aria-label="Image annotation text"
+                />
+                <button
+                  type="button"
+                  className="small-button"
+                  onClick={() => {
+                    setSelection(null);
+                    setRotationAngle(0);
+                    setAnnotationText("");
+                    setAnnotationDirty(true);
+                  }}
+                  disabled={saving || rotating || (!selection && rotationAngle === 0 && !hasAnnotation && !annotationDirty)}
+                >
+                  Reset
+                </button>
+              </>
+            ) : null}
+            {!annotationOnly && restoreOriginalAvailable ? (
+              <button
+                type="button"
+                className="small-button"
+                onClick={() => {
+                  void handleRestoreOriginal();
+                }}
+                disabled={saving || rotating || restoringOriginal}
+              >
+                {restoringOriginal ? "Restoring original..." : "Restore original"}
+              </button>
+            ) : null}
             <button
               type="button"
               className="small-button"
               onClick={handleSave}
-              disabled={(!hasSelection && !hasImageEdits && !annotationDirty) || saving || rotating}
+              disabled={(annotationOnly ? !annotationDirty : (!hasSelection && !hasImageEdits && !annotationDirty)) || saving || rotating}
             >
-              {saving ? "Saving..." : rotating ? "Previewing..." : "Apply"}
+              <Check size={14} />
+              {saving ? "Saving..." : rotating ? "Previewing..." : "Save"}
             </button>
           </div>
         </div>

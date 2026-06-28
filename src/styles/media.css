@@ -512,6 +512,12 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  cursor: pointer;
+}
+
+.media-preview:focus-visible {
+  outline: 2px solid #7ea497;
+  outline-offset: 2px;
 }
 
 .media-preview img {
@@ -555,6 +561,23 @@
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.58);
   background: rgba(13, 31, 38, 0.76);
+  color: #ffffff;
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.media-original-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 3;
+  max-width: calc(100% - 16px);
+  padding: 3px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.52);
+  background: rgba(28, 88, 72, 0.82);
   color: #ffffff;
   font-size: 10px;
   line-height: 1.2;
