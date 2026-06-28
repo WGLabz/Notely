@@ -309,6 +309,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
   textareaRef,
   onNotify,
   validationIssues = [],
+  onIgnoreSpellingWord,
   onJumpToLine,
   focusedLine = 1,
   onUndo,
@@ -709,14 +710,27 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
                     ? `Apply suggestion${issue.suggestion ? `: ${issue.suggestion}` : ""}`
                     : "Review issue";
                 return (
-                  <button
-                    key={`${issue.line}-${issue.column}-${index}`}
-                    type="button"
-                    role="menuitem"
-                    onClick={() => applyIssueAction(issue)}
-                  >
-                    {label}
-                  </button>
+                  <div key={`${issue.line}-${issue.column}-${index}`}>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => applyIssueAction(issue)}
+                    >
+                      {label}
+                    </button>
+                    {issue.ruleId === "spelling" && issue.word ? (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          onIgnoreSpellingWord?.(issue.word);
+                          setContextMenu(null);
+                        }}
+                      >
+                        Ignore word: {issue.word}
+                      </button>
+                    ) : null}
+                  </div>
                 );
               })}
             </div>

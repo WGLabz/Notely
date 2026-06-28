@@ -7,13 +7,13 @@ import { checkSpelling } from "./spellAndGrammarCheck";
 
 export async function validateMarkdownComplete(content, options = {}) {
   const text = content || "";
-  const { spellCheck = true } = options;
+  const { spellCheck = true, ignoredWords = [] } = options;
 
   // Get markdown syntax and table issues
   const syntaxIssues = await validateMarkdownSyntax(text);
 
   // Get typo issues only (skipped when spell check is disabled)
-  const spellingIssues = spellCheck ? await checkSpelling(text) : [];
+  const spellingIssues = spellCheck ? await checkSpelling(text, { ignoredWords }) : [];
 
   // Combine all issues
   const allIssues = [...syntaxIssues, ...spellingIssues];

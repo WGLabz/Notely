@@ -1149,6 +1149,7 @@ export function DocumentDetail({
             mode={mode}
             textareaRef={textareaRef}
             basePath={document.filePath}
+            workspaceStorageScope={workspaceStorageScope}
             showToolbar={!showMediaManager}
             onNotify={onNotify}
             onUndo={handleUndo}

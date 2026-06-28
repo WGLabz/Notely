@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { checkGrammar, checkSpelling, checkSpellingAndGrammar } from "./spellAndGrammarCheck";
+import { checkSpelling } from "./spellAndGrammarCheck";
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -10,7 +10,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("spell and grammar checker", () => {
+describe("typo checker", () => {
   it("detects possible spelling issues", async () => {
     const content = "This is a sentance with a mispelling";
     const issues = await checkSpelling(content);
@@ -49,13 +49,13 @@ But this sentance has an eror.`;
   });
 
   it("ignores image paths while still checking surrounding prose", async () => {
-    const content = "This sentence has an image ![Power Plant Team Meeting](./images/Power Plant Team Meeting.png) included.";
+    const content = "This sentence has an image ![Power Plant Team Meeting](./images/Power Plant Team Meeting.png) and a typo mispeling.";
     const issues = await checkSpelling(content);
     const messages = issues.map((issue) => issue.message).join(" ");
 
     expect(messages).not.toContain("./images/Power Plant Team Meeting.png");
     expect(messages).not.toContain("Power Plant Team Meeting.png");
-    expect(issues.length).toBeGreaterThan(0);
+    expect(messages).toContain("mispeling");
   });
 
   it("does not spell check table cells", async () => {
@@ -109,106 +109,34 @@ But this sentance has an eror.`;
     expect(messages.some(m => m.includes("API"))).toBe(false);
   });
 
+  it("does not flag common metadata words like Date", async () => {
+    const issues = await checkSpelling("Date: June 28");
+    const messages = issues.map((issue) => issue.message).join(" ");
+
+    expect(messages).not.toContain("Date");
+    expect(messages).not.toContain("date");
+  });
+
+  it("does not flag synthesis", async () => {
+    const issues = await checkSpelling("Prepared as: Working consulting synthesis from client documents");
+    const messages = issues.map((issue) => issue.message).join(" ");
+
+    expect(messages).not.toContain("synthesis");
+  });
+
   it("handles empty content gracefully", async () => {
     const issues = await checkSpelling("");
     expect(issues).toEqual([]);
   });
 
-  it("returns combined spell and grammar issues", async () => {
-    const content = "This is a test sentance.";
-    const issues = await checkSpellingAndGrammar(content);
-    
-    // Should return array of issues (may include grammar checks from API if available)
-    expect(Array.isArray(issues)).toBe(true);
-  });
-
-  it("masks code blocks before grammar checking", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ matches: [] }),
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    const content = `Outside text.
-\`\`\`js
-const sentance = "mispeling inside code";
-\`\`\`
-
-More outside text.`;
-
-    await checkSpellingAndGrammar(content);
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const body = fetchMock.mock.calls[0][1].body.toString();
-    const requestText = new URLSearchParams(body).get("text") || "";
-    expect(requestText).not.toContain("sentance");
-    expect(requestText).not.toContain("mispeling");
-    expect(requestText).toContain("Outside text.");
-    expect(requestText).toContain("More outside text.");
-  });
-
-  it("masks image paths before grammar checking", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ matches: [] }),
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    const content = "This sentence has an image ![Power Plant Team Meeting](./images/Power Plant Team Meeting.png) included.";
-
-    await checkSpellingAndGrammar(content);
-
-    const body = fetchMock.mock.calls[0][1].body.toString();
-    const requestText = new URLSearchParams(body).get("text") || "";
-    expect(requestText).not.toContain("./images/Power Plant Team Meeting.png");
-    expect(requestText).toContain("This sentence has an image");
-    expect(requestText).toContain("included.");
-    expect(requestText).not.toContain("Power Plant Team Meeting");
-  });
-
-  it("includes headings and short bullet fragments in grammar checking input", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ matches: [] }),
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    const content = `# Captive Power Plant Analysis
-
-- Need review soon`;
-
-    await checkSpellingAndGrammar(content);
-
-    const body = fetchMock.mock.calls[0][1].body.toString();
-    const requestText = new URLSearchParams(body).get("text") || "";
-    expect(requestText).toContain("Captive Power Plant Analysis");
-    expect(requestText).toContain("Need review soon");
-  });
-
-  it("falls back to local grammar heuristics when remote grammar check fails", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
-
-    const issues = await checkGrammar("this is is duplicated text.");
+  it("skips spelling issues for ignored words", async () => {
+    const content = "This sentance should be ignored but eror should still appear.";
+    const baselineIssues = await checkSpelling(content);
+    const issues = await checkSpelling(content, { ignoredWords: ["sentance"] });
     const messages = issues.map((issue) => issue.message).join(" ");
 
-    expect(messages).toContain("Repeated word");
-    expect(messages).toContain("capital letter");
-  });
-
-  it("skips grammar checks for technical count fragments but still allows spelling checks", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ matches: [] }),
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    await checkGrammar("7 boiler (5 High Pressure, 2 Low Pressure)");
-
-    expect(fetchMock).not.toHaveBeenCalled();
-
-    const spellingIssues = await checkSpelling("7 boilar (5 High Pressure, 2 Low Pressure)");
-    const messages = spellingIssues.map((issue) => issue.message).join(" ");
-    expect(messages).toContain("boilar");
+    expect(messages).not.toContain("sentance");
+    expect(issues.length).toBeLessThan(baselineIssues.length);
   });
 
   it("sorts issues by line and column", async () => {

@@ -3,7 +3,7 @@ import { validateMarkdownComplete } from "../utils/markdownValidationComplete";
 
 export function useMarkdownValidation(
   value,
-  { spellCheck = true, debounceMs = 500, strategy = "debounce", throttleMs = 500 } = {}
+  { spellCheck = true, ignoredWords = [], debounceMs = 500, strategy = "debounce", throttleMs = 500 } = {}
 ) {
   const [issues, setIssues] = useState([]);
   const [status, setStatus] = useState("ready");
@@ -27,7 +27,7 @@ export function useMarkdownValidation(
     const runValidation = async () => {
       setStatus("checking");
       try {
-        const nextIssues = await validateMarkdownComplete(value || "", { spellCheck });
+        const nextIssues = await validateMarkdownComplete(value || "", { spellCheck, ignoredWords });
         if (requestId !== requestIdRef.current) return;
         setIssues(nextIssues);
         setStatus("ready");
@@ -69,7 +69,7 @@ export function useMarkdownValidation(
       }
       requestIdRef.current = Math.max(requestIdRef.current, requestId);
     };
-  }, [value, spellCheck, debounceMs, strategy, throttleMs]);
+  }, [value, spellCheck, ignoredWords, debounceMs, strategy, throttleMs]);
 
   return { issues, status };
 }

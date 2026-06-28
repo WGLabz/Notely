@@ -55,7 +55,6 @@ function isValidHttpUrl(value) {
 function getIssueLabel(issue) {
   if (!issue) return "Issue";
   if (issue.ruleId === "spelling") return issue.word ? "Typo" : "Spelling";
-  if (issue.ruleId === "grammar" || String(issue.ruleId || "").includes("grammar")) return "Grammar";
   if (String(issue.ruleId || "").includes("table")) return "Markdown";
   return "Issue";
 }
@@ -75,6 +74,10 @@ export function MarkdownToolbar({
   canRedo = false,
   spellCheckEnabled = true,
   onToggleSpellCheck,
+  ignoredSpellingWords = [],
+  onIgnoreSpellingWord,
+  onRemoveIgnoredSpellingWord,
+  onClearIgnoredSpellingWords,
 }) {
   const imageInputRef = useRef(null);
   const mermaidPopoverRef = useRef(null);
@@ -299,6 +302,15 @@ export function MarkdownToolbar({
     onNotify?.(result.message, "success");
   }
 
+  function ignoreSpellingWord(issue) {
+    const word = String(issue?.word || "").trim();
+    if (!word) {
+      onNotify?.("No word available to ignore.", "warning");
+      return;
+    }
+    onIgnoreSpellingWord?.(word);
+  }
+
   function insertTableTemplate() {
     const rows = normalizedTableRows;
     const columns = normalizedTableColumns;
@@ -511,7 +523,7 @@ export function MarkdownToolbar({
       </button>
       <button
         onClick={onToggleSpellCheck}
-        title={spellCheckEnabled ? "Disable spell check" : "Enable spell check"}
+        title={spellCheckEnabled ? "Disable typo check" : "Enable typo check"}
         className={spellCheckEnabled ? "" : "toolbar-btn-inactive"}
         aria-pressed={spellCheckEnabled}
       >
@@ -539,8 +551,32 @@ export function MarkdownToolbar({
             <p className="toolbar-inline-note">Checking markdown...</p>
           ) : validationStatus === "error" ? (
             <p className="toolbar-inline-error">Validation service unavailable.</p>
-          ) : validationIssues.length ? (
+          ) : (
             <div className="validation-list">
+              {ignoredSpellingWords.length ? (
+                <div className="validation-item">
+                  <div className="validation-item-head">
+                    <span className="validation-kind-badge info">Ignored words</span>
+                  </div>
+                  <p>{ignoredSpellingWords.length} word{ignoredSpellingWords.length === 1 ? "" : "s"} ignored in this workspace.</p>
+                  <div className="validation-item-actions">
+                    <button type="button" onClick={() => onClearIgnoredSpellingWords?.()}>
+                      Clear all
+                    </button>
+                  </div>
+                  <div className="validation-item-actions">
+                    {ignoredSpellingWords.map((word) => (
+                      <button
+                        key={`ignored-${word}`}
+                        type="button"
+                        onClick={() => onRemoveIgnoredSpellingWord?.(word)}
+                      >
+                        Remove &quot;{word}&quot;
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               {validationIssues.map((issue, index) => (
                 <div className="validation-item" key={`${issue.line}-${index}`}>
                   <div className="validation-item-head">
@@ -566,12 +602,16 @@ export function MarkdownToolbar({
                         Apply suggestion
                       </button>
                     ) : null}
+                    {issue.ruleId === "spelling" && issue.word ? (
+                      <button type="button" onClick={() => ignoreSpellingWord(issue)}>
+                        Ignore word
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               ))}
+              {!validationIssues.length ? <p className="toolbar-inline-note">No typo issues detected.</p> : null}
             </div>
-          ) : (
-            <p className="toolbar-inline-note">No syntax issues detected.</p>
           )}
         </div>
       )}

@@ -17,7 +17,6 @@ export function MarkdownValidationBanner({ issues = [], status = "idle" }) {
   const getIssueLabel = (issue) => {
     if (!issue) return "Issue";
     if (issue.ruleId === "spelling") return issue.word ? "Typo" : "Spelling";
-    if (issue.ruleId === "grammar" || issue.ruleId?.includes("grammar")) return "Grammar";
     if (issue.ruleId?.includes("table")) return "Markdown";
     return "Issue";
   };
@@ -25,7 +24,6 @@ export function MarkdownValidationBanner({ issues = [], status = "idle" }) {
   // Get icon and color based on issue type
   const getIssueIcon = (ruleId) => {
     if (ruleId === "spelling") return "✎";
-    if (ruleId === "grammar" || ruleId?.includes("grammar")) return "Λ";
     if (ruleId?.includes("table")) return "⊞";
     return "⚠";
   };

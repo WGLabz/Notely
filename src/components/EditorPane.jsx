@@ -6,7 +6,21 @@ import { MarkdownValidationBanner } from "./MarkdownValidationBanner";
 import { WebViewPreview } from "./WebViewPreview";
 import { MediaPreviewPane } from "./MediaPreviewPane";
 import { useMarkdownValidation } from "../hooks/useMarkdownValidation";
+import { useWorkspaceScopedStorage } from "../hooks/useWorkspaceScopedStorage";
 import { Link2, Unlink } from "lucide-react";
+
+function normalizeIgnoredWords(rawValue) {
+  if (!Array.isArray(rawValue)) return [];
+  const seen = new Set();
+  const output = [];
+  for (const entry of rawValue) {
+    const word = String(entry || "").trim().toLowerCase();
+    if (!word || seen.has(word)) continue;
+    seen.add(word);
+    output.push(word);
+  }
+  return output;
+}
 
 export function EditorPane({
   value,
@@ -29,6 +43,7 @@ export function EditorPane({
   onAcceptInlineGhost,
   onRejectInlineGhost,
   showOriginalImages = false,
+  workspaceStorageScope = "default",
 }) {
   const previewRef = useRef(null);
   const splitPaneRef = useRef(null);
@@ -40,9 +55,16 @@ export function EditorPane({
   const deferredValue = useDeferredValue(value);
   // Disable spell check in split view by default to reduce validation overhead during scrolling
   const [spellCheckEnabled, setSpellCheckEnabled] = useState(mode !== "split");
+  const [ignoredSpellingWords, setIgnoredSpellingWords] = useWorkspaceScopedStorage({
+    workspaceScope: workspaceStorageScope,
+    key: "notes:ignored-spelling-words",
+    defaultValue: [],
+    normalize: normalizeIgnoredWords,
+  });
   const isSplitMode = mode === "split";
   const { issues: validationIssues, status: validationStatus } = useMarkdownValidation(value, {
     spellCheck: spellCheckEnabled,
+    ignoredWords: ignoredSpellingWords,
     strategy: "debounce",
     debounceMs: isSplitMode ? 1200 : 500,
   });
@@ -280,6 +302,16 @@ export function EditorPane({
       textareaRef={textareaRef}
       onNotify={onNotify}
       validationIssues={validationIssues}
+      onIgnoreSpellingWord={(word) => {
+        const normalized = String(word || "").trim().toLowerCase();
+        if (!normalized) return;
+        setIgnoredSpellingWords((current) => {
+          const next = normalizeIgnoredWords(current);
+          if (next.includes(normalized)) return next;
+          return [...next, normalized];
+        });
+        onNotify?.(`Ignored "${word}" for this workspace.`, "success");
+      }}
       onJumpToLine={jumpToLine}
       focusedLine={focusedLine}
       onUndo={onUndo}
@@ -311,6 +343,27 @@ export function EditorPane({
     canRedo,
     spellCheckEnabled,
     onToggleSpellCheck: () => setSpellCheckEnabled((prev) => !prev),
+    ignoredSpellingWords,
+    onIgnoreSpellingWord: (word) => {
+      const normalized = String(word || "").trim().toLowerCase();
+      if (!normalized) return;
+      setIgnoredSpellingWords((current) => {
+        const next = normalizeIgnoredWords(current);
+        if (next.includes(normalized)) return next;
+        return [...next, normalized];
+      });
+      onNotify?.(`Ignored "${word}" for this workspace.`, "success");
+    },
+    onRemoveIgnoredSpellingWord: (word) => {
+      const normalized = String(word || "").trim().toLowerCase();
+      if (!normalized) return;
+      setIgnoredSpellingWords((current) => normalizeIgnoredWords(current).filter((item) => item !== normalized));
+      onNotify?.(`Removed "${word}" from ignored words.`, "info");
+    },
+    onClearIgnoredSpellingWords: () => {
+      setIgnoredSpellingWords([]);
+      onNotify?.("Cleared ignored spelling words.", "info");
+    },
   };
 
   const renderToolbar = () => (

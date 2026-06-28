@@ -1,7 +1,10 @@
 /**
- * Spell checking and grammar checking utilities
- * Uses a local spell checker and LanguageTool API for grammar
+ * Typo checking utilities
  */
+
+import nspell from "nspell";
+import aff from "dictionary-en-us/index.aff?raw";
+import dic from "dictionary-en-us/index.dic?raw";
 
 // Cache for spell check results to avoid redundant computations
 const spellCheckCache = new Map();
@@ -10,62 +13,30 @@ const MAX_CACHE_SIZE = 5000;
 // Validation result cache
 const validationCache = new Map();
 
-// Simple spell checker using common English words
-// For a production app, consider using a proper dictionary
-const COMMON_WORDS = new Set([
-  "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
-  "of", "with", "by", "from", "up", "about", "into", "through", "during",
-  "is", "are", "am", "was", "were", "be", "been", "being",
-  "have", "has", "had", "do", "does", "did", "will", "would", "could",
-  "should", "may", "might", "must", "can", "shall",
-  "i", "you", "he", "she", "it", "we", "they", "what", "which", "who",
-  "this", "that", "these", "those", "my", "your", "his", "her", "its", "our",
-  "there", "here", "where", "when", "why", "how", "all", "each", "every",
-  "both", "few", "more", "most", "other", "some", "such", "no", "nor", "not",
-  "only", "same", "so", "than", "too", "very", "as", "if", "just", "because",
-  "note", "add", "example", "see", "also", "one", "two", "three", "first",
-  "second", "third", "etc", "vs", "vs.", "e.g", "i.e", "markdown", "html",
-  "css", "javascript", "python", "java", "c", "database", "api", "rest",
-  "json", "xml", "react", "vue", "angular", "node", "express", "npm",
-  "yarn", "webpack", "babel", "eslint", "prettier", "git", "github",
-  "notely", "project", "folder",
-  "file", "document", "notes", "meeting", "metadata", "location", "time",
-  "raw", "cleansed", "preview", "edit", "save", "delete", "create",
-  "analysis", "conference", "room", "power", "plant", "captive", "review",
-  "summary", "action", "actions", "recommendation", "recommendations", "system",
-  "process", "boiler", "turbine", "steam", "energy", "generation", "capacity",
-  "efficiency", "auxiliary", "operations", "operation", "performance",
-]);
+const CUSTOM_WORDS = [
+  "notely", "iiot", "genai", "mithapur", "solvay",
+  "dcs", "scada", "ot", "it", "idmz", "mqtt", "iec", "isa",
+  "json", "xml", "csv", "api", "rest", "html", "css", "javascript", "node",
+  "sap", "kpi", "kpis", "esf", "bicarb", "hcl", "cogen",
+  "date", "metadata", "cleansed", "rawnotes", "synthesis",
+];
 
-// Common abbreviations and acronyms that shouldn't be flagged
-const KNOWN_ABBREVIATIONS = new Set([
-  "mr", "mrs", "ms", "dr", "prof", "gen", "col", "sgt", "capt",
-  "etc", "eg", "ie", "vs", "al", "id", "no", "co", "inc", "ltd",
-  "api", "url", "http", "https", "ftp", "sql", "html", "css", "xml",
-  "json", "csv", "pdf", "png", "jpg", "jpeg", "gif", "svg", "mp4",
-  "mp3", "exe", "zip", "rar", "iso", "ai", "ml", "cv", "ir",
-  "utc", "gmt", "pst", "est", "cst", "mst", "usa", "uk", "us",
-  "hr", "min", "sec", "ms", "kb", "mb", "gb", "tb", "hz", "khz",
-  "mhz", "ghz", "cpu", "gpu", "ram", "rom", "io", "ui", "ux",
-]);
+const spell = nspell(aff, dic);
+for (const word of CUSTOM_WORDS) {
+  spell.add(word);
+}
 
 function isValidWord(word) {
   const cleanWord = word.replace(/[^\w'-]/g, "").toLowerCase();
+
+  if (cleanWord.length === 0 || cleanWord.length <= 2 || /^\d+/.test(cleanWord)) return true;
+  if (cleanWord.includes("-")) return true;
   
   // Check cache first
   if (validationCache.has(cleanWord)) {
     return validationCache.get(cleanWord);
   }
-  
-  let isValid = false;
-  
-  if (cleanWord.length === 0) isValid = true;
-  else if (cleanWord.length <= 2) isValid = true;
-  else if (/^\d+/.test(cleanWord)) isValid = true; // Numbers
-  else if (COMMON_WORDS.has(cleanWord)) isValid = true;
-  else if (KNOWN_ABBREVIATIONS.has(cleanWord)) isValid = true;
-  else if (cleanWord.includes("-")) isValid = true; // Hyphenated words often valid
-  else if (cleanWord.endsWith("ing") || cleanWord.endsWith("ed") || cleanWord.endsWith("ly")) isValid = true;
+  const isValid = spell.correct(cleanWord);
   
   // Store in cache (with size limit to prevent memory leaks)
   if (validationCache.size >= MAX_CACHE_SIZE) {
@@ -77,28 +48,6 @@ function isValidWord(word) {
   return isValid;
 }
 
-function levenshteinDistance(left, right) {
-  const a = left || "";
-  const b = right || "";
-  const rows = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
-
-  for (let row = 0; row <= a.length; row += 1) rows[row][0] = row;
-  for (let column = 0; column <= b.length; column += 1) rows[0][column] = column;
-
-  for (let row = 1; row <= a.length; row += 1) {
-    for (let column = 1; column <= b.length; column += 1) {
-      const cost = a[row - 1] === b[column - 1] ? 0 : 1;
-      rows[row][column] = Math.min(
-        rows[row - 1][column] + 1,
-        rows[row][column - 1] + 1,
-        rows[row - 1][column - 1] + cost
-      );
-    }
-  }
-
-  return rows[a.length][b.length];
-}
-
 function suggestCorrection(word) {
   const cleanWord = word.replace(/[^\w'-]/g, "").toLowerCase();
   if (!cleanWord) return "";
@@ -108,35 +57,13 @@ function suggestCorrection(word) {
     return spellCheckCache.get(cleanWord);
   }
 
-  const candidates = [...COMMON_WORDS, ...KNOWN_ABBREVIATIONS].filter((candidate) => candidate.length > 2);
-  let bestCandidate = "";
-  let bestDistance = Number.POSITIVE_INFINITY;
-
-  // Early exit for very short words - less likely to find good suggestions
-  if (cleanWord.length < 3) {
+  if (cleanWord.length < 3 || /^\d+/.test(cleanWord)) {
     spellCheckCache.set(cleanWord, "");
     return "";
   }
 
-  for (const candidate of candidates) {
-    // Skip candidates that are too different in length
-    if (Math.abs(candidate.length - cleanWord.length) > 3) continue;
-    
-    const distance = levenshteinDistance(cleanWord, candidate);
-    
-    // Early exit if we found a very close match
-    if (distance === 0) {
-      bestCandidate = candidate;
-      break;
-    }
-    
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      bestCandidate = candidate;
-    }
-  }
-
-  const result = bestDistance <= 2 ? bestCandidate : "";
+  const suggestions = spell.suggest(cleanWord);
+  const result = Array.isArray(suggestions) && suggestions.length ? String(suggestions[0] || "") : "";
   
   // Cache with size limit
   if (spellCheckCache.size >= MAX_CACHE_SIZE) {
@@ -166,18 +93,6 @@ function isShortProseFragment(text) {
 
   const words = normalized.split(/\s+/).filter(Boolean);
   return words.length >= 2 && normalized.length >= 8;
-}
-
-function isTechnicalCountFragment(text) {
-  const normalized = stripMarkdownArtifacts(text || "");
-  if (!normalized) return false;
-
-  const compact = normalized.replace(/\s+/g, " ").trim();
-  if (!/^\d+\s+[A-Za-z][A-Za-z\s-]*(\([^)]*\))?$/.test(compact)) {
-    return false;
-  }
-
-  return /\(\s*\d+[^)]*\)/.test(compact);
 }
 
 function stripMarkdownArtifacts(text) {
@@ -212,25 +127,6 @@ function shouldSpellCheckLine(text, blockType) {
   }
 
   return isShortProseFragment(normalized) || isStandaloneLowercaseWord(normalized);
-}
-
-function shouldGrammarCheckLine(text, blockType) {
-  const normalized = stripMarkdownArtifacts(text || "");
-  if (!normalized) return false;
-
-  if (isTechnicalCountFragment(normalized)) {
-    return false;
-  }
-
-  if (isSentenceLike(normalized)) {
-    return true;
-  }
-
-  if (blockType === "heading_open") {
-    return isShortProseFragment(normalized);
-  }
-
-  return isShortProseFragment(normalized);
 }
 
 function classifyBlockType(line) {
@@ -442,57 +338,20 @@ function extractMarkdownLanguageLines(content, predicate) {
   return lines;
 }
 
-function extractMarkdownProseLines(content) {
-  return extractMarkdownLanguageLines(content, shouldGrammarCheckLine);
-}
-
 function extractMarkdownSpellingLines(content) {
   return extractMarkdownLanguageLines(content, shouldSpellCheckLine);
 }
 
-function runLocalGrammarFallback(proseLines) {
-  const issues = [];
-
-  for (const proseLine of proseLines || []) {
-    const text = String(proseLine.text || "");
-
-    const repeatedWordMatch = text.match(/\b([A-Za-z][A-Za-z'-]*)\s+\1\b/i);
-    if (repeatedWordMatch) {
-      const span = getMappedSpan(proseLine.indexMap, repeatedWordMatch.index, repeatedWordMatch[0].length);
-      issues.push({
-        line: proseLine.line,
-        column: span.column,
-        message: `Repeated word: "${repeatedWordMatch[1]}"`,
-        ruleId: "grammar-repeated-word",
-        severity: "info",
-        suggestion: repeatedWordMatch[1],
-        length: repeatedWordMatch[0].length,
-        sourceLength: span.sourceLength,
-      });
-    }
-
-    const startsLikeSentence = text.split(/\s+/).filter(Boolean).length >= 4;
-    if (startsLikeSentence && /^[a-z]/.test(text.trim())) {
-      const span = getMappedSpan(proseLine.indexMap, 0, 1);
-      issues.push({
-        line: proseLine.line,
-        column: span.column,
-        message: "Sentence should start with a capital letter",
-        ruleId: "grammar-capitalization",
-        severity: "info",
-        suggestion: text.trim().charAt(0).toUpperCase(),
-        length: 1,
-        sourceLength: span.sourceLength,
-      });
-    }
-  }
-
-  return issues;
-}
-
-export async function checkSpelling(content) {
+export async function checkSpelling(content, options = {}) {
   const text = content || "";
   const issues = [];
+  const ignoredWords = new Set(
+    Array.isArray(options.ignoredWords)
+      ? options.ignoredWords
+        .map((word) => String(word || "").trim().toLowerCase())
+        .filter(Boolean)
+      : []
+  );
 
   const proseLines = extractMarkdownSpellingLines(text);
 
@@ -503,6 +362,9 @@ export async function checkSpelling(content) {
 
     while ((match = wordRegex.exec(line))) {
       const word = match[0];
+      if (ignoredWords.has(String(word).toLowerCase())) {
+        continue;
+      }
       if (!isValidWord(word)) {
         const suggestion = suggestCorrection(word);
         const span = getMappedSpan(proseLine.indexMap, match.index, word.length);
@@ -524,110 +386,3 @@ export async function checkSpelling(content) {
   return issues;
 }
 
-export async function checkGrammar(content) {
-  // Use LanguageTool API for grammar checking
-  const text = content || "";
-  const proseLines = extractMarkdownProseLines(text);
-  if (!proseLines.length) {
-    return [];
-  }
-
-  const grammarInput = proseLines.map((item) => item.text).join("\n");
-
-  try {
-    // LanguageTool has a free public API
-    const response = await fetch("https://api.languagetool.org/v2/check", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        text: grammarInput,
-        language: "en-US",
-      }).toString(),
-    });
-
-    if (!response.ok) {
-      console.error("LanguageTool API error:", response.status);
-      return runLocalGrammarFallback(proseLines);
-    }
-
-    const data = await response.json();
-    const issues = [];
-    const lineOffsets = [];
-    let cursor = 0;
-
-    for (const proseLine of proseLines) {
-      lineOffsets.push({
-        line: proseLine.line,
-        start: cursor,
-        end: cursor + proseLine.text.length,
-        indexMap: proseLine.indexMap,
-      });
-      cursor += proseLine.text.length + 1;
-    }
-
-    function findLineForOffset(offset) {
-      for (const entry of lineOffsets) {
-        if (offset >= entry.start && offset <= entry.end) {
-          return entry;
-        }
-      }
-      return lineOffsets[lineOffsets.length - 1] || { line: 1, start: 0, end: 0 };
-    }
-
-    (data.matches || []).forEach((match) => {
-      // Skip some overly pedantic rules
-      if (
-        match.rule?.id === "WHITESPACE_RULE" ||
-        match.rule?.id === "COMMA_PARENTHESIS_WHITESPACE"
-      ) {
-        return;
-      }
-
-      const offset = match.offset || 0;
-      const length = match.length || 0;
-      const lineEntry = findLineForOffset(offset);
-      const line = lineEntry.line;
-      const relativeOffset = Math.max(0, offset - lineEntry.start);
-      const span = getMappedSpan(lineEntry.indexMap, relativeOffset, length);
-
-      issues.push({
-        line,
-        column: span.column,
-        message: match.message || "Grammar issue",
-        ruleId: match.rule?.id || "grammar",
-        severity: match.rule?.issueType === "misspelling" ? "error" : "info",
-        suggestion: (match.replacements || [])[0]?.value,
-        length,
-        sourceLength: span.sourceLength,
-      });
-    });
-
-    return issues;
-  } catch (error) {
-    console.error("Grammar check failed:", error);
-    return runLocalGrammarFallback(proseLines);
-  }
-}
-
-export async function checkSpellingAndGrammar(content) {
-  try {
-    const [spellingIssues, grammarIssues] = await Promise.all([
-      checkSpelling(content),
-      checkGrammar(content),
-    ]);
-
-    // Combine and deduplicate issues
-    const combined = [...spellingIssues, ...grammarIssues];
-    combined.sort((a, b) => {
-      if (a.line !== b.line) return a.line - b.line;
-      return (a.column || 1) - (b.column || 1);
-    });
-
-    return combined;
-  } catch (error) {
-    console.error("Spell and grammar check failed:", error);
-    return [];
-  }
-}
