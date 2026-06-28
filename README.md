@@ -20,15 +20,25 @@ Notely is a desktop Markdown notes app for team and project workspaces. It is bu
 
 ## Workspace Graph
 
-Open **Workspace → Workspace Graph** (`Ctrl+Shift+G`) to visualise all notes in the active workspace as an interactive node-edge graph.
+Open **Workspace → Workspace Graph** (`Ctrl+Shift+G`) to visualise all notes and media in the active workspace as an interactive node-edge graph.
 
-- Nodes represent Markdown notes only (`.md` files); media files are not graphed.
-- Edges represent explicit document links (`[[wiki links]]` and `[text](./file.md)`).
+- Nodes represent Markdown notes (`.md` files, coloured by folder) and media files (with dashed borders).
+- Edges represent explicit document links (`[[wiki links]]` and `[text](./file.md)`) and media references (images embedded in notes).
+- Media nodes (images, videos, PDFs, etc.) are visually distinct and marked with a 📎 icon.
 - Click a node to highlight its connections.
-- Double-click a node to open that note directly.
+- Double-click a note node to open that note directly (media nodes cannot be opened this way).
 - Filter visible nodes by title or folder using the search bar.
 - Zoom, pan, and drag nodes freely.
 - A mini-map provides orientation in large workspaces.
+
+### Supported media formats
+
+The graph automatically discovers and displays these media types:
+
+- **Images**: `.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`, `.svg`, `.bmp`, `.ico`
+- **Video**: `.mp4`, `.webm`, `.mov`
+- **Audio**: `.mp3`, `.wav`, `.m4a`
+- **Documents**: `.pdf`
 
 ### Semantic clustering
 
