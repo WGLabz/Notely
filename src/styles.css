@@ -1572,9 +1572,30 @@ button {
 
 .dashboard-panels {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   margin-bottom: 14px;
+}
+
+.dashboard-bar {
+  border: 1px solid #cfdbd6;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fbfdfc 0%, #f4f8f6 100%);
+  box-shadow: 0 10px 20px rgba(15, 33, 35, 0.08);
+  padding: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.dashboard-bar-section {
+  min-width: 0;
+}
+
+.dashboard-bar-section:not(:last-child) {
+  border-right: 1px solid #d8e3df;
+  padding-right: 10px;
 }
 
 .dashboard-panel {
@@ -1617,6 +1638,18 @@ button {
   text-align: left;
 }
 
+.dashboard-bar .dashboard-continue-card strong {
+  font-size: 13px;
+}
+
+.dashboard-bar .dashboard-continue-card span {
+  font-size: 11px;
+}
+
+.dashboard-bar .dashboard-continue-card em {
+  font-size: 11px;
+}
+
 .dashboard-continue-card strong {
   font-size: 15px;
   color: #173238;
@@ -1649,6 +1682,23 @@ button {
   padding: 0;
   display: grid;
   gap: 6px;
+}
+
+.dashboard-recent-list.compact {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.dashboard-recent-list.compact button {
+  min-height: 30px;
+  padding: 0 8px;
+}
+
+.dashboard-recent-list.compact button span {
+  font-size: 11px;
+}
+
+.dashboard-recent-list.compact button small {
+  font-size: 10px;
 }
 
 .dashboard-recent-list button {
@@ -1686,6 +1736,16 @@ button {
 .dashboard-action-grid {
   display: grid;
   gap: 8px;
+}
+
+.dashboard-action-grid.inline {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+}
+
+.dashboard-action-grid.inline button {
+  min-height: 30px;
+  font-size: 12px;
 }
 
 .dashboard-action-grid button {
@@ -1736,6 +1796,17 @@ button {
 
   .dashboard-panels {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dashboard-bar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dashboard-bar-section:not(:last-child) {
+    border-right: 0;
+    border-bottom: 1px solid #d8e3df;
+    padding-right: 0;
+    padding-bottom: 8px;
   }
 }
 
