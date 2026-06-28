@@ -329,12 +329,13 @@ export function useDocumentManager({ notify }) {
   function handleGoHome() {
     if (current && dirty) {
       const confirmed = window.confirm("You have unsaved changes. Go back to notes and discard unsaved changes?");
-      if (!confirmed) return;
+      if (!confirmed) return false;
     }
 
     setDocumentMenuAction(null);
     setCurrent(null);
     setHistory([]);
+    return true;
   }
 
   async function handleOpenCurrentInEditor() {
@@ -441,6 +442,31 @@ export function useDocumentManager({ notify }) {
     }
   }
 
+  async function handleLandingNavigateTo(targetPath) {
+    const nextPath = String(targetPath || "").trim();
+    if (!nextPath) return;
+
+    const activeRoot = String(activeProject?.rootPath || "").trim();
+    const normalizedTarget = nextPath.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+    const normalizedRoot = activeRoot.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+
+    if (normalizedRoot && !(normalizedTarget === normalizedRoot || normalizedTarget.startsWith(`${normalizedRoot}/`))) {
+      return;
+    }
+
+    try {
+      setError("");
+      setLoading(true);
+      setLandingFolderPath(nextPath);
+      setDocuments(await listDocuments(nextPath));
+    } catch (err) {
+      setError(err?.message || "Unable to navigate to folder.");
+      notify(err?.message || "Unable to navigate to folder.", "error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     loadDocumentsData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -500,5 +526,6 @@ export function useDocumentManager({ notify }) {
     handleOpenListItem,
     handleOpenReferencedDocument,
     handleLandingNavigateUp,
+    handleLandingNavigateTo,
   };
 }

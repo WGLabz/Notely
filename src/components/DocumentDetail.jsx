@@ -1,6 +1,5 @@
 import { useRef, useState, useEffect, useMemo } from "react";
 import {
-  Home,
   Save,
   RotateCcw,
   ChevronRight,
@@ -273,6 +272,8 @@ export function DocumentDetail({
   menuAction,
   onNotify,
   onBack,
+  breadcrumbs = [],
+  onNavigateBreadcrumb,
   onOpenAIRequest,
   onInlineAIRequest,
   onRegisterAIEditor,
@@ -936,16 +937,26 @@ export function DocumentDetail({
   return (
     <div className="detail-shell">
       <div className="detail-topbar">
-        <button
-          className="back-button"
-          type="button"
-          onClick={onBack}
-          title="Back to landing"
-          aria-label="Back to landing"
-        >
-          <Home size={16} />
-        </button>
-        <div className="crumb">Notes / {document.title}</div>
+        <nav className="detail-breadcrumb" aria-label="Note location">
+          {breadcrumbs.length ? breadcrumbs.map((segment) => (
+            <span className="detail-breadcrumb-part" key={segment.path}>
+              <button
+                className="detail-breadcrumb-link"
+                type="button"
+                onClick={() => onNavigateBreadcrumb?.(segment.path)}
+              >
+                {segment.label}
+              </button>
+              <span className="detail-breadcrumb-separator" aria-hidden="true">/</span>
+            </span>
+          )) : (
+            <span className="detail-breadcrumb-part">
+              <button className="detail-breadcrumb-link" type="button" onClick={onBack}>Notes</button>
+              <span className="detail-breadcrumb-separator" aria-hidden="true">/</span>
+            </span>
+          )}
+          <span className="detail-breadcrumb-current" title={document.title}>{document.title}</span>
+        </nav>
         <div className="save-status">{dirty ? "Unsaved changes" : "Saved"}</div>
         <button
           className={`text-button ${autosaveEnabled ? "active" : ""}`}

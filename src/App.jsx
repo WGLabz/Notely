@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { ArrowUp, FolderOpen, FolderPlus, Image as ImageIcon, LayoutGrid, NotebookPen, Rows3, Terminal, X } from "lucide-react";
+import { FolderOpen, FolderPlus, Image as ImageIcon, LayoutGrid, NotebookPen, Rows3, Terminal, X } from "lucide-react";
 import { DocumentList } from "./components/DocumentList";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
@@ -90,7 +90,6 @@ export default function App() {
     documentMenuAction,
     setDocumentMenuAction,
     landingFolderPath,
-    canNavigateUp,
     dirty,
     loadDocumentsData,
     openDocument,
@@ -108,7 +107,7 @@ export default function App() {
     handleRenameFromTopbar,
     handleOpenListItem,
     handleOpenReferencedDocument,
-    handleLandingNavigateUp,
+    handleLandingNavigateTo,
   } = useDocumentManager({ notify });
 
   const syncStateRef = useRef({ current: null, dirty: false, openDocument: null });
@@ -381,6 +380,59 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current, dirty, activeProject, activeTab]);
 
+  const folderCount = documents.filter((entry) => entry.entryType === "folder").length;
+  const noteCount = documents.length - folderCount;
+  const rootPath = activeProject?.rootPath || notesFolderPath || "";
+  const currentLandingPath = landingFolderPath || rootPath;
+  const normalizedRootPath = String(rootPath || "").replace(/[\\/]+$/, "");
+  const normalizedLandingPath = String(currentLandingPath || "").replace(/[\\/]+$/, "");
+  const breadcrumbSegments = [];
+  if (normalizedRootPath) {
+    breadcrumbSegments.push({
+      path: normalizedRootPath,
+      label: activeProject?.isRoot ? "Workspace" : (activeProject?.name || "Project"),
+    });
+
+    const rootForCompare = normalizedRootPath.replace(/\\/g, "/").toLowerCase();
+    const currentForCompare = normalizedLandingPath.replace(/\\/g, "/").toLowerCase();
+
+    if (currentForCompare.startsWith(rootForCompare)) {
+      const relativePath = normalizedLandingPath.slice(normalizedRootPath.length).replace(/^[\\/]+/, "");
+      const pathSeparator = normalizedRootPath.includes("\\") ? "\\" : "/";
+      let cursorPath = normalizedRootPath;
+      if (relativePath) {
+        relativePath.split(/[\\/]+/).filter(Boolean).forEach((segment) => {
+          cursorPath = `${cursorPath}${cursorPath.endsWith("/") || cursorPath.endsWith("\\") ? "" : pathSeparator}${segment}`;
+          breadcrumbSegments.push({ path: cursorPath, label: segment });
+        });
+      }
+    }
+  }
+
+  const noteBreadcrumbSegments = [];
+  if (current?.filePath && normalizedRootPath) {
+    noteBreadcrumbSegments.push({
+      path: normalizedRootPath,
+      label: activeProject?.isRoot ? "Workspace" : (activeProject?.name || "Project"),
+    });
+
+    const noteParentPath = String(current.filePath || "").replace(/[\\/][^\\/]+$/, "").replace(/[\\/]+$/, "");
+    const rootForCompare = normalizedRootPath.replace(/\\/g, "/").toLowerCase();
+    const noteParentForCompare = noteParentPath.replace(/\\/g, "/").toLowerCase();
+
+    if (noteParentForCompare.startsWith(rootForCompare)) {
+      const relativePath = noteParentPath.slice(normalizedRootPath.length).replace(/^[\\/]+/, "");
+      const pathSeparator = normalizedRootPath.includes("\\") ? "\\" : "/";
+      let cursorPath = normalizedRootPath;
+      if (relativePath) {
+        relativePath.split(/[\\/]+/).filter(Boolean).forEach((segment) => {
+          cursorPath = `${cursorPath}${cursorPath.endsWith("/") || cursorPath.endsWith("\\") ? "" : pathSeparator}${segment}`;
+          noteBreadcrumbSegments.push({ path: cursorPath, label: segment });
+        });
+      }
+    }
+  }
+
   return (
     <div className="app-shell">
       <div className="toast-stack" aria-live="polite" aria-atomic="true">
@@ -429,20 +481,60 @@ export default function App() {
       {!current ? (
         <>
           <header className="landing-header">
-            <div>
+            <div className="landing-header-main">
               <h1>{activeProject?.isRoot ? "All Notes" : `${activeProject?.name || "Folder"} Notes`}</h1>
-              <div className="landing-path" title={landingFolderPath || activeProject?.rootPath || notesFolderPath || "Path unavailable"}>
-                {landingFolderPath || activeProject?.rootPath || notesFolderPath || "Path unavailable"}
+              <div className="landing-stats" aria-label="Current folder metrics">
+                <span><em>Folders</em><strong>{folderCount}</strong></span>
+                <span><em>Notes</em><strong>{noteCount}</strong></span>
               </div>
+              {breadcrumbSegments.length ? (
+                <nav
+                  className="landing-path"
+                  aria-label="Folder path"
+                  title={landingFolderPath || activeProject?.rootPath || notesFolderPath || "Path unavailable"}
+                >
+                  {breadcrumbSegments.map((segment, index) => {
+                    const isCurrent = index === breadcrumbSegments.length - 1;
+                    return (
+                      <span className="landing-path-part" key={segment.path}>
+                        <button
+                          className={`landing-path-segment${isCurrent ? " active" : ""}`}
+                          type="button"
+                          onClick={() => handleLandingNavigateTo(segment.path)}
+                          disabled={isCurrent}
+                        >
+                          {segment.label}
+                        </button>
+                        {isCurrent ? null : <span className="landing-path-separator" aria-hidden="true">/</span>}
+                      </span>
+                    );
+                  })}
+                </nav>
+              ) : (
+                <div className="landing-path">Path unavailable</div>
+              )}
             </div>
-            <div className="landing-header-actions">
+            <div className="landing-header-controls">
+              <div className="document-view-toggle" role="group" aria-label="Landing notes view mode">
+                <button
+                  className={notesViewMode === "tile" ? "active" : ""}
+                  onClick={() => setNotesViewMode("tile")}
+                  type="button"
+                >
+                  <LayoutGrid size={14} />
+                  Tile
+                </button>
+                <button
+                  className={notesViewMode === "table" ? "active" : ""}
+                  onClick={() => setNotesViewMode("table")}
+                  type="button"
+                >
+                  <Rows3 size={14} />
+                  Table
+                </button>
+              </div>
+              <div className="landing-header-actions">
               <div className="landing-primary-actions">
-                {canNavigateUp ? (
-                  <button className="small-button" type="button" onClick={handleLandingNavigateUp}>
-                    <ArrowUp size={14} />
-                    Up
-                  </button>
-                ) : null}
                 <button className="small-button" type="button" onClick={() => setFolderDialogOpen(true)}>
                   <FolderPlus size={14} />
                   New Folder
@@ -460,25 +552,8 @@ export default function App() {
                   <ImageIcon size={14} />
                   Assets
                 </button>
-                <div className="document-view-toggle" role="group" aria-label="Landing notes view mode">
-                  <button
-                    className={notesViewMode === "tile" ? "active" : ""}
-                    onClick={() => setNotesViewMode("tile")}
-                    type="button"
-                  >
-                    <LayoutGrid size={14} />
-                    Tile
-                  </button>
-                  <button
-                    className={notesViewMode === "table" ? "active" : ""}
-                    onClick={() => setNotesViewMode("table")}
-                    type="button"
-                  >
-                    <Rows3 size={14} />
-                    Table
-                  </button>
-                </div>
               </div>
+            </div>
             </div>
           </header>
           <DocumentList
@@ -543,6 +618,12 @@ export default function App() {
             menuAction={documentMenuAction}
             onNotify={notify}
             onBack={handleGoHome}
+            breadcrumbs={noteBreadcrumbSegments}
+            onNavigateBreadcrumb={async (targetPath) => {
+              const didLeave = handleGoHome();
+              if (!didLeave) return;
+              await handleLandingNavigateTo(targetPath);
+            }}
             onOpenAI={handleOpenAIPalette}
             onOpenAIRequest={handleOpenAIPalette}
             onInlineAIRequest={handleInlineAIRequest}
