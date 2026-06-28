@@ -47,6 +47,18 @@ function renderHighlightedLabel(label, query) {
   });
 }
 
+function findEnabledFrom(commands, startIndex, direction, options = {}) {
+  const includeStart = Boolean(options.includeStart);
+  let index = includeStart ? startIndex : startIndex + direction;
+  while (index >= 0 && index < commands.length) {
+    if (!commands[index]?.disabled) {
+      return index;
+    }
+    index += direction;
+  }
+  return -1;
+}
+
 export function CommandPalette({ isOpen, commands = [], onClose, onRun }) {
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
@@ -81,13 +93,22 @@ export function CommandPalette({ isOpen, commands = [], onClose, onRun }) {
   useEffect(() => {
     if (!isOpen) return;
     setQuery("");
-    setActiveIndex(0);
+    const firstEnabled = findEnabledFrom(commands, 0, 1, { includeStart: true });
+    setActiveIndex(firstEnabled >= 0 ? firstEnabled : 0);
     requestAnimationFrame(() => inputRef.current?.focus());
-  }, [isOpen]);
+  }, [isOpen, commands]);
 
   useEffect(() => {
     if (!isOpen) return;
-    setActiveIndex((index) => Math.min(index, Math.max(filtered.length - 1, 0)));
+    setActiveIndex((index) => {
+      if (!filtered.length) return 0;
+      const clamped = Math.min(index, Math.max(filtered.length - 1, 0));
+      if (!filtered[clamped]?.disabled) return clamped;
+      const next = findEnabledFrom(filtered, clamped, 1, { includeStart: true });
+      if (next >= 0) return next;
+      const previous = findEnabledFrom(filtered, clamped, -1, { includeStart: true });
+      return previous >= 0 ? previous : clamped;
+    });
   }, [filtered, isOpen]);
 
   if (!isOpen) return null;
@@ -119,25 +140,60 @@ export function CommandPalette({ isOpen, commands = [], onClose, onRun }) {
 
               if (event.key === "ArrowDown") {
                 event.preventDefault();
-                setActiveIndex((index) => Math.min(index + 1, Math.max(filtered.length - 1, 0)));
+                setActiveIndex((index) => {
+                  const next = findEnabledFrom(filtered, index, 1);
+                  return next >= 0 ? next : index;
+                });
                 return;
               }
 
               if (event.key === "ArrowUp") {
                 event.preventDefault();
-                setActiveIndex((index) => Math.max(index - 1, 0));
+                setActiveIndex((index) => {
+                  const previous = findEnabledFrom(filtered, index, -1);
+                  return previous >= 0 ? previous : index;
+                });
+                return;
+              }
+
+              if (event.key === "PageDown") {
+                event.preventDefault();
+                const pageSize = 8;
+                setActiveIndex((index) => {
+                  const maxIndex = Math.max(filtered.length - 1, 0);
+                  const target = Math.min(index + pageSize, maxIndex);
+                  const next = findEnabledFrom(filtered, target, 1, { includeStart: true });
+                  if (next >= 0) return next;
+                  const fallback = findEnabledFrom(filtered, target, -1, { includeStart: true });
+                  return fallback >= 0 ? fallback : index;
+                });
+                return;
+              }
+
+              if (event.key === "PageUp") {
+                event.preventDefault();
+                const pageSize = 8;
+                setActiveIndex((index) => {
+                  const target = Math.max(index - pageSize, 0);
+                  const previous = findEnabledFrom(filtered, target, -1, { includeStart: true });
+                  if (previous >= 0) return previous;
+                  const fallback = findEnabledFrom(filtered, target, 1, { includeStart: true });
+                  return fallback >= 0 ? fallback : index;
+                });
                 return;
               }
 
               if (event.key === "Home") {
                 event.preventDefault();
-                setActiveIndex(0);
+                const firstEnabled = findEnabledFrom(filtered, 0, 1, { includeStart: true });
+                setActiveIndex(firstEnabled >= 0 ? firstEnabled : 0);
                 return;
               }
 
               if (event.key === "End") {
                 event.preventDefault();
-                setActiveIndex(Math.max(filtered.length - 1, 0));
+                const lastEnabled = findEnabledFrom(filtered, Math.max(filtered.length - 1, 0), -1, { includeStart: true });
+                setActiveIndex(lastEnabled >= 0 ? lastEnabled : Math.max(filtered.length - 1, 0));
                 return;
               }
 
