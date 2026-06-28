@@ -657,7 +657,7 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${showTerminal ? " terminal-open" : ""}`}>
       <div className="toast-stack" aria-live="polite" aria-atomic="true">
         {toasts.map((toast) => (
           <div className={`toast-item ${toast.type}`} key={toast.id}>
@@ -702,7 +702,7 @@ export default function App() {
         </div>
       ) : null}
       {!current ? (
-        <>
+        <div className="landing-shell">
           <header className="landing-header">
             <div className="landing-header-main">
               <h1>{activeProject?.isRoot ? "All Notes" : `${activeProject?.name || "Folder"} Notes`}</h1>
@@ -790,15 +790,17 @@ export default function App() {
               </div>
             </div>
           ) : (
-            <DocumentList
-              documents={documents}
-              onOpen={handleOpenListItem}
-              loading={loading}
-              viewMode={notesViewMode}
-              density={notesDensityMode}
-              favorites={favoriteNotes}
-              onToggleFavorite={handleToggleFavorite}
-            />
+            <div className="landing-notes-pane standalone">
+              <DocumentList
+                documents={documents}
+                onOpen={handleOpenListItem}
+                loading={loading}
+                viewMode={notesViewMode}
+                density={notesDensityMode}
+                favorites={favoriteNotes}
+                onToggleFavorite={handleToggleFavorite}
+              />
+            </div>
           )}
           {landingAssetsOpen ? (
             <div
@@ -838,7 +840,7 @@ export default function App() {
               </div>
             </div>
           ) : null}
-        </>
+        </div>
       ) : (
         <Suspense fallback={<div className="lazy-loading">Loading editor…</div>}>
           <DocumentDetail

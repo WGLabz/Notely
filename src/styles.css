@@ -37,6 +37,12 @@ button {
   overflow: hidden;
 }
 
+.app-shell.terminal-open {
+  /* Keep content clear of the fixed terminal dock when it is expanded. */
+  --terminal-dock-height: min(240px, 30vh);
+  padding-bottom: calc(var(--app-shell-pad-bottom) + var(--terminal-dock-height) + 16px);
+}
+
 .toast-stack {
   position: fixed;
   top: 14px;
