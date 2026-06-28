@@ -60,6 +60,18 @@ function resolvePaletteCommandId(commandId) {
   return rawId;
 }
 
+function normalizePaletteUsageMap(rawValue) {
+  if (!rawValue || typeof rawValue !== "object" || Array.isArray(rawValue)) return {};
+  return Object.fromEntries(
+    Object.entries(rawValue).filter(([key, value]) => typeof key === "string" && Number.isFinite(value) && value > 0)
+  );
+}
+
+function normalizePalettePins(rawValue) {
+  if (!Array.isArray(rawValue)) return [];
+  return rawValue.filter((item) => typeof item === "string");
+}
+
 export default function App() {
   const initialViewMode = (() => {
     try {
@@ -107,26 +119,9 @@ export default function App() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
   const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false);
-  const [paletteCommandUsage, setPaletteCommandUsage] = useState(() => {
-    try {
-      const stored = JSON.parse(window.localStorage.getItem("notes:palette-command-usage") || "{}");
-      if (!stored || typeof stored !== "object" || Array.isArray(stored)) return {};
-      return Object.fromEntries(
-        Object.entries(stored).filter(([key, value]) => typeof key === "string" && Number.isFinite(value) && value > 0)
-      );
-    } catch {
-      return {};
-    }
-  });
-  const [palettePinnedCommandKeys, setPalettePinnedCommandKeys] = useState(() => {
-    try {
-      const stored = JSON.parse(window.localStorage.getItem("notes:palette-pinned-commands") || "[]");
-      if (!Array.isArray(stored)) return [];
-      return stored.filter((item) => typeof item === "string");
-    } catch {
-      return [];
-    }
-  });
+  const [paletteCommandUsage, setPaletteCommandUsage] = useState({});
+  const [palettePinnedCommandKeys, setPalettePinnedCommandKeys] = useState([]);
+  const [palettePrefsScope, setPalettePrefsScope] = useState("");
 
   const {
     documents,
@@ -302,20 +297,49 @@ export default function App() {
   }, [favoriteNotes]);
 
   useEffect(() => {
+    const rawWorkspaceId = activeProject?.slug || activeProject?.rootPath || notesFolderPath || "default";
+    const workspaceId = encodeURIComponent(String(rawWorkspaceId));
+    const usageStorageKey = `notes:palette-command-usage:${workspaceId}`;
+    const pinsStorageKey = `notes:palette-pinned-commands:${workspaceId}`;
+
     try {
-      window.localStorage.setItem("notes:palette-command-usage", JSON.stringify(paletteCommandUsage));
+      const scopedUsageRaw = window.localStorage.getItem(usageStorageKey);
+      const fallbackUsageRaw = window.localStorage.getItem("notes:palette-command-usage");
+      const usage = normalizePaletteUsageMap(JSON.parse(scopedUsageRaw ?? fallbackUsageRaw ?? "{}"));
+      setPaletteCommandUsage(usage);
     } catch {
-      // Ignore storage failures.
+      setPaletteCommandUsage({});
     }
-  }, [paletteCommandUsage]);
+
+    try {
+      const scopedPinsRaw = window.localStorage.getItem(pinsStorageKey);
+      const fallbackPinsRaw = window.localStorage.getItem("notes:palette-pinned-commands");
+      const pins = normalizePalettePins(JSON.parse(scopedPinsRaw ?? fallbackPinsRaw ?? "[]"));
+      setPalettePinnedCommandKeys(pins);
+    } catch {
+      setPalettePinnedCommandKeys([]);
+    }
+
+    setPalettePrefsScope(workspaceId);
+  }, [activeProject, notesFolderPath]);
 
   useEffect(() => {
+    if (!palettePrefsScope) return;
     try {
-      window.localStorage.setItem("notes:palette-pinned-commands", JSON.stringify(palettePinnedCommandKeys));
+      window.localStorage.setItem(`notes:palette-command-usage:${palettePrefsScope}`, JSON.stringify(paletteCommandUsage));
     } catch {
       // Ignore storage failures.
     }
-  }, [palettePinnedCommandKeys]);
+  }, [paletteCommandUsage, palettePrefsScope]);
+
+  useEffect(() => {
+    if (!palettePrefsScope) return;
+    try {
+      window.localStorage.setItem(`notes:palette-pinned-commands:${palettePrefsScope}`, JSON.stringify(palettePinnedCommandKeys));
+    } catch {
+      // Ignore storage failures.
+    }
+  }, [palettePinnedCommandKeys, palettePrefsScope]);
 
   useEffect(() => {
     function onGlobalKeyDown(event) {
@@ -687,6 +711,14 @@ export default function App() {
       priority: 200,
       aliases: "reset pinned commands",
     },
+    {
+      id: "reset-palette-personalization",
+      label: "Reset Command Palette Personalization",
+      group: "Help",
+      disabled: !hasPaletteUsage && !hasPinnedCommands,
+      priority: 220,
+      aliases: "reset command palette personalization frequent pinned",
+    },
   ];
 
   const paletteCommandsWithUsage = paletteCommandsBase.map((command) => {
@@ -755,7 +787,12 @@ export default function App() {
 
     const resolvedCommandId = resolvePaletteCommandId(commandId);
 
-    if (resolvedCommandId && resolvedCommandId !== "clear-command-usage") {
+    if (
+      resolvedCommandId
+      && resolvedCommandId !== "clear-command-usage"
+      && resolvedCommandId !== "clear-pinned-commands"
+      && resolvedCommandId !== "reset-palette-personalization"
+    ) {
       const usageKey = getPaletteUsageKey(resolvedCommandId);
       setPaletteCommandUsage((currentUsage) => ({
         ...currentUsage,
@@ -772,6 +809,13 @@ export default function App() {
     if (resolvedCommandId === "clear-pinned-commands") {
       setPalettePinnedCommandKeys([]);
       notify("Pinned commands cleared.", "success");
+      return;
+    }
+
+    if (resolvedCommandId === "reset-palette-personalization") {
+      setPaletteCommandUsage({});
+      setPalettePinnedCommandKeys([]);
+      notify("Command palette personalization reset.", "success");
       return;
     }
 
