@@ -1530,19 +1530,6 @@ button {
   font-size: 12px;
 }
 
-.landing-header-controls {
-  width: min(420px, 42vw);
-  min-width: 280px;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 10px;
-  padding: 12px;
-  border-radius: 12px;
-  border: 1px solid #d5e0dc;
-  background: rgba(255, 255, 255, 0.92);
-}
-
 .landing-controls-label {
   margin: 0;
   color: #557078;
@@ -1550,30 +1537,6 @@ button {
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-}
-
-.landing-header-actions {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  justify-content: flex-end;
-  gap: 10px;
-  width: 100%;
-}
-
-.landing-primary-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  flex-wrap: wrap;
-  width: 100%;
-}
-
-.landing-primary-actions .small-button {
-  min-height: 30px;
-  padding: 0 12px;
-  border-radius: 7px;
 }
 
 .dashboard-panels {
@@ -1826,22 +1789,6 @@ button {
   .landing-header {
     align-items: flex-start;
     flex-direction: column;
-  }
-
-  .landing-header-controls {
-    width: 100%;
-    min-width: 0;
-  }
-
-  .landing-header-actions {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .landing-primary-actions {
-    justify-content: flex-start;
-    overflow-x: visible;
-    padding-bottom: 0;
   }
 
   .dashboard-panels {

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { FolderOpen, FolderPlus, Image as ImageIcon, NotebookPen, Search, Terminal, X } from "lucide-react";
+import { FolderOpen, NotebookPen, Terminal, X } from "lucide-react";
 import { DocumentList } from "./components/DocumentList";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { CommandPalette } from "./components/CommandPalette";
@@ -592,6 +592,11 @@ export default function App() {
 
     if (action === "search") {
       setGlobalSearchOpen(true);
+      return;
+    }
+
+    if (action === "assets") {
+      setLandingAssetsOpen(true);
     }
   }
 
@@ -736,33 +741,6 @@ export default function App() {
               ) : (
                 <div className="landing-path">Path unavailable</div>
               )}
-            </div>
-            <div className="landing-header-controls">
-              <div className="landing-header-actions">
-              <div className="landing-primary-actions">
-                <button className="small-button" type="button" onClick={() => setGlobalSearchOpen(true)}>
-                  <Search size={14} />
-                  Search
-                </button>
-                <button className="small-button" type="button" onClick={() => setFolderDialogOpen(true)}>
-                  <FolderPlus size={14} />
-                  New Folder
-                </button>
-                <button className="small-button" type="button" onClick={() => setNoteDialogOpen(true)}>
-                  <NotebookPen size={14} />
-                  New Note
-                </button>
-                <button
-                  className="small-button"
-                  type="button"
-                  onClick={() => setLandingAssetsOpen(true)}
-                  title="Browse assets in this folder"
-                >
-                  <ImageIcon size={14} />
-                  Assets
-                </button>
-              </div>
-            </div>
             </div>
           </header>
           {isRootLandingView ? (

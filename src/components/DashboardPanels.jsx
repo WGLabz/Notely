@@ -1,4 +1,4 @@
-import { ArrowRight, Clock3, FilePlus2, FolderPlus, Search } from "lucide-react";
+import { ArrowRight, Clock3, FilePlus2, FolderPlus, Image as ImageIcon, Search } from "lucide-react";
 import { formatDate } from "../utils/dateUtils";
 
 function getRecentNotes(documents) {
@@ -62,6 +62,10 @@ export function DashboardPanels({ documents, loading, onOpen, onAction, favorite
             <button type="button" onClick={() => onAction("search")}>
               <Search size={14} />
               Search
+            </button>
+            <button type="button" onClick={() => onAction("assets")}>
+              <ImageIcon size={14} />
+              Assets
             </button>
           </div>
         </article>
@@ -151,6 +155,10 @@ export function DashboardPanels({ documents, loading, onOpen, onAction, favorite
             <button type="button" onClick={() => onAction("search")}>
               <Search size={14} />
               Search
+            </button>
+            <button type="button" onClick={() => onAction("assets")}>
+              <ImageIcon size={14} />
+              Assets
             </button>
           </div>
         </article>
