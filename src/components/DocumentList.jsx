@@ -249,7 +249,7 @@ export function DocumentList({
                 >
                   <Trash2 size={12} />
                 </span>
-              ) : null}
+              )}
             </span>
             <span className="document-meta">
               {doc.entryType === "folder"
