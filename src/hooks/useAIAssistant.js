@@ -73,6 +73,7 @@ export function useAIAssistant({
 
   async function handleAIEmbeddings() {
     setAiLoading(true);
+    notify("Generating embeddings...", "info");
     try {
       const result = await aiGenerateEmbeddings(true);
       if (result?.success) {
@@ -89,6 +90,7 @@ export function useAIAssistant({
 
   async function handleAIGraph() {
     setAiLoading(true);
+    notify("Building relationship graph...", "info");
     try {
       const result = await aiBuildGraph();
       if (result?.success) {
@@ -105,6 +107,7 @@ export function useAIAssistant({
 
   async function handleAIPatterns() {
     setAiLoading(true);
+    notify("Detecting patterns...", "info");
     try {
       const result = await aiDetectPatterns();
       if (result?.success) {
@@ -121,6 +124,7 @@ export function useAIAssistant({
 
   async function handleAIClearCache() {
     setAiLoading(true);
+    notify("Clearing AI cache...", "info");
     try {
       const result = await aiClearData();
       if (result?.success) {
