@@ -445,7 +445,7 @@ export function WorkspaceGraphPanel({ onClose, onOpenDocument }) {
             {noteCount} note{noteCount !== 1 ? "s" : ""} · {mediaCount} media · {edgeCount} link{edgeCount !== 1 ? "s" : ""} · {folders.length} folder{folders.length !== 1 ? "s" : ""}{clusterCount > 0 ? ` · ${clusterCount} clusters` : ""}{embeddingStaleness ? ` · ${embeddingStaleness.message}` : ""}
           </span>
         )}
-        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+        <div className="workspace-graph-header-actions">
           {embeddingsAvailable && !loading && (
             <button
               className="small-button"
@@ -472,7 +472,7 @@ export function WorkspaceGraphPanel({ onClose, onOpenDocument }) {
         <div className="workspace-graph-toolbar">
           {mediaCount > 0 && (
             <button
-              className="small-button"
+              className={`small-button${showMedia ? " active" : ""}`}
               onClick={() => setShowMedia(!showMedia)}
               title={showMedia ? "Hide media files" : "Show media files"}
             >

@@ -19,8 +19,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  padding: 14px 18px;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px 18px;
   border-bottom: 1px solid #dbe6e1;
   background: linear-gradient(135deg, #17343a 0%, #2f5d62 100%);
   color: #f4fbf8;
@@ -40,11 +41,22 @@
 .workspace-graph-meta {
   font-size: 12px;
   color: rgba(244, 251, 248, 0.72);
-  flex: 1 1 auto;
+  flex: 1 1 100%;
   font-weight: 500;
   letter-spacing: 0.3px;
   min-width: 0;
   word-break: break-word;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  order: 3;
+}
+
+.workspace-graph-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .workspace-graph-close {
@@ -71,12 +83,13 @@
 .workspace-graph-toolbar {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 12px 18px;
+  gap: 12px;
+  padding: 10px 18px;
   border-bottom: 1px solid #e8ebe8;
   background: #f9faf9;
   flex-wrap: wrap;
   flex-shrink: 0;
+  overflow: visible;
 }
 
 .workspace-graph-filter-input {
@@ -86,7 +99,9 @@
   font-size: 12px;
   background: #ffffff;
   color: #172326;
-  width: 220px;
+  flex: 1 1 200px;
+  min-width: 200px;
+  max-width: 400px;
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
   font-weight: 500;
@@ -213,6 +228,8 @@
   border: 2px dashed #999 !important;
   font-style: italic;
   opacity: 0.8;
+  color: #2a3a3e;
+  text-shadow: none;
 }
 
 .wgp-node:hover {
@@ -301,7 +318,7 @@
 }
 
 /* ── Header buttons ── */
-.small-button {
+.workspace-graph-header .small-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -320,15 +337,123 @@
   text-transform: uppercase;
 }
 
-.small-button:hover:not(:disabled) {
+.workspace-graph-header .small-button:hover:not(:disabled) {
   background: rgba(244, 251, 248, 0.22);
   border-color: rgba(244, 251, 248, 0.4);
   transform: scale(1.04);
 }
 
-.small-button:disabled {
+.workspace-graph-header .small-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.workspace-graph-toolbar .small-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid #cfd8d4;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #17343a;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.workspace-graph-toolbar .small-button:hover:not(:disabled) {
+  border-color: #2f5d62;
+  background: #eef5f2;
+}
+
+.workspace-graph-toolbar .small-button.active {
+  border-color: #1a3a3e;
+  background: #1a3a3e;
+  color: #f4fbf8;
+}
+
+.workspace-graph-toolbar .small-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 960px) {
+  .workspace-graph-overlay {
+    bottom: 0;
+  }
+
+  .workspace-graph-header {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .workspace-graph-header h2 {
+    font-size: 13px;
+  }
+
+  .workspace-graph-meta {
+    font-size: 11px;
+    line-height: 1.35;
+  }
+
+  .workspace-graph-toolbar {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .workspace-graph-filter-input {
+    flex: 1 1 100%;
+    min-width: 0;
+    max-width: none;
+    order: 2;
+  }
+
+  .workspace-graph-legend {
+    margin-left: 0;
+    flex: 1 1 100%;
+    order: 3;
+    max-height: 64px;
+    overflow-y: auto;
+    padding-right: 2px;
+  }
+}
+
+@media (max-width: 640px) {
+  .workspace-graph-header {
+    align-items: flex-start;
+  }
+
+  .workspace-graph-header-actions {
+    margin-left: auto;
+  }
+
+  .workspace-graph-close {
+    width: 30px;
+    height: 30px;
+  }
+
+  .workspace-graph-toolbar .small-button {
+    min-height: 30px;
+    padding: 0 10px;
+    font-size: 10px;
+    letter-spacing: 0.03em;
+  }
+
+  .workspace-graph-legend-item {
+    font-size: 10px;
+    gap: 5px;
+  }
+
+  .workspace-graph-legend-dot {
+    width: 10px;
+    height: 10px;
+  }
 }
 
 /* ── Embedding status badge ── */

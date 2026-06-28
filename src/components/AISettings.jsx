@@ -11,6 +11,7 @@ import {
   aiSetPreferences,
   aiSetProviderModel,
   aiTestConnection,
+  getSemanticGraph,
 } from '../services/electronService';
 
 const providers = [
@@ -84,6 +85,19 @@ const defaultPreferences = {
   temperature: 0.7
 };
 
+function normalizeProviderModels(models) {
+  return (models || []).map((model) => {
+    if (typeof model === 'string') {
+      return { id: model, label: model, note: '' };
+    }
+    return {
+      id: model?.id || '',
+      label: model?.label || model?.id || '',
+      note: model?.note || '',
+    };
+  }).filter((model) => model.id);
+}
+
 const AISettings = ({ isOpen, onClose }) => {
   const [apiKey, setApiKey] = useState('');
   const [selectedProvider, setSelectedProvider] = useState('gemini');
@@ -132,9 +146,11 @@ const AISettings = ({ isOpen, onClose }) => {
 
       const modelResponse = await aiGetProviderModel(selectedProvider);
       const providerEntry = providers.find((p) => p.id === selectedProvider);
+      const providerModels = normalizeProviderModels(providerEntry?.models);
       setSelectedModel(
         (modelResponse?.success && modelResponse?.data?.model) ||
         providerEntry?.defaultModel ||
+        providerModels[0]?.id ||
         ''
       );
 
@@ -157,6 +173,16 @@ const AISettings = ({ isOpen, onClose }) => {
       setStatus(`Error loading settings: ${error.message}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadEmbeddingStaleness = async () => {
+    try {
+      const data = await getSemanticGraph();
+      setEmbeddingStaleness(data?.staleness || null);
+    } catch {
+      // Semantic graph can be unavailable when embeddings are not configured.
+      setEmbeddingStaleness(null);
     }
   };
 
@@ -422,7 +448,8 @@ const AISettings = ({ isOpen, onClose }) => {
                 />
                 {(() => {
                   const providerEntry = providers.find((p) => p.id === selectedProvider);
-                  if (!providerEntry?.models?.length) return null;
+                  const providerModels = normalizeProviderModels(providerEntry?.models);
+                  if (!providerModels.length) return null;
                   return (
                     <select
                       id="provider-model"
@@ -435,9 +462,9 @@ const AISettings = ({ isOpen, onClose }) => {
                       }}
                       disabled={loading}
                     >
-                      {providerEntry.models.map((m) => (
+                      {providerModels.map((m) => (
                         <option key={m.id} value={m.id}>
-                          {m.label} — {m.note}
+                          {m.note ? `${m.label} — ${m.note}` : m.label}
                         </option>
                       ))}
                     </select>
