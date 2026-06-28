@@ -5,6 +5,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { CommandPalette } from "./components/CommandPalette";
 import { GlobalSearchOverlay } from "./components/GlobalSearchOverlay";
 import { KeyboardShortcutsModal } from "./components/KeyboardShortcutsModal";
+import { DashboardPanels } from "./components/DashboardPanels";
 
 // Heavy / rarely-used surfaces are code-split so they don't bloat startup.
 const EmbeddedTerminal = lazy(() =>
@@ -559,6 +560,22 @@ export default function App() {
       await handleOpenListItem(result.entry);
     }
   }
+
+  function handleDashboardAction(action) {
+    if (action === "new-note") {
+      setNoteDialogOpen(true);
+      return;
+    }
+
+    if (action === "new-folder") {
+      setFolderDialogOpen(true);
+      return;
+    }
+
+    if (action === "search") {
+      setGlobalSearchOpen(true);
+    }
+  }
   const rootPath = activeProject?.rootPath || notesFolderPath || "";
   const currentLandingPath = landingFolderPath || rootPath;
   const normalizedRootPath = String(rootPath || "").replace(/[\\/]+$/, "");
@@ -719,6 +736,12 @@ export default function App() {
             </div>
             </div>
           </header>
+          <DashboardPanels
+            documents={documents}
+            loading={loading}
+            onOpen={handleOpenListItem}
+            onAction={handleDashboardAction}
+          />
           <DocumentList
             documents={documents}
             onOpen={handleOpenListItem}
