@@ -40,14 +40,17 @@ function clusterBgColor(idx) {
 
 // ── Custom node component ─────────────────────────────────────────────────────
 function GraphNode({ data }) {
-  const { label, color, selected, dimmed } = data;
+  const { label, color, selected, dimmed, nodeType } = data;
+  const isMedia = nodeType === "media";
+  
   return (
     <div
-      className={`wgp-node${selected ? " selected" : ""}${dimmed ? " dimmed" : ""}`}
-      style={{ background: color }}
-      title={label}
+      className={`wgp-node${selected ? " selected" : ""}${dimmed ? " dimmed" : ""}${isMedia ? " media-node" : ""}`}
+      style={{ background: isMedia ? "rgba(200, 200, 200, 0.1)" : color, border: isMedia ? "1px dashed #999" : undefined }}
+      title={isMedia ? `Media: ${label}` : label}
     >
       <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
+      {isMedia && <span style={{ marginRight: "4px", fontSize: "0.65em" }}>📎</span>}
       {label}
       <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
     </div>
@@ -132,6 +135,7 @@ function computeLayout(rawNodes, folderColorMap) {
           filePath: node.filePath,
           folder: node.folder,
           relativePath: node.relativePath,
+          nodeType: node.nodeType || "note",
           selected: false,
           dimmed: false,
         },
@@ -260,7 +264,10 @@ function GraphCanvas({ rawData, filter, onOpenDocument, clusters }) {
   }, []);
 
   const handleNodeDoubleClick = useCallback((_, node) => {
-    if (node.data?.filePath) onOpenDocument(node.data.filePath);
+    // Only open note files, not media
+    if (node.data?.filePath && node.data?.nodeType !== 'media') {
+      onOpenDocument(node.data.filePath);
+    }
   }, [onOpenDocument]);
 
   const handlePaneClick = useCallback(() => setSelectedId(null), []);
@@ -402,7 +409,7 @@ export function WorkspaceGraphPanel({ onClose, onOpenDocument }) {
 
   const folders = useMemo(() => {
     if (!rawData?.nodes) return [];
-    const folderSet = new Set(rawData.nodes.map((n) => n.folder || "."));
+    const folderSet = new Set(rawData.nodes.filter(n => n.nodeType !== 'media').map((n) => n.folder || "."));
     return Array.from(folderSet).sort();
   }, [rawData]);
 
@@ -412,7 +419,8 @@ export function WorkspaceGraphPanel({ onClose, onOpenDocument }) {
     return map;
   }, [folders]);
 
-  const nodeCount = rawData?.nodes?.length ?? 0;
+  const noteCount = rawData?.nodes?.filter(n => n.nodeType !== 'media')?.length ?? 0;
+  const mediaCount = rawData?.nodes?.filter(n => n.nodeType === 'media')?.length ?? 0;
   const edgeCount = rawData?.edges?.length ?? 0;
   const clusterCount = clusters?.filter((c) => c.members && c.members.length > 1).length ?? 0;
 
@@ -423,7 +431,7 @@ export function WorkspaceGraphPanel({ onClose, onOpenDocument }) {
         <h2>Workspace Graph</h2>
         {!loading && !error && (
           <span className="workspace-graph-meta">
-            {nodeCount} notes &nbsp;·&nbsp; {edgeCount} links &nbsp;·&nbsp; {folders.length} folder{folders.length !== 1 ? "s" : ""}{clusterCount > 0 ? ` &nbsp;·&nbsp; ${clusterCount} clusters` : ""}{embeddingStaleness ? ` &nbsp;·&nbsp; ${embeddingStaleness.message}` : ""}
+            {noteCount} note{noteCount !== 1 ? "s" : ""} &nbsp;·&nbsp; {mediaCount} media &nbsp;·&nbsp; {edgeCount} link{edgeCount !== 1 ? "s" : ""} &nbsp;·&nbsp; {folders.length} folder{folders.length !== 1 ? "s" : ""}{clusterCount > 0 ? ` &nbsp;·&nbsp; ${clusterCount} clusters` : ""}{embeddingStaleness ? ` &nbsp;·&nbsp; ${embeddingStaleness.message}` : ""}
           </span>
         )}
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
@@ -467,6 +475,12 @@ export function WorkspaceGraphPanel({ onClose, onOpenDocument }) {
                   {f === "." ? "root" : f}
                 </span>
               ))}
+              {mediaCount > 0 && (
+                <span className="workspace-graph-legend-item">
+                  <span className="workspace-graph-legend-dot" style={{ background: "rgba(200,200,200,0.3)", border: "1px dashed #999" }} />
+                  media
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -483,10 +497,10 @@ export function WorkspaceGraphPanel({ onClose, onOpenDocument }) {
         {!loading && error && (
           <div className="workspace-graph-status">{error}</div>
         )}
-        {!loading && !error && nodeCount === 0 && (
-          <div className="workspace-graph-status">No markdown notes found in the active workspace.</div>
+        {!loading && !error && noteCount === 0 && (
+          <div className="workspace-graph-status">No markdown notes or media found in the active workspace.</div>
         )}
-        {!loading && !error && nodeCount > 0 && (
+        {!loading && !error && noteCount > 0 && (
           <ReactFlowProvider>
             <GraphCanvas rawData={rawData} filter={filter} onOpenDocument={onOpenDocument} clusters={clusters} />
           </ReactFlowProvider>

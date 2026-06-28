@@ -30,6 +30,21 @@ function extractMarkdownLinks(content) {
   return results;
 }
 
+// Extracts image references from markdown content (both inline and linked).
+function extractMediaLinks(content) {
+  const results = [];
+  // Inline images: ![alt](path/to/image.ext)
+  const imgPattern = /!\[[^\]]*\]\(([^)#?\s]+)\)/gi;
+  let match;
+  while ((match = imgPattern.exec(content)) !== null) {
+    const raw = String(match[1] || "").trim();
+    if (raw && !raw.startsWith("http://") && !raw.startsWith("https://")) {
+      results.push(raw);
+    }
+  }
+  return results;
+}
+
 function walkMarkdownFiles(fs, rootDir) {
   const files = [];
   const visit = (dir) => {
@@ -56,12 +71,48 @@ function walkMarkdownFiles(fs, rootDir) {
   return files;
 }
 
+// Common media file extensions
+const MEDIA_EXTENSIONS = new Set([
+  ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".bmp", ".ico",
+  ".mp4", ".webm", ".mov", ".mp3", ".wav", ".m4a", ".pdf"
+]);
+
+function walkMediaFiles(fs, rootDir) {
+  const files = [];
+  const visit = (dir) => {
+    let entries;
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const fullPath = require("path").join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (!DEFAULT_EXCLUDE_DIRS.has(entry.name) && !entry.name.startsWith(".")) {
+          visit(fullPath);
+        }
+        continue;
+      }
+      if (entry.isFile()) {
+        const ext = require("path").extname(entry.name).toLowerCase();
+        if (MEDIA_EXTENSIONS.has(ext)) {
+          files.push(fullPath);
+        }
+      }
+    }
+  };
+  visit(rootDir);
+  return files;
+}
+
 function normalizePosix(p) {
   return p.replace(/\\/g, "/");
 }
 
 function buildWorkspaceGraph(fs, path, workspaceRoot) {
-  const files = walkMarkdownFiles(fs, workspaceRoot);
+  const mdFiles = walkMarkdownFiles(fs, workspaceRoot);
+  const mediaFiles = walkMediaFiles(fs, workspaceRoot);
   const nodes = [];
   const edges = [];
   const edgeSet = new Set();
@@ -69,14 +120,16 @@ function buildWorkspaceGraph(fs, path, workspaceRoot) {
   // Build a lookup: posix relative path (no extension) → node id, and absolute path → node id
   const relIdMap = new Map(); // "folder/name" (no .md) → id
   const absIdMap = new Map(); // absolute lowercase path → id
+  const mediaIdMap = new Map(); // media absolute lowercase path → id
 
-  for (const filePath of files) {
+  // Add markdown note nodes
+  for (const filePath of mdFiles) {
     const rel = normalizePosix(path.relative(workspaceRoot, filePath));
     const id = rel;
     const label = path.basename(filePath, ".md");
     const folder = normalizePosix(path.relative(workspaceRoot, path.dirname(filePath))) || ".";
 
-    nodes.push({ id, label, filePath, folder, relativePath: rel });
+    nodes.push({ id, label, filePath, folder, relativePath: rel, nodeType: "note" });
 
     // Map without extension for wiki link resolution
     const relNoExt = rel.replace(/\.md$/i, "");
@@ -88,8 +141,20 @@ function buildWorkspaceGraph(fs, path, workspaceRoot) {
     relIdMap.set(label.toLowerCase(), id);
   }
 
-  // Build edges from link extraction
-  for (const node of nodes) {
+  // Add media nodes
+  for (const filePath of mediaFiles) {
+    const rel = normalizePosix(path.relative(workspaceRoot, filePath));
+    const id = `media::${rel}`;
+    const label = path.basename(filePath);
+    const folder = normalizePosix(path.relative(workspaceRoot, path.dirname(filePath))) || ".";
+
+    nodes.push({ id, label, filePath, folder, relativePath: rel, nodeType: "media" });
+    mediaIdMap.set(filePath.toLowerCase(), id);
+  }
+
+  // Build edges from markdown notes to other notes and to media
+  for (const node of mdFiles.map(f => nodes.find(n => n.filePath === f && n.nodeType === "note"))) {
+    if (!node) continue;
     let content;
     try {
       content = fs.readFileSync(node.filePath, "utf8");
@@ -97,16 +162,15 @@ function buildWorkspaceGraph(fs, path, workspaceRoot) {
       continue;
     }
 
+    const sourceFolder = path.dirname(node.filePath);
+
+    // Note-to-note links
     const wikiLinks = extractWikiLinks(content);
     const mdLinks = extractMarkdownLinks(content);
 
-    const sourceFolder = path.dirname(node.filePath);
-
     for (const link of [...wikiLinks, ...mdLinks]) {
-      // Try resolving as relative markdown link first
       let targetId = null;
 
-      // Resolve relative to source file's folder
       const resolvedAbs = path.resolve(sourceFolder, link.replace(/\.md$/i, "") + ".md");
       const resolvedAbsRaw = path.resolve(sourceFolder, link.endsWith(".md") ? link : link + ".md");
 
@@ -115,7 +179,6 @@ function buildWorkspaceGraph(fs, path, workspaceRoot) {
       } else if (absIdMap.has(resolvedAbsRaw.toLowerCase())) {
         targetId = absIdMap.get(resolvedAbsRaw.toLowerCase());
       } else {
-        // Fall back to wiki-style: match by name or relative posix path
         const normalizedLink = normalizePosix(link).replace(/\.md$/i, "").toLowerCase();
         if (relIdMap.has(normalizedLink)) {
           targetId = relIdMap.get(normalizedLink);
@@ -135,9 +198,42 @@ function buildWorkspaceGraph(fs, path, workspaceRoot) {
         });
       }
     }
+
+    // Note-to-media links
+    const mediaLinks = extractMediaLinks(content);
+    for (const link of mediaLinks) {
+      let targetId = null;
+
+      // Try resolving as absolute or relative path
+      const resolvedAbs = path.resolve(sourceFolder, link);
+      if (mediaIdMap.has(resolvedAbs.toLowerCase())) {
+        targetId = mediaIdMap.get(resolvedAbs.toLowerCase());
+      } else {
+        // Try to find media by filename if exact path doesn't match
+        for (const [mediaPath, mediaId] of mediaIdMap) {
+          if (mediaPath.toLowerCase().endsWith(link.toLowerCase())) {
+            targetId = mediaId;
+            break;
+          }
+        }
+      }
+
+      if (!targetId) continue;
+
+      const edgeKey = [node.id, targetId].sort().join("|||");
+      if (!edgeSet.has(edgeKey)) {
+        edgeSet.add(edgeKey);
+        edges.push({
+          id: edgeKey,
+          source: node.id,
+          target: targetId,
+          type: "default",
+        });
+      }
+    }
   }
 
-  return { nodes, edges, workspaceRoot, totalFiles: files.length };
+  return { nodes, edges, workspaceRoot, totalFiles: mdFiles.length, totalMedia: mediaFiles.length };
 }
 
 module.exports = { buildWorkspaceGraph };

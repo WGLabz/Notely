@@ -160,6 +160,13 @@
   line-height: 1.3;
 }
 
+.wgp-node.media-node {
+  background: rgba(160, 160, 160, 0.08) !important;
+  border: 1px dashed #999 !important;
+  font-style: italic;
+  opacity: 0.85;
+}
+
 .wgp-node:hover {
   box-shadow: 0 3px 10px rgba(0,0,0,0.18);
 }
