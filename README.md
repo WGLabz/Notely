@@ -258,6 +258,28 @@ Images use a shared editor popup across preview and media views.
 - Preserve annotation metadata when images are replaced, rename annotation metadata when images are renamed, and remove annotation metadata when images are deleted.
 - Render annotations in markdown preview, media preview, website preview, and PDF export output.
 
+### Image viewing and zoom controls
+
+The image preview shows full HD (original) image resolution by default.
+
+- **Zoom controls**: Use toolbar buttons to zoom in/out or reset to 100% (zoom range 50% to 300%).
+- **Keyboard shortcuts**: Press `+` to zoom in, `-` to zoom out, or `1`/`0` to reset zoom.
+- **Mouse wheel zoom**: Scroll up to zoom in, down to zoom out for quick magnification.
+- **Drag to pan**: Click and drag when zoomed to move the image around (shows grab cursor).
+- **Double-click reset**: Double-click to reset zoom and pan position to default.
+- **Zoom indicator**: Visual zoom level display (e.g., "150%") in the controls bar.
+- **Smooth transitions**: Transitions with smooth easing for responsive feel during zoom and pan interactions.
+
+### Image backup and restoration
+
+Notely preserves original images before edits and allows restoring them at any time.
+
+- **Original backup**: When you first edit an image (crop, rotate, annotate), the original is automatically backed up to `.notes-app/image-originals/`.
+- **Original indicator**: Images with backups display an "Original" badge in the media library and preview.
+- **Restore original**: Click the "Restore Original" button in the image editor to revert to the backed-up version.
+- **Cleanup**: Original backups are automatically removed when the image is deleted, keeping the workspace tidy.
+- **Rename support**: Original backups follow the image when it is renamed, maintaining the backup relationship.
+
 ### PDF and website export
 
 PDF and website output are generated from the same workspace-aware rendering pipeline used by the app.
