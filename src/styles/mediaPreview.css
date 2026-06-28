@@ -112,6 +112,23 @@
   flex-shrink: 0;
 }
 
+.image-zoom-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 8px;
+  border-right: 1px solid #d0dbd6;
+}
+
+.zoom-level {
+  font-size: 12px;
+  font-weight: 600;
+  color: #45666b;
+  min-width: 42px;
+  text-align: center;
+}
+
 .image-quality-selector {
   display: flex;
   align-items: center;
@@ -212,6 +229,7 @@
   background-size: 20px 20px;
   background-position: 0 0, 10px 10px;
   background-color: #fafbfb;
+  user-select: none;
 }
 
 .media-preview-image-frame {
@@ -219,6 +237,7 @@
   display: flex;
   max-width: 100%;
   max-height: 100%;
+  transition: transform 0.15s ease-out;
 }
 
 .media-preview-image-container img {

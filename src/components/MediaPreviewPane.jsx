@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { X, Volume2, VolumeX, Pencil, Download, RotateCcw, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, Volume2, VolumeX, Pencil, Download, RotateCcw, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 import PdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?worker";
 import { ImageCropModal } from "./ImageCropModal";
@@ -60,7 +60,12 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
   const [originalStatus, setOriginalStatus] = useState({ hasOriginal: false });
   const [restoringOriginal, setRestoringOriginal] = useState(false);
   const [contextMenu, setContextMenu] = useState(null);
+  const [imageZoom, setImageZoom] = useState(1);
+  const [imagePan, setImagePan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState(null);
   const imageRef = useRef(null);
+  const containerRef = useRef(null);
   const menuRef = useRef(null);
   const videoRef = useRef(null);
   const audioRef = useRef(null);
@@ -88,7 +93,7 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
 
       try {
         const result = await readImage(basePath, mediaPath, {
-          thumbnail: mediaType === "image" && !showOriginalImages,
+          thumbnail: false,
         });
         if (!cancelled) setResolvedPath(result || mediaPath);
       } catch {
@@ -116,6 +121,9 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
     setOriginalStatus({ hasOriginal: false });
     setRestoringOriginal(false);
     setContextMenu(null);
+    setImageZoom(1);
+    setImagePan({ x: 0, y: 0 });
+    setIsDragging(false);
 
     if (!resolvedPath) return;
 
@@ -193,6 +201,19 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleZoomIn = () => {
+    setImageZoom((prev) => Math.min(prev + 0.25, 3));
+  };
+
+  const handleZoomOut = () => {
+    setImageZoom((prev) => Math.max(prev - 0.25, 0.5));
+  };
+
+  const handleZoomReset = () => {
+    setImageZoom(1);
+    setImagePan({ x: 0, y: 0 });
   };
 
   const handleImageContextMenu = (event) => {
@@ -317,6 +338,97 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
     };
   }, [contextMenu]);
 
+  // Handle keyboard zoom shortcuts
+  useEffect(() => {
+    if (mediaType !== "image") return;
+
+    const handleKeyDown = (event) => {
+      // Check if we're typing in an input field
+      if (
+        event.target.tagName === "INPUT" ||
+        event.target.tagName === "TEXTAREA" ||
+        event.target.contentEditable === "true"
+      ) {
+        return;
+      }
+
+      if (event.key === "+") {
+        event.preventDefault();
+        handleZoomIn();
+      } else if (event.key === "-") {
+        event.preventDefault();
+        handleZoomOut();
+      } else if (event.key === "1" || event.key === "0") {
+        event.preventDefault();
+        handleZoomReset();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [mediaType]);
+
+  // Handle mouse wheel zoom and drag to pan
+  useEffect(() => {
+    if (mediaType !== "image" || !containerRef.current) return;
+
+    const container = containerRef.current;
+
+    const handleWheel = (event) => {
+      if (!displayedImage) return;
+      event.preventDefault();
+      
+      const zoomDelta = event.deltaY > 0 ? -0.1 : 0.1;
+      setImageZoom((prev) => Math.max(0.5, Math.min(3, prev + zoomDelta)));
+    };
+
+    const handleMouseDown = (event) => {
+      if (imageZoom <= 1) return;
+      setIsDragging(true);
+      setDragStart({ x: event.clientX, y: event.clientY });
+    };
+
+    const handleMouseMove = (event) => {
+      if (!isDragging || !dragStart) return;
+
+      const deltaX = event.clientX - dragStart.x;
+      const deltaY = event.clientY - dragStart.y;
+
+      setImagePan((prev) => ({
+        x: prev.x + deltaX,
+        y: prev.y + deltaY,
+      }));
+
+      setDragStart({ x: event.clientX, y: event.clientY });
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      setDragStart(null);
+    };
+
+    const handleDoubleClick = () => {
+      handleZoomReset();
+    };
+
+    container.addEventListener("wheel", handleWheel, { passive: false });
+    container.addEventListener("mousedown", handleMouseDown);
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    container.addEventListener("dblclick", handleDoubleClick);
+
+    return () => {
+      container.removeEventListener("wheel", handleWheel);
+      container.removeEventListener("mousedown", handleMouseDown);
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      container.removeEventListener("dblclick", handleDoubleClick);
+    };
+  }, [displayedImage, imageZoom, isDragging, dragStart, mediaType]);
+
   const loadPdf = async (source) => {
     try {
       ensurePdfWorker();
@@ -402,6 +514,36 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
         {mediaType === "image" && !error && (
           <div className="media-preview-image-full">
             <div className="media-preview-image-controls">
+              <div className="image-zoom-controls">
+                <button
+                  className="image-action-button icon-only"
+                  onClick={handleZoomOut}
+                  disabled={imageZoom <= 0.5}
+                  title="Zoom out"
+                  aria-label="Zoom out"
+                >
+                  <ZoomOut size={14} />
+                </button>
+                <span className="zoom-level">{Math.round(imageZoom * 100)}%</span>
+                <button
+                  className="image-action-button icon-only"
+                  onClick={handleZoomIn}
+                  disabled={imageZoom >= 3}
+                  title="Zoom in"
+                  aria-label="Zoom in"
+                >
+                  <ZoomIn size={14} />
+                </button>
+                <button
+                  className="image-action-button icon-only"
+                  onClick={handleZoomReset}
+                  disabled={imageZoom === 1}
+                  title="Reset zoom"
+                  aria-label="Reset zoom"
+                >
+                  <Maximize2 size={14} />
+                </button>
+              </div>
               <div className="image-action-buttons">
                 <button
                   className="image-action-button"
@@ -435,8 +577,15 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
               </div>
             </div>
 
-            <div className="media-preview-image-container">
-              <div className="media-preview-image-frame">
+            <div className="media-preview-image-container" ref={containerRef}>
+              <div
+                className="media-preview-image-frame"
+                style={{
+                  transform: `translate(${imagePan.x}px, ${imagePan.y}px) scale(${imageZoom})`,
+                  transformOrigin: "center",
+                  cursor: imageZoom > 1 && isDragging ? "grabbing" : imageZoom > 1 ? "grab" : "default",
+                }}
+              >
                 <img
                   ref={imageRef}
                   src={displayedImage || resolvedPath}
