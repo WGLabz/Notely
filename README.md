@@ -20,7 +20,7 @@ Notely is a desktop Markdown notes app for team and project workspaces. It is bu
 
 ## Workspace Graph
 
-Open **View → Workspace Graph** (`Ctrl+Shift+G`) to visualise all notes in the active workspace as an interactive node-edge graph.
+Open **Workspace → Workspace Graph** (`Ctrl+Shift+G`) to visualise all notes in the active workspace as an interactive node-edge graph.
 
 - Nodes represent notes, coloured by folder.
 - Edges represent explicit document links (`[[wiki links]]` and `[text](./file.md)`).
@@ -29,6 +29,17 @@ Open **View → Workspace Graph** (`Ctrl+Shift+G`) to visualise all notes in the
 - Filter visible nodes by title or folder using the search bar.
 - Zoom, pan, and drag nodes freely.
 - A mini-map provides orientation in large workspaces.
+
+### Semantic clustering
+
+When embeddings are enabled (HuggingFace token configured), the workspace graph automatically detects semantic clusters of semantically-related notes:
+
+- Cluster backgrounds (dashed borders) group notes with similar meaning.
+- Clustering uses cosine similarity (0.65 threshold) to identify meaningful topic groups.
+- Results are cached for 7 days to avoid unnecessary recomputation.
+- Click the **Refresh** button in the graph header to recompute clustering immediately.
+- The header displays embedding freshness: "Fresh" (≤7 days) or "3d ago" (staleness indicator).
+- If embeddings are unavailable, the graph displays only explicit document links.
 
 ## AI features
 
@@ -62,14 +73,49 @@ The selected model is persisted per provider and applied on every app start.
 - **Pattern detection** — surface recurring themes and writing habits across the workspace.
 - **Embedding generation** — index the workspace for similarity-based retrieval.
 
+### Provider capabilities and warnings
+
+Not all providers support all AI capabilities. AISettings displays warnings when a selected provider lacks required features:
+
+| Provider | Text Generation | Embeddings | Semantic Search | Relationships | Patterns |
+|---|---|---|---|---|---|
+| **Google Gemini** | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **Groq** | ✓ | ✗ | ✗ | ✗ | ✓ |
+
+- **Groq** shows warnings: "Semantic search unavailable" and "Relationship discovery disabled" because it doesn't support embeddings.
+- **Gemini** supports all features and shows no warnings.
+- Warnings appear in the AI Settings dialog and help you choose the right provider for your use case.
+
+### Embedding staleness tracking
+
+Notely tracks when embeddings were last generated and how many documents existed at that time:
+
+- Each time you generate embeddings, a timestamp and document count are saved.
+- The workspace graph header shows embedding freshness: "Fresh" for embeddings ≤7 days old, or "3d ago", "5d ago", etc. for older embeddings.
+- Staleness information persists across app restarts.
+- The **Refresh** button in the graph header allows you to regenerate embeddings on demand.
+
+### Immediate feedback for operations
+
+Long-running AI operations show immediate feedback so you know something is happening:
+
+- **Generate Embeddings** → "Generating embeddings..." → "Embeddings generated successfully!"
+- **Build Relationship Graph** → "Building relationship graph..." → "Relationship graph built successfully!"
+- **Detect Patterns** → "Detecting patterns..." → "Patterns detected successfully!"
+- **Clear AI Cache** → "Clearing AI cache..." → "AI cache cleared successfully!"
+
+Each operation displays an "in progress" toast message immediately, followed by a success or error message when complete.
+
 ### AI architecture
 
 The AI system uses a layered, provider-agnostic design:
 
 - `HttpClient` — shared retry and backoff logic used by all providers.
 - `OpenAICompatibleProvider` — reusable base class for any OpenAI-format API (Groq, future OpenAI, OpenRouter).
-- `providerRegistry` — single source of truth for provider metadata, model lists, and factories. Adding a new provider requires only one entry here.
+- `providerRegistry` — single source of truth for provider metadata, model lists, capabilities, and factories. Adding a new provider requires only one entry here.
 - `EmbeddingService` — decoupled from the text provider; receives a dedicated embedding provider so embeddings work independently of which LLM is active.
+- `SemanticClusteringService` — analyzes document embeddings using cosine similarity and union-find clustering (0.65 threshold) to discover semantic relationships at scale.
+- `SemanticGraphCache` — persists clustering results with 7-day TTL to avoid expensive recomputation on every graph load.
 
 ## Editor features
 
