@@ -8,12 +8,68 @@ Notely is a desktop Markdown notes app for team and project workspaces. It is bu
 - Organize work into projects and a root workspace.
 - Edit Markdown in raw, split, preview, and web modes.
 - Validate Markdown structure while you type.
-- Check spelling and grammar in the editor.
+- Check typos in the editor.
+- Search notes by title, metadata, path, and in-file content with match previews.
 - Insert common Markdown snippets from the toolbar.
 - Browse, annotate, optimize, and manage linked media.
 - Open note files in VS Code or the system default app.
 - Compare note history versions and restore context from older revisions.
 - Preview Mermaid diagrams and rendered Markdown content.
+- Visualise the workspace as an interactive note graph.
+- Use built-in AI features powered by Gemini or Groq for chat, queries, and semantic search.
+
+## Workspace Graph
+
+Open **View → Workspace Graph** (`Ctrl+Shift+G`) to visualise all notes in the active workspace as an interactive node-edge graph.
+
+- Nodes represent notes, coloured by folder.
+- Edges represent explicit document links (`[[wiki links]]` and `[text](./file.md)`).
+- Click a node to highlight its connections.
+- Double-click a node to open that note directly.
+- Filter visible nodes by title or folder using the search bar.
+- Zoom, pan, and drag nodes freely.
+- A mini-map provides orientation in large workspaces.
+
+## AI features
+
+### Providers
+
+Notely supports pluggable AI providers. Configure them in **AI → AI Settings**.
+
+| Provider | Purpose | Cost |
+|---|---|---|
+| Google Gemini | Text generation + embeddings | Free tier / API key |
+| Groq | Fast text generation (llama-3, gemma, mixtral) | Free tier / API key |
+| HuggingFace | Embeddings only (semantic search, graph) | Free tier / API token |
+
+Embeddings (HuggingFace) and text generation (Gemini or Groq) are independent — both can run simultaneously regardless of which text provider is active.
+
+### Model selection
+
+Each text provider exposes a model dropdown in AI Settings:
+
+- **Gemini**: Flash 2.0 (default), Flash 2.0 Lite, 1.5 Pro, 1.5 Flash
+- **Groq**: Llama 3.3 70B (default), Llama 3 8B, Gemma 2 9B, Mixtral 8×7B
+
+The selected model is persisted per provider and applied on every app start.
+
+### AI capabilities
+
+- **AI Chat** — ask questions about your notes with full workspace context.
+- **AI Palette** — quick inline AI actions from inside the editor (`Ctrl+K`).
+- **Semantic search** — find notes by meaning rather than exact keyword match (requires HuggingFace token).
+- **Relationship graph** — discover semantic connections between notes using embeddings.
+- **Pattern detection** — surface recurring themes and writing habits across the workspace.
+- **Embedding generation** — index the workspace for similarity-based retrieval.
+
+### AI architecture
+
+The AI system uses a layered, provider-agnostic design:
+
+- `HttpClient` — shared retry and backoff logic used by all providers.
+- `OpenAICompatibleProvider` — reusable base class for any OpenAI-format API (Groq, future OpenAI, OpenRouter).
+- `providerRegistry` — single source of truth for provider metadata, model lists, and factories. Adding a new provider requires only one entry here.
+- `EmbeddingService` — decoupled from the text provider; receives a dedicated embedding provider so embeddings work independently of which LLM is active.
 
 ## Editor features
 
@@ -55,33 +111,22 @@ Validation currently covers:
 
 - Markdown linting
 - Table formatting checks
-- Spell checking
-- Grammar checking
+- Typo checking
 
 The editor shows validation state in a banner and lets you jump to issue lines.
 
-## Spell and grammar checking
+## Typo checking
 
-Spell and grammar checking is part of the main editor experience.
+Typo checking is part of the main editor experience.
 
-### Spell checking
-
-The spell checker is tuned for notes and markdown content:
+The typo checker is tuned for notes and markdown content:
 
 - Checks plain text content while ignoring code blocks.
 - Skips Mermaid blocks.
-- Recognizes common English words.
-- Allows common abbreviations and technical terms.
-- Handles project-specific terms used across engineering notes.
-
-### Grammar checking
-
-Grammar checking is powered through the LanguageTool API:
-
-- Checks sentence structure and grammar suggestions.
-- Runs asynchronously so it does not block typing.
-- Falls back gracefully if the service is unavailable.
-- Uses English US rules by default.
+- Uses a Hunspell dictionary via `nspell`.
+- Supports domain and project terms used across engineering notes.
+- Persists ignored words per workspace.
+- Supports right-click `Ignore word` directly from typo highlights in the editor.
 
 ### Validation banner states
 
@@ -90,9 +135,17 @@ The banner communicates the current validation state:
 - Checking
 - No issues found
 - Markdown issues
-- Spelling issues
-- Grammar issues
+- Typo issues
 - Validation unavailable
+
+## Search experience
+
+Search now supports note content discovery, not only filenames and metadata.
+
+- Landing/list search matches note content (`header`, `raw`, and `cleansed` sections).
+- Global search includes content matches across notes.
+- Results show where the match was found (title, path, metadata, content).
+- Results include a context snippet so you can see the matched phrase before opening.
 
 ## Notes and project management
 
@@ -264,10 +317,10 @@ Windows packaging scripts are included in the repo:
 Notely uses `electron-builder` certificate-based signing for Windows outputs.
 
 - Preferred: PFX-based signing via environment variables:
-	- `CSC_LINK` (path or base64/data URL to a `.pfx` certificate)
-	- `CSC_KEY_PASSWORD` (password for the certificate)
+  - `CSC_LINK` (path or base64/data URL to a `.pfx` certificate)
+  - `CSC_KEY_PASSWORD` (password for the certificate)
 - Alternative: system certificate store identity:
-	- `CSC_NAME` (certificate subject name)
+  - `CSC_NAME` (certificate subject name)
 
 For Azure Trusted Signing workflows, provide your Azure signing environment variables in CI/runner configuration.
 
@@ -283,13 +336,13 @@ The packaging wrapper emits a warning when Windows build commands run without ob
 The embedded terminal supports stricter runtime controls through environment variables:
 
 - `NOTELY_TERMINAL_REQUIRED_ROLE` (default: `developer`)
-	- Renderer must request this role to create a session.
+  - Renderer must request this role to create a session.
 - `NOTELY_TERMINAL_POLICY`
-	- `permissive` (default): no command filtering
-	- `strict`: commands are checked against allowlist on each submitted line
+  - `permissive` (default): no command filtering
+  - `strict`: commands are checked against allowlist on each submitted line
 - `NOTELY_TERMINAL_ALLOWLIST`
-	- Comma-separated command names allowed in strict mode
-	- Example: `pwd,ls,dir,cat,type,git,node,npm`
+  - Comma-separated command names allowed in strict mode
+  - Example: `pwd,ls,dir,cat,type,git,node,npm`
 
 If strict mode is enabled and a command is not allowed, it is blocked in-session.
 
@@ -301,10 +354,6 @@ If strict mode is enabled and a command is not allowed, it is blocked in-session
 - `notes/` sample notes and workspace content
 - `build/` app icons and build assets
 - `release/` collected release outputs
-
-## Notes on grammar checking
-
-Grammar checks use an external API, so network access is required for the best results. If the grammar service is unavailable, the editor still keeps working and continues to show markdown and spell validation.
 
 ## License and ownership
 
