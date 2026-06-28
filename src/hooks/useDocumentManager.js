@@ -262,6 +262,58 @@ export function useDocumentManager({ notify }) {
     }
   }
 
+  async function handleRemoveListEntry(entry) {
+    if (!entry?.filePath) return false;
+    const basePath = landingFolderPath || activeProject?.rootPath;
+
+    if (entry.entryType === "folder") {
+      const projectRoot = String(activeProject?.rootPath || "").replace(/[\\/]+$/, "").toLowerCase();
+      const folderPath = String(entry.filePath || "").replace(/[\\/]+$/, "").toLowerCase();
+      if (projectRoot && folderPath && projectRoot === folderPath) {
+        notify("Project root folder cannot be removed.", "info");
+        return false;
+      }
+
+      const confirmed = window.confirm(`Move folder "${entry.title}" to the removed folder?`);
+      if (!confirmed) return false;
+
+      try {
+        await deleteFolderApi(entry.filePath);
+        setError("");
+        setDocuments(await listDocuments(basePath));
+        notify("Folder moved to removed folder.", "success");
+        return true;
+      } catch (err) {
+        setError(err?.message || "Unable to remove folder.");
+        notify(err?.message || "Unable to remove folder.", "error");
+        return false;
+      }
+    }
+
+    if (entry.entryType === "file") {
+      const confirmed = window.confirm(`Move note "${entry.title}" to the removed folder?`);
+      if (!confirmed) return false;
+
+      try {
+        await deleteDocumentApi(entry.filePath);
+        if (current?.filePath === entry.filePath) {
+          setCurrent(null);
+          setHistory([]);
+        }
+        setError("");
+        setDocuments(await listDocuments(basePath));
+        notify("Note moved to removed folder.", "success");
+        return true;
+      } catch (err) {
+        setError(err?.message || "Unable to remove note.");
+        notify(err?.message || "Unable to remove note.", "error");
+        return false;
+      }
+    }
+
+    return false;
+  }
+
   async function handleCreateNote() {
     const title = newNoteTitle.trim();
     if (!title) {
@@ -554,6 +606,7 @@ export function useDocumentManager({ notify }) {
     handleRenameCurrentDocument,
     handleDeleteCurrentDocument,
     handleDeleteCurrentFolder,
+    handleRemoveListEntry,
     handleCreateNote,
     handleCreateFolder,
     handlePickNotesFolder,

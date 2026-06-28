@@ -161,6 +161,7 @@ export default function App() {
     handleReloadCurrentFromDisk,
     handleDeleteCurrentDocument,
     handleDeleteCurrentFolder,
+    handleRemoveListEntry,
     handleCreateNote,
     handleCreateFolder,
     handlePickNotesFolder,
@@ -1152,6 +1153,7 @@ export default function App() {
                 <DocumentList
                   documents={documents}
                   onOpen={handleOpenListItem}
+                  onRemove={handleRemoveListEntry}
                   loading={loading}
                   viewMode={notesViewMode}
                   density={notesDensityMode}
@@ -1165,6 +1167,7 @@ export default function App() {
               <DocumentList
                 documents={documents}
                 onOpen={handleOpenListItem}
+                onRemove={handleRemoveListEntry}
                 loading={loading}
                 viewMode={notesViewMode}
                 density={notesDensityMode}

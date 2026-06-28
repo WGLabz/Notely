@@ -2277,6 +2277,12 @@ button {
   gap: 10px;
 }
 
+.document-card-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .favorite-toggle {
   width: 22px;
   height: 22px;
@@ -2288,6 +2294,25 @@ button {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+.remove-toggle {
+  width: 22px;
+  height: 22px;
+  border: 1px solid #e2cbcb;
+  border-radius: 6px;
+  background: #fff8f8;
+  color: #9c4d4d;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.remove-toggle:hover {
+  border-color: #bf6464;
+  background: #ffecec;
+  color: #8d2525;
 }
 
 .favorite-toggle:hover {

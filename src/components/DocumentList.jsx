@@ -1,7 +1,7 @@
 import { formatDate } from "../utils/dateUtils";
 import { useEffect, useMemo, useState } from "react";
 import { readImage } from "../services/electronService";
-import { Star } from "lucide-react";
+import { Star, Trash2 } from "lucide-react";
 
 function EntryIcon({ entryType }) {
   if (entryType === "folder") {
@@ -30,6 +30,7 @@ function CalendarIcon() {
 export function DocumentList({
   documents,
   onOpen,
+  onRemove,
   loading,
   viewMode = "tile",
   density = "comfortable",
@@ -95,6 +96,7 @@ export function DocumentList({
               <th>Name</th>
               <th>Metadata</th>
               <th>Updated</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -140,6 +142,21 @@ export function DocumentList({
                       "No meeting metadata")}
                 </td>
                 <td>{formatDate(doc.updatedAt)}</td>
+                <td>
+                  <button
+                    type="button"
+                    className="remove-toggle"
+                    aria-label={`Move ${doc.title} to removed`}
+                    title="Move to removed"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      onRemove?.(doc);
+                    }}
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -166,26 +183,71 @@ export function DocumentList({
                 <span className="document-title">{doc.title}</span>
               </span>
               {doc.entryType === "file" ? (
+                <span className="document-card-actions">
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    className={`favorite-toggle ${favoriteSet.has(doc.filePath) ? "active" : ""}`}
+                    aria-label={favoriteSet.has(doc.filePath) ? `Remove ${doc.title} from favorites` : `Add ${doc.title} to favorites`}
+                    title={favoriteSet.has(doc.filePath) ? "Remove from favorites" : "Add to favorites"}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      onToggleFavorite?.(doc.filePath);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        onToggleFavorite?.(doc.filePath);
+                      }
+                    }}
+                  >
+                    <Star size={12} />
+                  </span>
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    className="remove-toggle"
+                    aria-label={`Move ${doc.title} to removed`}
+                    title="Move to removed"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      onRemove?.(doc);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        onRemove?.(doc);
+                      }
+                    }}
+                  >
+                    <Trash2 size={12} />
+                  </span>
+                </span>
+              ) : (
                 <span
                   role="button"
                   tabIndex={0}
-                  className={`favorite-toggle ${favoriteSet.has(doc.filePath) ? "active" : ""}`}
-                  aria-label={favoriteSet.has(doc.filePath) ? `Remove ${doc.title} from favorites` : `Add ${doc.title} to favorites`}
-                  title={favoriteSet.has(doc.filePath) ? "Remove from favorites" : "Add to favorites"}
+                  className="remove-toggle"
+                  aria-label={`Move ${doc.title} to removed`}
+                  title="Move to removed"
                   onClick={(event) => {
                     event.preventDefault();
                     event.stopPropagation();
-                    onToggleFavorite?.(doc.filePath);
+                    onRemove?.(doc);
                   }}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
                       event.stopPropagation();
-                      onToggleFavorite?.(doc.filePath);
+                      onRemove?.(doc);
                     }
                   }}
                 >
-                  <Star size={12} />
+                  <Trash2 size={12} />
                 </span>
               ) : null}
             </span>
