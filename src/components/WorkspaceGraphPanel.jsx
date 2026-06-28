@@ -19,9 +19,9 @@ import "./WorkspaceGraphPanel.css";
 
 // ── Colour palette ────────────────────────────────────────────────────────────
 const PALETTE = [
-  "#a8d5ba", "#f4c7a8", "#aac4e0", "#e8b4b8", "#c5b8e8",
-  "#f6e49a", "#b8dce8", "#e8d0a9", "#b8e8d0", "#e8c5b8",
-  "#c8e8a8", "#e8b8d0", "#a8c8e8", "#e8e0a8", "#b8a8e8",
+  "#4CAF50", "#FF6B6B", "#4ECDC4", "#FFD93D", "#A78BFA",
+  "#FF8C42", "#2196F3", "#E91E63", "#00BCD4", "#FF5722",
+  "#9C27B0", "#F44336", "#009688", "#FFC107", "#3F51B5",
 ];
 
 function folderColor(folder, folderIndex) {
@@ -300,6 +300,7 @@ function GraphCanvas({ rawData, filter, onOpenDocument, clusters, showMedia }) {
         panOnDrag={[1, 2]}
         panOnScroll={false}
         preventScrolling={true}
+        wheelSensitivity={0.2}
         proOptions={{ hideAttribution: true }}
       >
         <Background gap={32} size={1.5} color="#f0f0f0" />
@@ -441,7 +442,7 @@ export function WorkspaceGraphPanel({ onClose, onOpenDocument }) {
         <h2>Workspace Graph</h2>
         {!loading && !error && (
           <span className="workspace-graph-meta">
-            {noteCount} note{noteCount !== 1 ? "s" : ""} &nbsp;·&nbsp; {mediaCount} media &nbsp;·&nbsp; {edgeCount} link{edgeCount !== 1 ? "s" : ""} &nbsp;·&nbsp; {folders.length} folder{folders.length !== 1 ? "s" : ""}{clusterCount > 0 ? ` &nbsp;·&nbsp; ${clusterCount} clusters` : ""}{embeddingStaleness ? ` &nbsp;·&nbsp; ${embeddingStaleness.message}` : ""}
+            {noteCount} note{noteCount !== 1 ? "s" : ""} · {mediaCount} media · {edgeCount} link{edgeCount !== 1 ? "s" : ""} · {folders.length} folder{folders.length !== 1 ? "s" : ""}{clusterCount > 0 ? ` · ${clusterCount} clusters` : ""}{embeddingStaleness ? ` · ${embeddingStaleness.message}` : ""}
           </span>
         )}
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
