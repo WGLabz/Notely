@@ -77,6 +77,8 @@ contextBridge.exposeInMainWorld("notesApi", {
   readImage: (payload) => ipcRenderer.invoke("images:read", payload),
   getImageAnnotation: (payload) => ipcRenderer.invoke("images:get-annotation", payload),
   setImageAnnotation: (payload) => ipcRenderer.invoke("images:set-annotation", payload),
+  getImageOriginalStatus: (payload) => ipcRenderer.invoke("images:get-original-status", payload),
+  restoreImageOriginal: (payload) => ipcRenderer.invoke("images:restore-original", payload),
   deleteImage: (payload) => ipcRenderer.invoke("images:delete", payload),
   replaceImage: (payload) => ipcRenderer.invoke("images:replace", payload),
   renameImage: (payload) => ipcRenderer.invoke("images:rename", payload),

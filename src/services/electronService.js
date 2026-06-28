@@ -452,7 +452,11 @@ export async function saveImage(fileName, base64Data, basePath, options = {}) {
 
 export async function listImages(basePath, options = {}) {
   const api = getNotesApi();
-  return api.listImages({ basePath, includeAnnotations: Boolean(options.includeAnnotations) });
+  return api.listImages({
+    basePath,
+    includeAnnotations: Boolean(options.includeAnnotations),
+    includeOriginalStatus: Boolean(options.includeOriginalStatus),
+  });
 }
 
 export async function getImageUsage(basePath) {
@@ -480,6 +484,22 @@ export async function setImageAnnotation(basePath, assetPath, annotation) {
     throw new Error("Image annotation action unavailable. Please restart the app.");
   }
   return api.setImageAnnotation({ basePath, assetPath, annotation });
+}
+
+export async function getImageOriginalStatus(basePath, assetPath) {
+  const api = getNotesApi();
+  if (typeof api.getImageOriginalStatus !== "function") {
+    return { hasOriginal: false };
+  }
+  return api.getImageOriginalStatus({ basePath, assetPath });
+}
+
+export async function restoreImageOriginal(basePath, assetPath) {
+  const api = getNotesApi();
+  if (typeof api.restoreImageOriginal !== "function") {
+    throw new Error("Image restore action unavailable. Please restart the app.");
+  }
+  return api.restoreImageOriginal({ basePath, assetPath });
 }
 
 export async function deleteImage(basePath, assetPath, options = {}) {

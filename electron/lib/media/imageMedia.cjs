@@ -25,9 +25,65 @@ function createImageMedia(deps) {
   } = deps;
 
   const THUMBNAIL_DIR_NAME = "thumbnails";
+  const ORIGINAL_IMAGE_DIR_NAME = "image-originals";
   const THUMBNAIL_MAX_WIDTH = 360;
   const THUMBNAIL_JPEG_QUALITY = 72;
   const RASTER_IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".bmp", ".ico"]);
+
+function getOriginalImageBackupPath(imagePath) {
+  if (!imagePath) return "";
+  const relativeImagePath = path.relative(getNotesRoot(), path.resolve(imagePath));
+  return path.join(getAppDataDir(), ORIGINAL_IMAGE_DIR_NAME, relativeImagePath);
+}
+
+function hasOriginalImageBackup(imagePath) {
+  const backupPath = getOriginalImageBackupPath(imagePath);
+  return Boolean(backupPath && fs.existsSync(backupPath));
+}
+
+function ensureOriginalImageBackup(imagePath) {
+  if (!imagePath || !fs.existsSync(imagePath) || hasOriginalImageBackup(imagePath)) {
+    return hasOriginalImageBackup(imagePath);
+  }
+
+  const backupPath = getOriginalImageBackupPath(imagePath);
+  ensureDir(path.dirname(backupPath));
+  fs.copyFileSync(imagePath, backupPath);
+  return true;
+}
+
+function removeOriginalImageBackup(imagePath) {
+  const backupPath = getOriginalImageBackupPath(imagePath);
+  if (!backupPath || !fs.existsSync(backupPath)) return;
+
+  try {
+    fs.unlinkSync(backupPath);
+  } catch {
+    return;
+  }
+
+  let currentDir = path.dirname(backupPath);
+  const backupRoot = path.join(getAppDataDir(), ORIGINAL_IMAGE_DIR_NAME);
+  while (currentDir && currentDir.startsWith(backupRoot) && currentDir !== backupRoot) {
+    try {
+      if (fs.readdirSync(currentDir).length > 0) break;
+      fs.rmdirSync(currentDir);
+      currentDir = path.dirname(currentDir);
+    } catch {
+      break;
+    }
+  }
+}
+
+function moveOriginalImageBackup(fromImagePath, toImagePath) {
+  const fromBackupPath = getOriginalImageBackupPath(fromImagePath);
+  if (!fromBackupPath || !fs.existsSync(fromBackupPath)) return;
+
+  const toBackupPath = getOriginalImageBackupPath(toImagePath);
+  ensureDir(path.dirname(toBackupPath));
+  fs.renameSync(fromBackupPath, toBackupPath);
+  removeOriginalImageBackup(fromImagePath);
+}
 
 function buildPdfExportHtml({ title, markdownContent, baseHref, sourceDir, downsampleImages = false, pdfQualityPreset = "full" }) {
   const markdown = new MarkdownIt({
@@ -441,7 +497,7 @@ registerTrustedHandler("images:save", (_event, payload) => {
 });
 
 registerTrustedHandler("images:list", (_event, payload) => {
-  const { basePath, includeAnnotations = false } = payload || {};
+  const { basePath, includeAnnotations = false, includeOriginalStatus = false } = payload || {};
   if (!basePath || typeof basePath !== "string") {
     throw new Error("Invalid base path.");
   }
@@ -484,7 +540,7 @@ registerTrustedHandler("images:list", (_event, payload) => {
     ...rootNames.map((name) => `/images/${name}`),
   ];
 
-  if (!includeAnnotations) return paths;
+  if (!includeAnnotations && !includeOriginalStatus) return paths;
 
   const annotations = readImageAnnotations();
   return paths.map((assetPath) => {
@@ -492,7 +548,12 @@ registerTrustedHandler("images:list", (_event, payload) => {
     const annotation = resolvedAssetPath
       ? normalizeImageAnnotation(annotations[getImageAnnotationKey(resolvedAssetPath)])
       : null;
-    return { path: assetPath, annotation };
+    const hasOriginal = resolvedAssetPath ? hasOriginalImageBackup(resolvedAssetPath) : false;
+    return {
+      path: assetPath,
+      annotation: includeAnnotations ? annotation : null,
+      hasOriginal: includeOriginalStatus ? hasOriginal : false,
+    };
   });
 });
 
@@ -546,6 +607,50 @@ registerTrustedHandler("images:set-annotation", (_event, payload) => {
   return normalized;
 });
 
+registerTrustedHandler("images:get-original-status", (_event, payload) => {
+  const { basePath, assetPath } = payload || {};
+  if (!basePath || typeof basePath !== "string") {
+    throw new Error("Invalid base path.");
+  }
+  if (!assetPath || typeof assetPath !== "string") {
+    throw new Error("Invalid asset path.");
+  }
+
+  const resolvedAssetPath = resolveImageAssetPath(basePath, assetPath);
+  if (!resolvedAssetPath || !fs.existsSync(resolvedAssetPath)) {
+    return { hasOriginal: false };
+  }
+
+  return {
+    hasOriginal: hasOriginalImageBackup(resolvedAssetPath),
+  };
+});
+
+registerTrustedHandler("images:restore-original", (_event, payload) => {
+  const { basePath, assetPath } = payload || {};
+  if (!basePath || typeof basePath !== "string") {
+    throw new Error("Invalid base path.");
+  }
+  if (!assetPath || typeof assetPath !== "string") {
+    throw new Error("Invalid asset path.");
+  }
+
+  const resolvedAssetPath = resolveImageAssetPath(basePath, assetPath);
+  if (!resolvedAssetPath || !fs.existsSync(resolvedAssetPath)) {
+    throw new Error("Image file not found.");
+  }
+
+  const backupPath = getOriginalImageBackupPath(resolvedAssetPath);
+  if (!backupPath || !fs.existsSync(backupPath)) {
+    throw new Error("Original image backup not found.");
+  }
+
+  clearThumbnailCacheForImage(resolvedAssetPath);
+  fs.copyFileSync(backupPath, resolvedAssetPath);
+  ensureImageThumbnail(resolvedAssetPath);
+  return { restored: true };
+});
+
 registerTrustedHandler("images:delete", (_event, payload) => {
   const { basePath, assetPath, removeAllReferences } = payload || {};
   if (!basePath || typeof basePath !== "string") {
@@ -568,6 +673,7 @@ registerTrustedHandler("images:delete", (_event, payload) => {
   let movedPath = null;
   if (shouldDeleteFile) {
     clearThumbnailCacheForImage(resolvedAssetPath);
+    removeOriginalImageBackup(resolvedAssetPath);
     const annotations = readImageAnnotations();
     delete annotations[getImageAnnotationKey(resolvedAssetPath)];
     writeImageAnnotations(annotations);
@@ -607,6 +713,7 @@ registerTrustedHandler("images:replace", (_event, payload) => {
     throw new Error("Image data is empty.");
   }
 
+  ensureOriginalImageBackup(resolvedAssetPath);
   clearThumbnailCacheForImage(resolvedAssetPath);
   fs.writeFileSync(resolvedAssetPath, buffer);
   ensureImageThumbnail(resolvedAssetPath);
@@ -657,6 +764,8 @@ registerTrustedHandler("images:rename", (_event, payload) => {
     annotations[getImageAnnotationKey(finalPath)] = nextAnnotation;
     writeImageAnnotations(annotations);
   }
+
+  moveOriginalImageBackup(normalizedCurrent, finalPath);
 
   return `./images/${path.basename(finalPath)}`;
 });
