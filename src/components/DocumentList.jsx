@@ -26,7 +26,7 @@ function CalendarIcon() {
   );
 }
 
-export function DocumentList({ documents, onOpen, loading, viewMode = "tile" }) {
+export function DocumentList({ documents, onOpen, loading, viewMode = "tile", density = "comfortable" }) {
   const [resolvedPreviewImages, setResolvedPreviewImages] = useState({});
 
   const previewRequests = useMemo(() => {
@@ -78,7 +78,7 @@ export function DocumentList({ documents, onOpen, loading, viewMode = "tile" }) 
 
   if (viewMode === "table") {
     return (
-      <div className="document-table-wrap">
+      <div className={`document-table-wrap ${density === "compact" ? "compact" : "comfortable"}`}>
         <table className="document-table">
           <thead>
             <tr>
@@ -124,7 +124,7 @@ export function DocumentList({ documents, onOpen, loading, viewMode = "tile" }) 
   }
 
   return (
-    <div className="document-grid">
+    <div className={`document-grid ${density === "compact" ? "compact" : "comfortable"}`}>
       {documents.map((doc) => {
         const previewTiles = (doc.previewImages || []).slice(0, 4).map((image, index) => {
           const key = `${doc.filePath}:${index}:${image.sourceFilePath || doc.filePath}:${image.path}`;

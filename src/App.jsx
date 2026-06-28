@@ -55,9 +55,19 @@ export default function App() {
     }
   })();
 
+  const initialDensityMode = (() => {
+    try {
+      const stored = window.localStorage.getItem("notes:density-mode");
+      return stored === "compact" ? "compact" : "comfortable";
+    } catch {
+      return "comfortable";
+    }
+  })();
+
   const [mode, setMode] = useState(initialEditorMode);
   const { toasts, notify } = useToast();
   const [notesViewMode, setNotesViewMode] = useState(initialViewMode);
+  const [notesDensityMode, setNotesDensityMode] = useState(initialDensityMode);
   const [showTerminal, setShowTerminal] = useState(false);
   const [landingAssetsOpen, setLandingAssetsOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -218,6 +228,14 @@ export default function App() {
       // Ignore storage failures.
     }
   }, [mode]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("notes:density-mode", notesDensityMode);
+    } catch {
+      // Ignore storage failures.
+    }
+  }, [notesDensityMode]);
 
   useEffect(() => {
     function onGlobalKeyDown(event) {
@@ -662,6 +680,22 @@ export default function App() {
                   Table
                 </button>
               </div>
+              <div className="document-density-toggle" role="group" aria-label="Landing notes density mode">
+                <button
+                  className={notesDensityMode === "comfortable" ? "active" : ""}
+                  onClick={() => setNotesDensityMode("comfortable")}
+                  type="button"
+                >
+                  Comfortable
+                </button>
+                <button
+                  className={notesDensityMode === "compact" ? "active" : ""}
+                  onClick={() => setNotesDensityMode("compact")}
+                  type="button"
+                >
+                  Compact
+                </button>
+              </div>
               <div className="landing-header-actions">
               <div className="landing-primary-actions">
                 <button className="small-button" type="button" onClick={() => setGlobalSearchOpen(true)}>
@@ -694,6 +728,7 @@ export default function App() {
             onOpen={handleOpenListItem}
             loading={loading}
             viewMode={notesViewMode}
+            density={notesDensityMode}
           />
           {landingAssetsOpen ? (
             <div
