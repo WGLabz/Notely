@@ -329,6 +329,7 @@ export function WorkspaceGraphPanel({ onClose, onOpenDocument }) {
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("");
   const [embeddingsAvailable, setEmbeddingsAvailable] = useState(false);
+  const [embeddingStaleness, setEmbeddingStaleness] = useState(null);
 
   // Load base graph data
   useEffect(() => {
@@ -361,6 +362,7 @@ export function WorkspaceGraphPanel({ onClose, onOpenDocument }) {
         if (!cancelled) {
           setClusters(data.clusters || []);
           setEmbeddingsAvailable(data.clusters.length > 0);
+          setEmbeddingStaleness(data.staleness || null);
         }
       } catch (err) {
         // Embeddings unavailable is not an error, just graceful degradation
@@ -368,6 +370,7 @@ export function WorkspaceGraphPanel({ onClose, onOpenDocument }) {
           console.log('Semantic clustering unavailable:', err.message);
           setClusters([]);
           setEmbeddingsAvailable(false);
+          setEmbeddingStaleness(null);
         }
       } finally {
         if (!cancelled) setSemanticLoading(false);
@@ -420,7 +423,7 @@ export function WorkspaceGraphPanel({ onClose, onOpenDocument }) {
         <h2>Workspace Graph</h2>
         {!loading && !error && (
           <span className="workspace-graph-meta">
-            {nodeCount} notes &nbsp;·&nbsp; {edgeCount} links &nbsp;·&nbsp; {folders.length} folder{folders.length !== 1 ? "s" : ""}{clusterCount > 0 ? ` &nbsp;·&nbsp; ${clusterCount} clusters` : ""}
+            {nodeCount} notes &nbsp;·&nbsp; {edgeCount} links &nbsp;·&nbsp; {folders.length} folder{folders.length !== 1 ? "s" : ""}{clusterCount > 0 ? ` &nbsp;·&nbsp; ${clusterCount} clusters` : ""}{embeddingStaleness ? ` &nbsp;·&nbsp; ${embeddingStaleness.message}` : ""}
           </span>
         )}
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>

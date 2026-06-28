@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Key, Save, Trash2, X, Zap } from 'lucide-react';
+import { Key, Save, Trash2, X, Zap, AlertCircle } from 'lucide-react';
 import './AISettings.css';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import {
@@ -15,27 +15,65 @@ import {
 
 const providers = [
   {
-    id: 'gemini', name: 'Google Gemini', description: 'Multimodal — supports semantic search & embeddings', available: true,
-    models: [
-      { id: 'gemini-2.0-flash',      label: 'Gemini 2.0 Flash',      note: 'Fast · default' },
-      { id: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite', note: 'Lightest' },
-      { id: 'gemini-1.5-pro',        label: 'Gemini 1.5 Pro',        note: 'Highest quality' },
-      { id: 'gemini-1.5-flash',      label: 'Gemini 1.5 Flash',      note: 'Balanced' },
-    ],
-    defaultModel: 'gemini-2.0-flash',
+    id: 'gemini',
+    name: 'Google Gemini',
+    description: 'Fast, free tier available',
+    available: true,
+    models: ['gemini-1.5-pro', 'gemini-1.5-flash'],
+    defaultModel: 'gemini-1.5-pro',
+    capabilities: {
+      textGeneration: true,
+      embeddings: true,
+      semanticSearch: true,
+      relationshipDiscovery: true,
+      patternDetection: true,
+    }
   },
   {
-    id: 'groq', name: 'Groq', description: 'Free tier — ultra-fast llama-3, gemma, mixtral', available: true,
-    models: [
-      { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B',  note: 'Best quality · default' },
-      { id: 'llama3-8b-8192',          label: 'Llama 3 8B',    note: 'Fast · lightweight' },
-      { id: 'gemma2-9b-it',            label: 'Gemma 2 9B',    note: 'Google open model' },
-      { id: 'mixtral-8x7b-32768',      label: 'Mixtral 8×7B', note: '32k context' },
-    ],
-    defaultModel: 'llama-3.3-70b-versatile',
+    id: 'groq',
+    name: 'Groq',
+    description: 'Very fast open-source models',
+    available: true,
+    models: ['mixtral-8x7b-32768', 'llama-3-70b-8192'],
+    defaultModel: 'mixtral-8x7b-32768',
+    capabilities: {
+      textGeneration: true,
+      embeddings: false,
+      semanticSearch: false,
+      relationshipDiscovery: false,
+      patternDetection: true,
+    }
   },
-  { id: 'openai', name: 'OpenAI',    description: 'Planned provider', available: false, models: [], defaultModel: '' },
-  { id: 'local',  name: 'Local LLM', description: 'Planned provider', available: false, models: [], defaultModel: '' },
+  {
+    id: 'openai',
+    name: 'OpenAI',
+    description: 'Most capable models',
+    available: false,
+    models: [],
+    defaultModel: '',
+    capabilities: {
+      textGeneration: true,
+      embeddings: true,
+      semanticSearch: true,
+      relationshipDiscovery: true,
+      patternDetection: true,
+    }
+  },
+  {
+    id: 'local',
+    name: 'Local LLM',
+    description: 'Planned provider',
+    available: false,
+    models: [],
+    defaultModel: '',
+    capabilities: {
+      textGeneration: true,
+      embeddings: false,
+      semanticSearch: false,
+      relationshipDiscovery: false,
+      patternDetection: false,
+    }
+  },
 ];
 
 const defaultPreferences = {
@@ -57,11 +95,13 @@ const AISettings = ({ isOpen, onClose }) => {
   const [hfConfigured, setHfConfigured] = useState(false);
   const [hfTestResult, setHfTestResult] = useState(null);
   const [selectedModel, setSelectedModel] = useState('');
+  const [embeddingStaleness, setEmbeddingStaleness] = useState(null);
   const dialogRef = useFocusTrap(isOpen);
 
   useEffect(() => {
     if (isOpen) {
       loadSettings();
+      loadEmbeddingStaleness();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, selectedProvider]);
@@ -255,7 +295,25 @@ const AISettings = ({ isOpen, onClose }) => {
     }
   };
 
-  if (!isOpen) return null;
+  const getCapabilityWarnings = () => {
+    const selectedProv = providers.find((p) => p.id === selectedProvider);
+    if (!selectedProv || !selectedProv.capabilities) return [];
+
+    const warnings = [];
+    if (!selectedProv.capabilities.embeddings && preferences.enableEmbeddings) {
+      warnings.push({
+        title: 'Semantic search unavailable',
+        message: `${selectedProv.name} doesn't support embeddings. Use Gemini or configure HuggingFace separately.`
+      });
+    }
+    if (!selectedProv.capabilities.semanticSearch) {
+      warnings.push({
+        title: 'Relationship discovery disabled',
+        message: `${selectedProv.name} cannot discover semantic relationships. Workspace clustering unavailable.`
+      });
+    }
+    return warnings;
+  };
 
   return (
     <div className="overlay-dialog" onClick={onClose} role="dialog" aria-modal="true" aria-label="AI settings">
@@ -408,6 +466,26 @@ const AISettings = ({ isOpen, onClose }) => {
                 {testResult.message}
               </div>
             ) : null}
+
+            {getCapabilityWarnings().length > 0 && (
+              <div className="ai-settings-capability-warnings">
+                {getCapabilityWarnings().map((warning, idx) => (
+                  <div key={idx} className="capability-warning">
+                    <AlertCircle size={14} />
+                    <div>
+                      <strong>{warning.title}</strong>
+                      <p>{warning.message}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {embeddingStaleness && (
+              <div className="ai-settings-embedding-staleness">
+                <span>Embeddings: {embeddingStaleness.message}</span>
+              </div>
+            )}
           </section>
 
           <section className="ai-settings-section ai-settings-features-card">

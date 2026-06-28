@@ -48,6 +48,7 @@ const { GroqProvider } = require('./providers/GroqProvider');
  *   description: string,
  *   available: boolean,
  *   supportsEmbeddings: boolean,
+ *   capabilities: object,
  *   factory: (config: object) => import('./LLMProvider')
  * }>}
  */
@@ -58,6 +59,13 @@ const PROVIDER_REGISTRY = {
     description: 'Multimodal AI — supports embeddings & semantic search',
     available: true,
     supportsEmbeddings: true,
+    capabilities: {
+      textGeneration: true,
+      embeddings: true,
+      semanticSearch: true,
+      relationshipDiscovery: true,
+      patternDetection: true,
+    },
     models: [
       { id: 'gemini-2.0-flash',      label: 'Gemini 2.0 Flash',      note: 'Fast · default' },
       { id: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite', note: 'Lightest' },
@@ -73,6 +81,13 @@ const PROVIDER_REGISTRY = {
     description: 'Free-tier ultra-fast inference (llama-3, gemma, mistral)',
     available: true,
     supportsEmbeddings: false,
+    capabilities: {
+      textGeneration: true,
+      embeddings: false,
+      semanticSearch: false,
+      relationshipDiscovery: false,
+      patternDetection: true,
+    },
     models: [
       { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B',   note: 'Best quality · default' },
       { id: 'llama3-8b-8192',          label: 'Llama 3 8B',       note: 'Fast · lightweight' },

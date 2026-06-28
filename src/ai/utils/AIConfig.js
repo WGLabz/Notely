@@ -191,6 +191,50 @@ class AIConfig {
       throw error;
     }
   }
+
+  /**
+   * Track when embeddings were last generated
+   */
+  saveEmbeddingTimestamp(documentCount = 0) {
+    try {
+      const prefsPath = path.join(this.configDir, 'ai-preferences.json');
+      const prefs = this.loadPreferences();
+      prefs.lastEmbeddingTime = Date.now();
+      prefs.lastEmbeddingDocCount = documentCount;
+      fs.writeFileSync(prefsPath, JSON.stringify(prefs, null, 2));
+    } catch (error) {
+      console.error('[AIConfig] Failed to save embedding timestamp:', error.message);
+    }
+  }
+
+  /**
+   * Get embedding staleness info
+   */
+  getEmbeddingStaleness() {
+    try {
+      const prefs = this.loadPreferences();
+      const lastTime = prefs.lastEmbeddingTime;
+      const lastCount = prefs.lastEmbeddingDocCount || 0;
+
+      if (!lastTime) {
+        return { stale: true, message: 'Embeddings not generated yet', daysAgo: null, changesSince: null };
+      }
+
+      const now = Date.now();
+      const ageMs = now - lastTime;
+      const daysAgo = Math.floor(ageMs / (1000 * 60 * 60 * 24));
+      
+      return {
+        stale: daysAgo > 0,
+        message: daysAgo === 0 ? 'Fresh' : `${daysAgo}d ago`,
+        daysAgo,
+        docCountAtTime: lastCount
+      };
+    } catch (error) {
+      console.error('[AIConfig] Failed to get embedding staleness:', error.message);
+      return { stale: true, message: 'Unknown', daysAgo: null, changesSince: null };
+    }
+  }
 }
 
 module.exports = AIConfig;

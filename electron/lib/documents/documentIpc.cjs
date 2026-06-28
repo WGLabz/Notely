@@ -419,11 +419,21 @@ function registerDocumentIpcHandlers(ipcMain, deps) {
       // Get base graph first
       const baseGraph = buildWorkspaceGraph(fs, path, workspaceRoot);
       
+      // Get embedding staleness info from AIConfig
+      let staleness = null;
+      try {
+        const AIConfig = require('../../../src/ai/utils/AIConfig');
+        const config = new AIConfig();
+        staleness = config.getEmbeddingStaleness();
+      } catch (err) {
+        console.warn('[Semantic Graph] Failed to get staleness:', err.message);
+      }
+      
       // Try to get semantic clustering
       const aiAgent = deps.getAIAgent?.();
       if (!aiAgent?.embeddingService?.isAvailable()) {
         console.log('[Semantic Graph] Embeddings unavailable, returning base graph only');
-        return { ...baseGraph, clusters: [], similarities: {} };
+        return { ...baseGraph, clusters: [], similarities: {}, staleness };
       }
 
       // Check cache
@@ -434,7 +444,7 @@ function registerDocumentIpcHandlers(ipcMain, deps) {
         const cached = cache.load();
         if (cached?.clusters) {
           console.log('[Semantic Graph] Using cached clustering');
-          return { ...baseGraph, clusters: cached.clusters };
+          return { ...baseGraph, clusters: cached.clusters, staleness };
         }
       }
 
@@ -460,14 +470,22 @@ function registerDocumentIpcHandlers(ipcMain, deps) {
       // Cache results
       cache.save({ workspaceRoot, clusters });
 
-      return { ...baseGraph, clusters };
+      return { ...baseGraph, clusters, staleness };
     } catch (error) {
       console.error('[Semantic Graph] Error:', error.message);
       // Fallback to base graph on error
       const activeProject = getActiveProject();
       const notesRoot = getNotesRoot();
       const workspaceRoot = path.resolve(activeProject?.rootPath || notesRoot);
-      return { ...buildWorkspaceGraph(fs, path, workspaceRoot), clusters: [] };
+      let staleness = null;
+      try {
+        const AIConfig = require('../../../src/ai/utils/AIConfig');
+        const config = new AIConfig();
+        staleness = config.getEmbeddingStaleness();
+      } catch (err) {
+        // Ignore staleness fetch error in error handler
+      }
+      return { ...buildWorkspaceGraph(fs, path, workspaceRoot), clusters: [], staleness };
     }
   });
 }
