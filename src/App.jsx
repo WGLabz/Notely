@@ -470,6 +470,17 @@ export default function App() {
 
   const folderCount = documents.filter((entry) => entry.entryType === "folder").length;
   const noteCount = documents.length - folderCount;
+  const paletteRootPath = activeProject?.rootPath || notesFolderPath || "";
+  const normalizedPaletteRootPath = String(paletteRootPath || "").replace(/[\\/]+$/, "");
+  const currentNoteParentPath = current?.filePath
+    ? String(current.filePath).replace(/[\\/][^\\/]+$/, "").replace(/[\\/]+$/, "")
+    : "";
+  const currentNoteParentComparable = currentNoteParentPath.replace(/\\/g, "/").toLowerCase();
+  const rootComparable = normalizedPaletteRootPath.replace(/\\/g, "/").toLowerCase();
+  const canOpenCurrentNoteParent = Boolean(
+    current && currentNoteParentPath
+      && (!rootComparable || currentNoteParentComparable === rootComparable || currentNoteParentComparable.startsWith(`${rootComparable}/`))
+  );
   const recentPaletteNotes = [...documents]
     .filter((entry) => entry.entryType === "file")
     .sort((left, right) => {
@@ -525,6 +536,18 @@ export default function App() {
       group: "Editor",
       shortcut: "Ctrl/Cmd+F",
       disabled: !current,
+    },
+    {
+      id: "open-current-note-parent-folder",
+      label: "Open Parent Folder (Current Note)",
+      group: "Navigation",
+      disabled: !canOpenCurrentNoteParent,
+    },
+    {
+      id: "reveal-current-note-in-list",
+      label: "Reveal Current Note in List",
+      group: "Navigation",
+      disabled: !canOpenCurrentNoteParent,
     },
     ...recentPaletteNotes.map((note) => ({
       id: `open-note:${encodeURIComponent(note.filePath)}`,
@@ -629,6 +652,28 @@ export default function App() {
         return;
       }
       setDocumentMenuAction({ action: "find-replace", nonce: Date.now() });
+      return;
+    }
+
+    if (commandId === "open-current-note-parent-folder") {
+      if (!canOpenCurrentNoteParent) {
+        notify("Current note is outside the active workspace path.", "info");
+        return;
+      }
+      const canLeaveCurrent = handleGoHome();
+      if (!canLeaveCurrent) return;
+      await handleLandingNavigateTo(currentNoteParentPath);
+      return;
+    }
+
+    if (commandId === "reveal-current-note-in-list") {
+      if (!canOpenCurrentNoteParent) {
+        notify("Current note is outside the active workspace path.", "info");
+        return;
+      }
+      const canLeaveCurrent = handleGoHome();
+      if (!canLeaveCurrent) return;
+      await handleLandingNavigateTo(currentNoteParentPath);
     }
   }
 
