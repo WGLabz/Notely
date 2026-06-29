@@ -222,9 +222,9 @@ function setHeaderField(header, fieldName, value) {
   return nextLines.join("\n").trim();
 }
 
-function normalizeTagInput(value) {
+function normalizeTagInputFromEnter(value) {
   return String(value || "")
-    .split(/[,#]/)
+    .split(/[\s,#]+/)
     .map((tag) => tag.trim().replace(/^#+/, ""))
     .filter(Boolean)
     .filter((tag, index, tags) => tags.findIndex((item) => item.toLowerCase() === tag.toLowerCase()) === index)
@@ -233,9 +233,54 @@ function normalizeTagInput(value) {
 
 function parseTagList(value) {
   return String(value || "")
-    .split(/[,#]/)
+    .split(/[\s,#]+/)
     .map((tag) => tag.trim().replace(/^#+/, ""))
     .filter(Boolean);
+}
+
+function mergeTagLists(existingTags, incomingTags) {
+  const dedup = new Set();
+  const output = [];
+
+  for (const item of [...(existingTags || []), ...(incomingTags || [])]) {
+    const tag = String(item || "").trim().replace(/^#+/, "");
+    if (!tag) continue;
+    const key = tag.toLowerCase();
+    if (dedup.has(key)) continue;
+    dedup.add(key);
+    output.push(tag);
+  }
+
+  return output;
+}
+
+function autocompleteTagInput(value, suggestions, cursorIndex = null) {
+  const text = String(value || "");
+  if (!text) return null;
+  if (!Array.isArray(suggestions) || !suggestions.length) return null;
+  const safeCursor = Number.isFinite(cursorIndex) ? Math.max(0, Math.min(Number(cursorIndex), text.length)) : text.length;
+  if (safeCursor !== text.length) return null;
+  if (/[\s,#]$/.test(text)) return null;
+
+  let tokenStart = text.length - 1;
+  while (tokenStart >= 0 && !/[\s,#]/.test(text[tokenStart])) {
+    tokenStart -= 1;
+  }
+  tokenStart += 1;
+
+  const token = text.slice(tokenStart).trim();
+  if (!token) return null;
+
+  const lowerToken = token.toLowerCase();
+  const match = suggestions.find((item) => {
+    const candidate = String(item || "").trim();
+    if (!candidate) return false;
+    const lowerCandidate = candidate.toLowerCase();
+    return lowerCandidate.startsWith(lowerToken) && lowerCandidate !== lowerToken;
+  });
+
+  if (!match) return null;
+  return `${text.slice(0, tokenStart)}${match}`;
 }
 
 function normalizeTagSuggestionList(value) {
@@ -367,7 +412,8 @@ const MetadataPanel = memo(function MetadataPanel({
   timeFromText,
   timeToText,
   locationText,
-  tagText,
+  tagItems,
+  tagInputText,
   onTitleChange,
   onTitleBlur,
   onTitleKeyDown,
@@ -375,9 +421,9 @@ const MetadataPanel = memo(function MetadataPanel({
   onTimeFromChange,
   onTimeToChange,
   onLocationChange,
+  onTagRemove,
   onTagsChange,
-  onTagsBlur,
-  tagSuggestions,
+  onTagsKeyDown,
 }) {
   if (!showMetadataPanel || isFocusMode) return null;
 
@@ -440,26 +486,34 @@ const MetadataPanel = memo(function MetadataPanel({
           aria-label="Note location"
         />
       </label>
-      <label className="metadata-card metadata-card-input metadata-card-span-full">
+      <div className="metadata-card metadata-card-tags">
         <Tag size={16} />
         <span>Tags</span>
+        <div className="metadata-tag-chip-list" aria-label="Existing tags">
+          {tagItems.length ? tagItems.map((tag) => (
+            <span className="metadata-tag-chip" key={tag.toLowerCase()}>
+              <span className="metadata-tag-chip-text">#{tag}</span>
+              <button
+                type="button"
+                className="metadata-tag-chip-remove"
+                aria-label={`Remove tag ${tag}`}
+                title={`Remove ${tag}`}
+                onClick={() => onTagRemove(tag)}
+              >
+                <X size={10} />
+              </button>
+            </span>
+          )) : <span className="metadata-tag-empty">No tags yet</span>}
+        </div>
         <input
           type="text"
-          value={tagText}
+          value={tagInputText}
           onChange={onTagsChange}
-          onBlur={onTagsBlur}
-          placeholder="Add tags"
+          onKeyDown={onTagsKeyDown}
+          placeholder="Type tag and press Enter"
           aria-label="Note tags"
-          list="note-tags-suggestions"
         />
-      </label>
-      {tagSuggestions?.length ? (
-        <datalist id="note-tags-suggestions">
-          {tagSuggestions.map((tag) => (
-            <option key={tag} value={tag} />
-          ))}
-        </datalist>
-      ) : null}
+      </div>
     </div>
   );
 });
@@ -646,6 +700,7 @@ export function DocumentDetail({
   const [showOriginalImages, setShowOriginalImages] = useState(false);
   const [showMediaManager, setShowMediaManager] = useState(false);
   const [titleDraft, setTitleDraft] = useState(document.title || "");
+  const [tagDraft, setTagDraft] = useState("");
   const [titleSaving, setTitleSaving] = useState(false);
   const [cachedTagSuggestions, setCachedTagSuggestions] = useWorkspaceScopedStorage({
     workspaceScope: workspaceStorageScope,
@@ -655,6 +710,7 @@ export function DocumentDetail({
   });
   const titleRenameInFlightRef = useRef(false);
   const lastSubmittedTitleRef = useRef("");
+  const saveEditorSnapshotRef = useRef(null);
 
   const content = activeTab === "raw" ? document.rawNotes : document.cleansed;
   const mediaContent = `${document.rawNotes || ""}\n\n${document.cleansed || ""}`.trim();
@@ -670,17 +726,19 @@ export function DocumentDetail({
     return fromTs > toTs ? "End time must be after start time." : "";
   }, [timeRange.from, timeRange.to]);
   const tagText = getHeaderField(document.header, "Tags");
+  const tagItems = useMemo(() => mergeTagLists(parseTagList(tagText), []), [tagText]);
   const combinedTagSuggestions = useMemo(() => {
     const merged = normalizeTagSuggestionList([
       ...workspaceTagSuggestions,
       ...cachedTagSuggestions,
-      ...parseTagList(tagText),
+      ...tagItems,
     ]);
     return merged.slice(0, 100);
-  }, [workspaceTagSuggestions, cachedTagSuggestions, tagText]);
+  }, [workspaceTagSuggestions, cachedTagSuggestions, tagItems]);
 
   useEffect(() => {
     setTitleDraft(document.title || "");
+    setTagDraft("");
     titleRenameInFlightRef.current = false;
     lastSubmittedTitleRef.current = "";
   }, [document.title, document.filePath]);
@@ -822,6 +880,50 @@ export function DocumentDetail({
   }, [document.filePath]);
 
   useEffect(() => {
+    if (!saving) return;
+    const editor = textareaRef.current;
+    if (!editor) return;
+
+    saveEditorSnapshotRef.current = {
+      filePath: document.filePath,
+      tab: activeTab,
+      selectionStart: Number(editor.selectionStart) || 0,
+      selectionEnd: Number(editor.selectionEnd) || 0,
+      scrollTop: Number(editor.scrollTop) || 0,
+    };
+  }, [saving, document.filePath, activeTab]);
+
+  useEffect(() => {
+    if (saving) return;
+    const snapshot = saveEditorSnapshotRef.current;
+    if (!snapshot) return;
+
+    const shouldRestore = snapshot.filePath === document.filePath && snapshot.tab === activeTab;
+    saveEditorSnapshotRef.current = null;
+    if (!shouldRestore) return;
+
+    let canceled = false;
+    const restorePosition = () => {
+      if (canceled) return;
+      const editor = textareaRef.current;
+      if (!editor) return;
+      editor.selectionStart = snapshot.selectionStart;
+      editor.selectionEnd = snapshot.selectionEnd;
+      editor.scrollTop = snapshot.scrollTop;
+    };
+
+    requestAnimationFrame(restorePosition);
+    const lateRestoreA = window.setTimeout(restorePosition, 80);
+    const lateRestoreB = window.setTimeout(restorePosition, 220);
+
+    return () => {
+      canceled = true;
+      window.clearTimeout(lateRestoreA);
+      window.clearTimeout(lateRestoreB);
+    };
+  }, [saving, document.filePath, activeTab]);
+
+  useEffect(() => {
     if (!autosaveEnabled || !dirty || saving || showMediaManager) return undefined;
 
     const timer = window.setTimeout(async () => {
@@ -905,10 +1007,21 @@ export function DocumentDetail({
   };
 
   const handleTagsChange = (event) => {
-    onChange({
-      ...document,
-      header: setHeaderField(document.header, "Tags", event.target.value),
-    });
+    const typedValue = event.target.value;
+    const typedCursor = event.target.selectionStart;
+    const completedValue = autocompleteTagInput(typedValue, combinedTagSuggestions, typedCursor);
+    const isSingleCharInsert = event.nativeEvent?.inputType === "insertText";
+    const nextValue = completedValue && isSingleCharInsert ? completedValue : typedValue;
+    const input = event.target;
+
+    setTagDraft(nextValue);
+
+    if (completedValue && isSingleCharInsert) {
+      requestAnimationFrame(() => {
+        if (!input || typeof input.setSelectionRange !== "function") return;
+        input.setSelectionRange(typedValue.length, completedValue.length);
+      });
+    }
   };
 
   const handleNameChange = (event) => {
@@ -939,17 +1052,56 @@ export function DocumentDetail({
     });
   };
 
-  const handleTagsBlur = (event) => {
-    const normalizedTags = normalizeTagInput(event.target.value);
+  const handleTagsKeyDown = (event) => {
+    if (event.key === "Tab") {
+      const completedValue = autocompleteTagInput(tagDraft, combinedTagSuggestions);
+      if (!completedValue) return;
+      event.preventDefault();
+      setTagDraft(completedValue);
+      requestAnimationFrame(() => {
+        if (!event.currentTarget || typeof event.currentTarget.setSelectionRange !== "function") return;
+        event.currentTarget.setSelectionRange(tagDraft.length, completedValue.length);
+      });
+      return;
+    }
+
+    if (event.key === "Backspace" && !tagDraft.trim() && tagItems.length) {
+      event.preventDefault();
+      const nextTags = tagItems.slice(0, -1);
+      onChange({
+        ...document,
+        header: setHeaderField(document.header, "Tags", nextTags.join(", ")),
+      });
+      return;
+    }
+
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+
+    const normalizedTags = normalizeTagInputFromEnter(tagDraft);
+    const nextTags = parseTagList(normalizedTags);
+    if (!nextTags.length) return;
+    const mergedTags = mergeTagLists(tagItems, nextTags);
+
     onChange({
       ...document,
-      header: setHeaderField(document.header, "Tags", normalizedTags),
+      header: setHeaderField(document.header, "Tags", mergedTags.join(", ")),
     });
+    setTagDraft("");
 
-    const nextTags = parseTagList(normalizedTags);
     if (nextTags.length) {
       setCachedTagSuggestions((current) => normalizeTagSuggestionList([...(current || []), ...nextTags]).slice(0, 100));
     }
+  };
+
+  const handleTagRemove = (tagToRemove) => {
+    const targetKey = String(tagToRemove || "").trim().toLowerCase();
+    if (!targetKey) return;
+    const nextTags = tagItems.filter((tag) => tag.toLowerCase() !== targetKey);
+    onChange({
+      ...document,
+      header: setHeaderField(document.header, "Tags", nextTags.join(", ")),
+    });
   };
 
   const handleManualSave = async () => {
@@ -1362,7 +1514,8 @@ export function DocumentDetail({
         timeFromText={timeRange.from}
         timeToText={timeRange.to}
         locationText={locationText}
-        tagText={tagText}
+        tagItems={tagItems}
+        tagInputText={tagDraft}
         onTitleChange={(event) => setTitleDraft(event.target.value)}
         onTitleBlur={handleTitleBlur}
         onTitleKeyDown={handleTitleKeyDown}
@@ -1370,9 +1523,9 @@ export function DocumentDetail({
         onTimeFromChange={handleTimeFromChange}
         onTimeToChange={handleTimeToChange}
         onLocationChange={handleLocationChange}
+        onTagRemove={handleTagRemove}
         onTagsChange={handleTagsChange}
-        onTagsBlur={handleTagsBlur}
-        tagSuggestions={combinedTagSuggestions}
+        onTagsKeyDown={handleTagsKeyDown}
       />
 
       <div className={`workspace ${isOutlineEnabled ? "" : "outline-panel-disabled"} ${isOutlineCollapsed ? "outline-panel-collapsed" : ""} ${isFocusMode ? "focus-mode" : ""} ${aiSidebar ? "with-ai-chat" : ""}`}>
