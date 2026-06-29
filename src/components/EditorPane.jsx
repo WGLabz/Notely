@@ -378,6 +378,8 @@ export function EditorPane({
         <div
           className="preview-with-media"
           style={{
+            display: "flex",
+            flexDirection: "column",
             height: "100%",
             minHeight: 0,
           }}

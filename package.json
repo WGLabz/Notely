@@ -40,7 +40,6 @@
     "dictionary-en-us": "^2.2.1",
     "lucide-react": "^0.405.0",
     "markdown-it": "^14.1.0",
-    "md-to-pdf": "^5.2.5",
     "mermaid": "^11.6.0",
     "node-pty": "^1.1.0",
     "nspell": "^2.1.5",

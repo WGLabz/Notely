@@ -4453,7 +4453,6 @@ button {
 
 .preview {
   overflow: auto;
-  min-height: 420px;
   padding: 14px 18px;
   background: #fffefd;
   font-size: 14px;
