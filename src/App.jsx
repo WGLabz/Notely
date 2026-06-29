@@ -178,6 +178,7 @@ export default function App() {
     documentMenuAction,
     setDocumentMenuAction,
     landingFolderPath,
+    lastSavedDocuments,
     lastSavedDocument,
     dirty,
     loadDocumentsData,
@@ -1202,6 +1203,35 @@ export default function App() {
     ? breadcrumbSegments[breadcrumbSegments.length - 1].label
     : (activeProject?.isRoot ? "Workspace" : (activeProject?.name || "Project"));
 
+  const trackedSavedNotes = useMemo(() => {
+    const list = Array.isArray(lastSavedDocuments) && lastSavedDocuments.length
+      ? lastSavedDocuments
+      : (lastSavedDocument ? [lastSavedDocument] : []);
+    if (!list.length) return [];
+
+    const byPath = new Map(
+      documents
+        .filter((item) => item?.entryType === "file" && item?.filePath)
+        .map((item) => [String(item.filePath).toLowerCase(), item])
+    );
+
+    return list
+      .map((item) => {
+        const key = String(item?.filePath || "").toLowerCase();
+        const fromDocuments = byPath.get(key);
+        if (fromDocuments) {
+          return {
+            ...item,
+            title: fromDocuments.title || item.title,
+            updatedAt: fromDocuments.updatedAt || item.updatedAt,
+          };
+        }
+        return item?.filePath ? item : null;
+      })
+      .filter(Boolean)
+      .slice(0, 4);
+  }, [lastSavedDocuments, lastSavedDocument, documents]);
+
   return (
     <div className={`app-shell${showTerminal ? " terminal-open" : ""}${current ? " document-screen" : " landing-screen"}`}>
       <div className="toast-stack" aria-live="polite" aria-atomic="true">
@@ -1312,7 +1342,7 @@ export default function App() {
                   loading={loading}
                   onOpen={handleOpenListItem}
                   onAction={handleDashboardAction}
-                  continueNote={lastSavedDocument}
+                  continueNotes={trackedSavedNotes}
                   favorites={favoriteNotes}
                   layout="rail"
                 />

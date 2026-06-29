@@ -39,6 +39,7 @@ export function useDocumentManager({ notify }) {
   const [savingNotesFolder, setSavingNotesFolder] = useState(false);
   const [documentMenuAction, setDocumentMenuAction] = useState(null);
   const [landingFolderPath, setLandingFolderPath] = useState("");
+  const [lastSavedDocuments, setLastSavedDocuments] = useState([]);
   const [lastSavedDocument, setLastSavedDocument] = useState(null);
 
   const loadDocumentsRequestRef = useRef(0);
@@ -68,6 +69,26 @@ export function useDocumentManager({ notify }) {
   function applyProjectState(result) {
     setProjects(result?.projects || []);
     setActiveProjectState(result?.activeProject || null);
+  }
+
+  function pushLastSavedDocument(savedDocument) {
+    const next = {
+      entryType: "file",
+      filePath: String(savedDocument?.filePath || "").trim(),
+      title: String(savedDocument?.title || "Untitled").trim() || "Untitled",
+      updatedAt: savedDocument?.updatedAt || new Date().toISOString(),
+    };
+    if (!next.filePath) return;
+
+    setLastSavedDocument(next);
+    setLastSavedDocuments((currentValue) => {
+      const list = Array.isArray(currentValue) ? currentValue : [];
+      const deduped = [
+        next,
+        ...list.filter((item) => String(item?.filePath || "").toLowerCase() !== next.filePath.toLowerCase()),
+      ];
+      return deduped.slice(0, 4);
+    });
   }
 
   async function loadDocumentsData() {
@@ -130,12 +151,7 @@ export function useDocumentManager({ notify }) {
         reason,
       });
       setCurrent(saved);
-      setLastSavedDocument({
-        entryType: "file",
-        filePath: saved.filePath,
-        title: saved.title,
-        updatedAt: saved.updatedAt || new Date().toISOString(),
-      });
+      pushLastSavedDocument(saved);
       setSavedHash(
         JSON.stringify({
           header: saved.header,
@@ -604,6 +620,7 @@ export function useDocumentManager({ notify }) {
     setDocumentMenuAction,
     landingFolderPath,
     setLandingFolderPath,
+    lastSavedDocuments,
     lastSavedDocument,
     canNavigateUp,
     dirty,

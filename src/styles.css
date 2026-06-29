@@ -1862,6 +1862,9 @@ button {
   background: #f3f9f7;
 }
 
+.dashboard-recent-list.continue-list {
+  margin-top: 8px;
+}
 .dashboard-recent-list {
   list-style: none;
   margin: 0;

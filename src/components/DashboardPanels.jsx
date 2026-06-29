@@ -11,13 +11,15 @@ function getRecentNotes(documents) {
     });
 }
 
-export function DashboardPanels({ documents, loading, onOpen, onAction, continueNote = null, favorites = [], layout = "bar" }) {
+export function DashboardPanels({ documents, loading, onOpen, onAction, continueNotes = [], favorites = [], layout = "bar" }) {
   if (loading) return null;
 
   const recentNotes = getRecentNotes(documents);
-  const continueCandidate = continueNote?.entryType === "file"
-    ? continueNote
-    : recentNotes[0] || null;
+  const continueCandidates = (Array.isArray(continueNotes) ? continueNotes : [])
+    .filter((item) => item?.entryType === "file" && item?.filePath)
+    .slice(0, 4);
+  const continueCandidate = continueCandidates[0] || recentNotes[0] || null;
+  const continueHistory = continueCandidates.length > 1 ? continueCandidates.slice(1) : [];
   const recentSlice = recentNotes.slice(0, 5);
   const favoriteSet = new Set(favorites);
   const favoriteSlice = recentNotes.filter((note) => favoriteSet.has(note.filePath)).slice(0, 5);
@@ -31,18 +33,32 @@ export function DashboardPanels({ documents, loading, onOpen, onAction, continue
             <Clock3 size={14} />
           </div>
           {continueCandidate ? (
-            <button
-              className="dashboard-continue-card"
-              type="button"
-              onClick={() => onOpen(continueCandidate)}
-            >
-              <strong>{continueCandidate.title}</strong>
-              <span>Last edited {formatDate(continueCandidate.updatedAt)}</span>
-              <em>
-                Open
-                <ArrowRight size={13} />
-              </em>
-            </button>
+            <>
+              <button
+                className="dashboard-continue-card"
+                type="button"
+                onClick={() => onOpen(continueCandidate)}
+              >
+                <strong>{continueCandidate.title}</strong>
+                <span>Last edited {formatDate(continueCandidate.updatedAt)}</span>
+                <em>
+                  Open
+                  <ArrowRight size={13} />
+                </em>
+              </button>
+              {continueHistory.length ? (
+                <ul className="dashboard-recent-list compact continue-list">
+                  {continueHistory.map((note) => (
+                    <li key={note.filePath}>
+                      <button type="button" onClick={() => onOpen(note)}>
+                        <span>{note.title}</span>
+                        <small>{formatDate(note.updatedAt)}</small>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </>
           ) : (
             <p className="dashboard-empty">No notes yet. Create one to get started.</p>
           )}
@@ -124,18 +140,32 @@ export function DashboardPanels({ documents, loading, onOpen, onAction, continue
             <Clock3 size={14} />
           </div>
           {continueCandidate ? (
-            <button
-              className="dashboard-continue-card"
-              type="button"
-              onClick={() => onOpen(continueCandidate)}
-            >
-              <strong>{continueCandidate.title}</strong>
-              <span>Last edited {formatDate(continueCandidate.updatedAt)}</span>
-              <em>
-                Open
-                <ArrowRight size={13} />
-              </em>
-            </button>
+            <>
+              <button
+                className="dashboard-continue-card"
+                type="button"
+                onClick={() => onOpen(continueCandidate)}
+              >
+                <strong>{continueCandidate.title}</strong>
+                <span>Last edited {formatDate(continueCandidate.updatedAt)}</span>
+                <em>
+                  Open
+                  <ArrowRight size={13} />
+                </em>
+              </button>
+              {continueHistory.length ? (
+                <ul className="dashboard-recent-list compact continue-list">
+                  {continueHistory.map((note) => (
+                    <li key={note.filePath}>
+                      <button type="button" onClick={() => onOpen(note)}>
+                        <span>{note.title}</span>
+                        <small>{formatDate(note.updatedAt)}</small>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </>
           ) : (
             <p className="dashboard-empty">No notes yet. Create one to get started.</p>
           )}
