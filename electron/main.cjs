@@ -145,9 +145,17 @@ function applyNotesRoot(nextRootPath) {
   notesRoot = path.resolve(nextRootPath);
   appDataDir = path.join(notesRoot, ".notes-app");
   versionsRoot = path.join(appDataDir, "versions");
+  const removedRoot = path.join(appDataDir, "removed");
 
   ensureDir(notesRoot);
   ensureDir(versionsRoot);
+  ensureDir(removedRoot);
+
+  try {
+    migrateLegacyRemovedDirectory();
+  } catch (error) {
+    console.warn("[startup] Unable to migrate legacy removed folder:", error?.message || error);
+  }
 
   metadataStore = createMetadataStore({
     fs,
@@ -201,6 +209,45 @@ function getUniquePath(targetPath) {
   return candidate;
 }
 
+function moveDirectoryContents(sourceDir, targetDir) {
+  ensureDir(targetDir);
+  const entries = fs.readdirSync(sourceDir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const sourcePath = path.join(sourceDir, entry.name);
+    const targetPath = path.join(targetDir, entry.name);
+
+    if (entry.isDirectory()) {
+      moveDirectoryContents(sourcePath, targetPath);
+      try {
+        fs.rmdirSync(sourcePath);
+      } catch (_error) {
+        // Leave non-empty directories in place if any nested move failed.
+      }
+      continue;
+    }
+
+    const finalPath = getUniquePath(targetPath);
+    ensureDir(path.dirname(finalPath));
+    fs.renameSync(sourcePath, finalPath);
+  }
+}
+
+function migrateLegacyRemovedDirectory() {
+  const legacyRemovedDir = path.join(notesRoot, "removed");
+  const managedRemovedDir = path.join(appDataDir, "removed");
+
+  if (!fs.existsSync(legacyRemovedDir)) return;
+  if (!fs.statSync(legacyRemovedDir).isDirectory()) return;
+
+  moveDirectoryContents(legacyRemovedDir, managedRemovedDir);
+  try {
+    fs.rmSync(legacyRemovedDir, { recursive: true, force: false });
+  } catch (_error) {
+    // Best-effort cleanup: leaving an empty legacy folder is harmless.
+  }
+}
+
 function moveFileToRemoved(filePath, group) {
   const resolved = path.resolve(String(filePath || ""));
   if (!filePathWithin(notesRoot, resolved)) {
@@ -212,7 +259,7 @@ function moveFileToRemoved(filePath, group) {
 
   const safeGroup = String(group || "files").trim() || "files";
   const relativePath = path.relative(notesRoot, resolved);
-  const targetPath = path.join(notesRoot, "removed", safeGroup, relativePath);
+  const targetPath = path.join(appDataDir, "removed", safeGroup, relativePath);
   ensureDir(path.dirname(targetPath));
   const finalPath = getUniquePath(targetPath);
   fs.renameSync(resolved, finalPath);
