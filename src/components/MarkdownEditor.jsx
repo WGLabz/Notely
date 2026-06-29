@@ -374,6 +374,37 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
     };
   }, [contextMenu]);
 
+  useEffect(() => {
+    if (!contextMenu || !menuRef.current) return;
+
+    const VIEWPORT_PADDING = 8;
+    const bounds = menuRef.current.getBoundingClientRect();
+    const maxX = Math.max(VIEWPORT_PADDING, window.innerWidth - bounds.width - VIEWPORT_PADDING);
+    const maxY = Math.max(VIEWPORT_PADDING, window.innerHeight - bounds.height - VIEWPORT_PADDING);
+
+    let nextX = contextMenu.x;
+    let nextY = contextMenu.y;
+
+    if (bounds.bottom > window.innerHeight - VIEWPORT_PADDING) {
+      nextY = contextMenu.anchorY - bounds.height;
+    }
+
+    nextX = Math.min(maxX, Math.max(VIEWPORT_PADDING, nextX));
+    nextY = Math.min(maxY, Math.max(VIEWPORT_PADDING, nextY));
+
+    if (nextX !== contextMenu.x || nextY !== contextMenu.y) {
+      setContextMenu((current) => {
+        if (!current) return current;
+        if (current.x === nextX && current.y === nextY) return current;
+        return {
+          ...current,
+          x: nextX,
+          y: nextY,
+        };
+      });
+    }
+  }, [contextMenu]);
+
   const applyIssueAction = (issue) => {
     if (!issue) return;
 
@@ -428,6 +459,8 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
         setContextMenu({
           x: event.clientX,
           y: event.clientY,
+          anchorX: event.clientX,
+          anchorY: event.clientY,
           line: lineColumn.line,
           issues: targetIssues,
           hasSelection: !activeSelection.empty,
