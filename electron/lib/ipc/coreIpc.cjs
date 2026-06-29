@@ -10,6 +10,8 @@ function registerCoreIpcHandlers(ipcMain, deps) {
     readUserSettings,
     writeUserSettings,
     applyNotesRoot,
+    getGitWorkspaceMetadata,
+    setAutoIgnoreMetadataInGit,
     getNotesRoot,
     listProjectsState,
     getActiveProjectSlug,
@@ -77,6 +79,12 @@ function registerCoreIpcHandlers(ipcMain, deps) {
 
     setActiveProjectSlug(slug);
     return listProjectsState();
+  });
+
+  registerTrustedHandler("settings:get-git-workspace-meta", () => getGitWorkspaceMetadata());
+
+  registerTrustedHandler("settings:set-auto-ignore-git-metadata", (_event, payload) => {
+    return setAutoIgnoreMetadataInGit(payload?.enabled !== false);
   });
 
   return {

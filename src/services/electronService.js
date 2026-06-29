@@ -135,6 +135,28 @@ export async function setNotesRootSetting(notesRoot) {
   return api.setNotesRootSetting({ notesRoot });
 }
 
+export async function getGitWorkspaceMetadata() {
+  const api = getNotesApi();
+  if (typeof api.getGitWorkspaceMetadata !== "function") {
+    return {
+      workspaceRoot: "",
+      isGitRoot: false,
+      branch: "",
+      autoIgnoreMetadataInGit: true,
+      gitignoreHasNotesApp: false,
+    };
+  }
+  return api.getGitWorkspaceMetadata();
+}
+
+export async function setAutoIgnoreGitMetadata(enabled) {
+  const api = getNotesApi();
+  if (typeof api.setAutoIgnoreGitMetadata !== "function") {
+    throw new Error("Git metadata settings are unavailable. Please restart the app.");
+  }
+  return api.setAutoIgnoreGitMetadata({ enabled: enabled !== false });
+}
+
 export async function pickFolder() {
   const api = getNotesApi();
   if (typeof api.pickFolder !== "function") {

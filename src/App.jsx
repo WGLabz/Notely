@@ -35,6 +35,8 @@ import {
   onMenuAction,
   getHistory,
   updateMenuContext,
+  getGitWorkspaceMetadata,
+  setAutoIgnoreGitMetadata,
 } from "./services/electronService";
 import { useToast } from "./hooks/useToast";
 import { useP2PSync } from "./hooks/useP2PSync";
@@ -137,6 +139,13 @@ export default function App() {
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
   const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false);
   const [workspaceGraphOpen, setWorkspaceGraphOpen] = useState(false);
+  const [gitWorkspaceMeta, setGitWorkspaceMeta] = useState({
+    workspaceRoot: "",
+    isGitRoot: false,
+    branch: "",
+    autoIgnoreMetadataInGit: true,
+    gitignoreHasNotesApp: false,
+  });
 
   const {
     documents,
@@ -387,6 +396,45 @@ export default function App() {
     await handleOpenReferencedDocument(filePath);
     setLandingAssetsOpen(false);
   }
+
+  async function refreshGitWorkspaceMeta() {
+    try {
+      const meta = await getGitWorkspaceMetadata();
+      setGitWorkspaceMeta({
+        workspaceRoot: String(meta?.workspaceRoot || ""),
+        isGitRoot: meta?.isGitRoot === true,
+        branch: String(meta?.branch || ""),
+        autoIgnoreMetadataInGit: meta?.autoIgnoreMetadataInGit !== false,
+        gitignoreHasNotesApp: meta?.gitignoreHasNotesApp === true,
+      });
+    } catch (_error) {
+      setGitWorkspaceMeta((currentValue) => ({
+        ...currentValue,
+        isGitRoot: false,
+      }));
+    }
+  }
+
+  async function handleToggleAutoIgnoreGitMetadata() {
+    try {
+      const nextMeta = await setAutoIgnoreGitMetadata(!(gitWorkspaceMeta.autoIgnoreMetadataInGit !== false));
+      setGitWorkspaceMeta({
+        workspaceRoot: String(nextMeta?.workspaceRoot || ""),
+        isGitRoot: nextMeta?.isGitRoot === true,
+        branch: String(nextMeta?.branch || ""),
+        autoIgnoreMetadataInGit: nextMeta?.autoIgnoreMetadataInGit !== false,
+        gitignoreHasNotesApp: nextMeta?.gitignoreHasNotesApp === true,
+      });
+      notify(`Auto-ignore .notes-app in git is now ${nextMeta?.autoIgnoreMetadataInGit === false ? "off" : "on"}.`, "success");
+    } catch (error) {
+      notify(error?.message || "Unable to update git metadata settings.", "error");
+    }
+  }
+
+  useEffect(() => {
+    void refreshGitWorkspaceMeta();
+    // notesFolderPath updates when notes root changes.
+  }, [notesFolderPath]);
 
   useEffect(() => {
     function onGlobalKeyDown(event) {
@@ -1178,6 +1226,19 @@ export default function App() {
             <span className="terminal-meta-pill" title="Current workspace scope">
               {activeProject?.isRoot ? "Root" : activeProject?.name || "Project"}
             </span>
+            <span className={`terminal-meta-pill ${gitWorkspaceMeta.isGitRoot ? "" : "warn"}`} title={gitWorkspaceMeta.isGitRoot ? "Workspace Git branch" : "Workspace is not a Git root"}>
+              {gitWorkspaceMeta.isGitRoot ? `Git: ${gitWorkspaceMeta.branch || "(unknown)"}` : "Git: not root"}
+            </span>
+            <button
+              className={`small-button ${gitWorkspaceMeta.autoIgnoreMetadataInGit ? "active" : ""}`}
+              type="button"
+              title="Toggle auto-ignore of .notes-app in workspace .gitignore"
+              onClick={() => {
+                void handleToggleAutoIgnoreGitMetadata();
+              }}
+            >
+              {gitWorkspaceMeta.autoIgnoreMetadataInGit ? "Ignore .notes-app: On" : "Ignore .notes-app: Off"}
+            </button>
             {current ? (
               <>
                 <span className="terminal-meta-pill" title="Editor mode and active tab">

@@ -121,6 +121,118 @@ function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
 }
 
+function isWorkspaceGitRoot(workspaceDir) {
+  const gitPath = path.join(path.resolve(String(workspaceDir || "")), ".git");
+  return fs.existsSync(gitPath);
+}
+
+function getGitDirForWorkspace(workspaceDir) {
+  const gitPath = path.join(path.resolve(String(workspaceDir || "")), ".git");
+  if (!fs.existsSync(gitPath)) return "";
+
+  const stat = fs.statSync(gitPath);
+  if (stat.isDirectory()) return gitPath;
+  if (!stat.isFile()) return "";
+
+  const content = String(fs.readFileSync(gitPath, "utf8") || "").trim();
+  const match = content.match(/^gitdir:\s*(.+)$/i);
+  if (!match) return "";
+
+  const rawGitDir = match[1].trim();
+  return path.isAbsolute(rawGitDir)
+    ? path.resolve(rawGitDir)
+    : path.resolve(path.dirname(gitPath), rawGitDir);
+}
+
+function getGitBranchForWorkspace(workspaceDir) {
+  const gitDir = getGitDirForWorkspace(workspaceDir);
+  if (!gitDir) return "";
+
+  const headPath = path.join(gitDir, "HEAD");
+  if (!fs.existsSync(headPath)) return "";
+
+  const headValue = String(fs.readFileSync(headPath, "utf8") || "").trim();
+  const refMatch = headValue.match(/^ref:\s+refs\/heads\/(.+)$/i);
+  if (refMatch) return refMatch[1].trim();
+  return headValue ? `detached-${headValue.slice(0, 7)}` : "";
+}
+
+function getAutoIgnoreMetadataInGitSetting() {
+  const settings = readUserSettings();
+  return settings.autoIgnoreMetadataInGit !== false;
+}
+
+function hasNotesAppGitignoreEntry(workspaceDir) {
+  const resolvedWorkspace = path.resolve(String(workspaceDir || ""));
+  const gitignorePath = path.join(resolvedWorkspace, ".gitignore");
+  if (!fs.existsSync(gitignorePath)) return false;
+
+  const notesAppPath = path.join(resolvedWorkspace, ".notes-app");
+  const relativeNotesAppPath = normalizeToPosix(path.relative(resolvedWorkspace, notesAppPath)).replace(/\/+$/, "");
+  const ignoreEntry = `${relativeNotesAppPath || ".notes-app"}/`;
+  const existing = String(fs.readFileSync(gitignorePath, "utf8") || "");
+
+  return existing
+    .split(/\r?\n/)
+    .map((line) => line.trim().replace(/\\/g, "/"))
+    .some((line) => line === ignoreEntry || line === ignoreEntry.slice(0, -1));
+}
+
+function ensureNotesAppIgnoredInGit(notesDir) {
+  const resolvedWorkspace = path.resolve(String(notesDir || ""));
+  if (!isWorkspaceGitRoot(resolvedWorkspace)) return false;
+
+  const gitignorePath = path.join(resolvedWorkspace, ".gitignore");
+  const notesAppPath = path.join(resolvedWorkspace, ".notes-app");
+  const relativeNotesAppPath = normalizeToPosix(path.relative(resolvedWorkspace, notesAppPath)).replace(/\/+$/, "");
+  const ignoreEntry = `${relativeNotesAppPath || ".notes-app"}/`;
+
+  const existing = fs.existsSync(gitignorePath)
+    ? String(fs.readFileSync(gitignorePath, "utf8") || "")
+    : "";
+
+  const hasEntry = existing
+    .split(/\r?\n/)
+    .map((line) => line.trim().replace(/\\/g, "/"))
+    .some((line) => line === ignoreEntry || line === ignoreEntry.slice(0, -1));
+
+  if (hasEntry) return false;
+
+  const needsLeadingNewline = existing.length > 0 && !existing.endsWith("\n");
+  const nextValue = `${existing}${needsLeadingNewline ? "\n" : ""}${ignoreEntry}\n`;
+  fs.writeFileSync(gitignorePath, nextValue, "utf8");
+  return true;
+}
+
+function getGitWorkspaceMetadata() {
+  const workspaceRoot = path.resolve(String(notesRoot || ""));
+  const isGitRoot = isWorkspaceGitRoot(workspaceRoot);
+
+  return {
+    workspaceRoot,
+    isGitRoot,
+    branch: isGitRoot ? getGitBranchForWorkspace(workspaceRoot) : "",
+    autoIgnoreMetadataInGit: getAutoIgnoreMetadataInGitSetting(),
+    gitignoreHasNotesApp: isGitRoot ? hasNotesAppGitignoreEntry(workspaceRoot) : false,
+  };
+}
+
+function setAutoIgnoreMetadataInGit(enabled) {
+  const settings = readUserSettings();
+  settings.autoIgnoreMetadataInGit = enabled !== false;
+  writeUserSettings(settings);
+
+  if (settings.autoIgnoreMetadataInGit) {
+    try {
+      ensureNotesAppIgnoredInGit(notesRoot);
+    } catch (error) {
+      console.warn("[settings] Unable to apply .gitignore metadata preference:", error?.message || error);
+    }
+  }
+
+  return getGitWorkspaceMetadata();
+}
+
 function readUserSettings() {
   return mainHelpers.readUserSettings();
 }
@@ -150,6 +262,14 @@ function applyNotesRoot(nextRootPath) {
   ensureDir(notesRoot);
   ensureDir(versionsRoot);
   ensureDir(removedRoot);
+
+  if (getAutoIgnoreMetadataInGitSetting()) {
+    try {
+      ensureNotesAppIgnoredInGit(notesRoot);
+    } catch (error) {
+      console.warn("[startup] Unable to update .gitignore for .notes-app:", error?.message || error);
+    }
+  }
 
   try {
     migrateLegacyRemovedDirectory();
@@ -503,6 +623,8 @@ registerCoreIpcHandlers(ipcMain, {
   readUserSettings,
   writeUserSettings,
   applyNotesRoot,
+  getGitWorkspaceMetadata,
+  setAutoIgnoreMetadataInGit,
   getNotesRoot: () => notesRoot,
   listProjectsState,
   getActiveProjectSlug: () => activeProjectSlug,
