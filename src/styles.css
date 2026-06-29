@@ -1583,7 +1583,7 @@ button {
   max-width: min(760px, 70vw);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   flex-wrap: wrap;
 }
 @media (max-width: 1040px) {
@@ -1599,17 +1599,19 @@ button {
 .landing-path-part {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
 }
 
 .landing-path-segment {
-  border: 0;
-  background: none;
-  color: #4f6770;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: #3f5b63;
   font-size: 12px;
-  font-family: "Cascadia Code", Consolas, ui-monospace, monospace;
-  padding: 0;
+  font-family: "Segoe UI", "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-weight: 500;
+  padding: 1px 8px;
   margin: 0;
   cursor: pointer;
   max-width: min(220px, 45vw);
@@ -1619,12 +1621,16 @@ button {
 }
 
 .landing-path-segment:hover {
-  color: #184b53;
-  text-decoration: underline;
+  color: #173f46;
+  border-color: #c9dad3;
+  background: #ecf4f1;
+  text-decoration: none;
 }
 
 .landing-path-segment.active {
-  color: #173f46;
+  color: #163a42;
+  border-color: #c6d9d1;
+  background: #e8f2ee;
   font-weight: 700;
   cursor: default;
   text-decoration: none;
@@ -1635,7 +1641,9 @@ button {
 }
 
 .landing-path-separator {
-  color: #8ca0a6;
+  color: #8ea3a8;
+  font-size: 11px;
+  user-select: none;
 }
 
 .landing-stats {
@@ -2548,12 +2556,14 @@ button {
 }
 
 .detail-breadcrumb-link {
-  border: 0;
-  background: none;
-  color: #48636a;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: #3f5c63;
   font-size: 12px;
-  font-family: "Cascadia Code", Consolas, ui-monospace, monospace;
-  padding: 0;
+  font-family: "Segoe UI", "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-weight: 500;
+  padding: 1px 8px;
   margin: 0;
   cursor: pointer;
   min-width: 0;
@@ -2564,20 +2574,28 @@ button {
 }
 
 .detail-breadcrumb-link:hover {
-  color: #1a4f57;
-  text-decoration: underline;
+  color: #173f46;
+  border-color: #cbdbd4;
+  background: #edf4f1;
+  text-decoration: none;
 }
 
 .detail-breadcrumb-separator {
-  color: #8ea1a6;
+  color: #8ea3a8;
+  font-size: 11px;
   flex-shrink: 0;
+  user-select: none;
 }
 
 .detail-breadcrumb-current {
-  color: #415b62;
+  color: #173b43;
   font-size: 12px;
-  font-family: "Cascadia Code", Consolas, ui-monospace, monospace;
+  font-family: "Segoe UI", "Inter", ui-sans-serif, system-ui, sans-serif;
   font-weight: 700;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #e7f1ed;
+  border: 1px solid #c8d9d3;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2726,7 +2744,7 @@ button {
 
 .metadata-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 4px;
 }
 
@@ -2835,6 +2853,88 @@ button {
 
 .metadata-card-input input::placeholder {
   color: #9a9188;
+}
+
+.metadata-card-tags {
+  grid-template-rows: auto auto auto;
+  align-items: start;
+}
+
+.metadata-card-tags svg {
+  grid-row: 1 / span 3;
+}
+
+.metadata-tag-chip-list {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  min-height: 18px;
+  margin-top: 1px;
+}
+
+.metadata-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border: 1px solid #c9d7d2;
+  border-radius: 999px;
+  background: #ecf4f0;
+  color: #1f4741;
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.metadata-tag-chip-text {
+  white-space: nowrap;
+}
+
+.metadata-tag-chip-remove {
+  border: 0;
+  background: transparent;
+  color: #4f6e68;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.metadata-tag-chip-remove:hover,
+.metadata-tag-chip-remove:focus-visible {
+  background: rgba(79, 110, 104, 0.2);
+  color: #1f4741;
+  outline: none;
+}
+
+.metadata-tag-empty {
+  color: #70868a;
+  font-size: 9px;
+  letter-spacing: 0.01em;
+}
+
+.metadata-card-tags input {
+  grid-column: 2;
+  min-width: 0;
+  width: 140px;
+  max-width: 100%;
+  border: 0;
+  border-bottom: 1px solid #cfd8d4;
+  background: transparent;
+  color: #172326;
+  font-size: 10px;
+  line-height: 1.1;
+  padding: 0 0 1px;
+  outline: none;
+  justify-self: start;
+}
+
+.metadata-card-tags input:focus {
+  border-bottom-color: #1a3a3e;
 }
 
 .workspace {
@@ -4864,10 +4964,6 @@ button {
 @media (max-width: 760px) {
   .metadata-grid {
     grid-template-columns: 1fr;
-  }
-
-  .metadata-card-span-full {
-    grid-column: auto;
   }
 
   .metadata-time-range-row {
