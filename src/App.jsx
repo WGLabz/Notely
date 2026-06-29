@@ -178,6 +178,7 @@ export default function App() {
     handleOpenCurrentInEditor,
     handleOpenWebsiteFromLanding,
     handleOpenWebsiteForCurrent,
+    handleRenameCurrentDocument,
     handleRenameFromTopbar,
     handleOpenListItem,
     handleOpenReferencedDocument,
@@ -1323,6 +1324,7 @@ export default function App() {
             setMode={setMode}
             onChange={setCurrent}
             onSave={saveDocument}
+            onRenameTitle={handleRenameCurrentDocument}
             onRefreshHistory={async () => setHistory(await getHistory(current.filePath))}
             saving={saving}
             dirty={dirty}

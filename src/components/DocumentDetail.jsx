@@ -231,6 +231,86 @@ function normalizeTagInput(value) {
     .join(", ");
 }
 
+const MONTH_LABELS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+const MONTH_INDEX_BY_LABEL = MONTH_LABELS.reduce((map, label, index) => {
+  map[label.toLowerCase()] = index;
+  return map;
+}, {});
+
+function formatDateTimeLocalForHeader(value) {
+  const text = String(value || "").trim();
+  if (!text || !text.includes("T")) return "";
+  const [datePart, timePart] = text.split("T");
+  const [year, month, day] = datePart.split("-").map((item) => Number(item));
+  if (!year || !month || !day || !timePart) return "";
+  const label = MONTH_LABELS[month - 1];
+  if (!label) return "";
+  return `${timePart}, ${String(day).padStart(2, "0")} ${label} ${year}`;
+}
+
+function parseHeaderDateTimeToInput(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  const match = text.match(/^(\d{1,2}):(\d{2}),\s*(\d{1,2})\s+([A-Za-z]{3,})\s+(\d{4})$/);
+  if (!match) return "";
+
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const day = Number(match[3]);
+  const month = MONTH_INDEX_BY_LABEL[String(match[4]).slice(0, 3).toLowerCase()];
+  const year = Number(match[5]);
+
+  if (!Number.isInteger(month) || hour < 0 || hour > 23 || minute < 0 || minute > 59 || day < 1 || day > 31 || year < 1000) {
+    return "";
+  }
+
+  return `${String(year).padStart(4, "0")}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function parseTimeRangeToInputs(value) {
+  const text = String(value || "").trim();
+  if (!text) {
+    return { from: "", to: "" };
+  }
+
+  const parts = text.split(/\s+to\s+/i);
+  if (parts.length === 2) {
+    return {
+      from: parseHeaderDateTimeToInput(parts[0]),
+      to: parseHeaderDateTimeToInput(parts[1]),
+    };
+  }
+
+  return {
+    from: parseHeaderDateTimeToInput(text),
+    to: "",
+  };
+}
+
+function buildTimeRangeHeaderValue(fromValue, toValue) {
+  const fromLabel = formatDateTimeLocalForHeader(fromValue);
+  const toLabel = formatDateTimeLocalForHeader(toValue);
+
+  if (fromLabel && toLabel) return `${fromLabel} to ${toLabel}`;
+  if (fromLabel) return fromLabel;
+  if (toLabel) return toLabel;
+  return "";
+}
+
 function parseVersionDocumentContent(value, fallbackDocument = {}) {
   const lines = String(value || "").split(/\r?\n/);
   const rawIndex = lines.findIndex((line) => line.trim().toLowerCase() === "# rawnotes");
@@ -261,8 +341,21 @@ function parseVersionDocumentContent(value, fallbackDocument = {}) {
 const MetadataPanel = memo(function MetadataPanel({
   showMetadataPanel,
   isFocusMode,
-  document,
+  titleText,
+  titleSaving,
+  timeRangeWarning,
+  nameText,
+  timeFromText,
+  timeToText,
+  locationText,
   tagText,
+  onTitleChange,
+  onTitleBlur,
+  onTitleKeyDown,
+  onNameChange,
+  onTimeFromChange,
+  onTimeToChange,
+  onLocationChange,
   onTagsChange,
   onTagsBlur,
 }) {
@@ -270,21 +363,61 @@ const MetadataPanel = memo(function MetadataPanel({
 
   return (
     <div className="metadata-grid">
-      <div className="metadata-card">
+      <label className="metadata-card metadata-card-input">
+        <FileText size={16} />
+        <span>Title</span>
+        <input
+          type="text"
+          value={titleText}
+          onChange={onTitleChange}
+          onBlur={onTitleBlur}
+          onKeyDown={onTitleKeyDown}
+          placeholder="Add title"
+          aria-label="Note title"
+          disabled={titleSaving}
+        />
+      </label>
+      <label className="metadata-card metadata-card-input">
         <User size={16} />
         <span>Name</span>
-        <strong>{document.metadata?.name || "Not captured"}</strong>
-      </div>
-      <div className="metadata-card">
+        <input
+          type="text"
+          value={nameText}
+          onChange={onNameChange}
+          placeholder="Add name"
+          aria-label="Note name"
+        />
+      </label>
+      <div className="metadata-card metadata-card-time-range">
         <Clock size={16} />
         <span>Time</span>
-        <strong>{document.metadata?.time || "Not captured"}</strong>
+        <div className="metadata-time-range-inputs">
+          <input
+            type="datetime-local"
+            value={timeFromText}
+            onChange={onTimeFromChange}
+            aria-label="Start time"
+          />
+          <input
+            type="datetime-local"
+            value={timeToText}
+            onChange={onTimeToChange}
+            aria-label="End time"
+          />
+        </div>
+        {timeRangeWarning ? <div className="metadata-warning" role="alert">{timeRangeWarning}</div> : null}
       </div>
-      <div className="metadata-card">
+      <label className="metadata-card metadata-card-input">
         <MapPin size={16} />
         <span>Location</span>
-        <strong>{document.metadata?.location || "Not captured"}</strong>
-      </div>
+        <input
+          type="text"
+          value={locationText}
+          onChange={onLocationChange}
+          placeholder="Add location"
+          aria-label="Note location"
+        />
+      </label>
       <label className="metadata-card metadata-card-input">
         <Tag size={16} />
         <span>Tags</span>
@@ -417,6 +550,7 @@ export function DocumentDetail({
   setMode,
   onChange,
   onSave,
+  onRenameTitle,
   onRefreshHistory,
   saving,
   dirty,
@@ -480,10 +614,31 @@ export function DocumentDetail({
   const [showMetadataPanel, setShowMetadataPanel] = useState(false);
   const [showOriginalImages, setShowOriginalImages] = useState(false);
   const [showMediaManager, setShowMediaManager] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(document.title || "");
+  const [titleSaving, setTitleSaving] = useState(false);
+  const titleRenameInFlightRef = useRef(false);
+  const lastSubmittedTitleRef = useRef("");
 
   const content = activeTab === "raw" ? document.rawNotes : document.cleansed;
   const mediaContent = `${document.rawNotes || ""}\n\n${document.cleansed || ""}`.trim();
+  const nameText = getHeaderField(document.header, "Name");
+  const locationText = getHeaderField(document.header, "Location");
+  const timeText = getHeaderField(document.header, "Time");
+  const timeRange = useMemo(() => parseTimeRangeToInputs(timeText), [timeText]);
+  const timeRangeWarning = useMemo(() => {
+    if (!timeRange.from || !timeRange.to) return "";
+    const fromTs = Date.parse(timeRange.from);
+    const toTs = Date.parse(timeRange.to);
+    if (!Number.isFinite(fromTs) || !Number.isFinite(toTs)) return "";
+    return fromTs > toTs ? "End time must be after start time." : "";
+  }, [timeRange.from, timeRange.to]);
   const tagText = getHeaderField(document.header, "Tags");
+
+  useEffect(() => {
+    setTitleDraft(document.title || "");
+    titleRenameInFlightRef.current = false;
+    lastSubmittedTitleRef.current = "";
+  }, [document.title, document.filePath]);
 
   const activeEditorField = activeTab === "raw" ? "rawNotes" : "cleansed";
   const activeHistoryKey = activeTab === "raw" ? "raw" : "cleansed";
@@ -711,6 +866,34 @@ export function DocumentDetail({
     });
   };
 
+  const handleNameChange = (event) => {
+    onChange({
+      ...document,
+      header: setHeaderField(document.header, "Name", event.target.value),
+    });
+  };
+
+  const handleLocationChange = (event) => {
+    onChange({
+      ...document,
+      header: setHeaderField(document.header, "Location", event.target.value),
+    });
+  };
+
+  const handleTimeFromChange = (event) => {
+    onChange({
+      ...document,
+      header: setHeaderField(document.header, "Time", buildTimeRangeHeaderValue(event.target.value, timeRange.to)),
+    });
+  };
+
+  const handleTimeToChange = (event) => {
+    onChange({
+      ...document,
+      header: setHeaderField(document.header, "Time", buildTimeRangeHeaderValue(timeRange.from, event.target.value)),
+    });
+  };
+
   const handleTagsBlur = (event) => {
     onChange({
       ...document,
@@ -724,6 +907,70 @@ export function DocumentDetail({
       onNotify?.("Note saved.", "success");
     } catch (error) {
       onNotify?.(error?.message || "Unable to save note.", "error");
+    }
+  };
+
+  const commitTitleRename = async () => {
+    const nextTitle = String(titleDraft || "").trim();
+    if (!nextTitle || nextTitle === document.title || typeof onRenameTitle !== "function") {
+      setTitleDraft(document.title || "");
+      return;
+    }
+
+    if (titleRenameInFlightRef.current) {
+      return;
+    }
+
+    if (lastSubmittedTitleRef.current === nextTitle) {
+      return;
+    }
+
+    titleRenameInFlightRef.current = true;
+    lastSubmittedTitleRef.current = nextTitle;
+    setTitleSaving(true);
+    try {
+      const renamed = await onRenameTitle(nextTitle);
+      if (renamed === false) {
+        lastSubmittedTitleRef.current = "";
+      }
+    } catch (_error) {
+      lastSubmittedTitleRef.current = "";
+    } finally {
+      titleRenameInFlightRef.current = false;
+      setTitleSaving(false);
+    }
+  };
+
+  const handleTitleBlur = () => {
+    const nextTitle = String(titleDraft || "").trim();
+    const currentTitle = String(document.title || "").trim();
+    if (!nextTitle) {
+      setTitleDraft(document.title || "");
+      return;
+    }
+    if (nextTitle === currentTitle || titleRenameInFlightRef.current) {
+      return;
+    }
+
+    const confirmed = window.confirm(`Rename note to "${nextTitle}"?`);
+    if (!confirmed) {
+      setTitleDraft(document.title || "");
+      return;
+    }
+
+    commitTitleRename();
+  };
+
+  const handleTitleKeyDown = (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      commitTitleRename();
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setTitleDraft(document.title || "");
+      event.currentTarget.blur();
     }
   };
 
@@ -1057,8 +1304,21 @@ export function DocumentDetail({
       <MetadataPanel
         showMetadataPanel={showMetadataPanel}
         isFocusMode={isFocusMode}
-        document={document}
+        titleText={titleDraft}
+        titleSaving={titleSaving}
+        timeRangeWarning={timeRangeWarning}
+        nameText={nameText}
+        timeFromText={timeRange.from}
+        timeToText={timeRange.to}
+        locationText={locationText}
         tagText={tagText}
+        onTitleChange={(event) => setTitleDraft(event.target.value)}
+        onTitleBlur={handleTitleBlur}
+        onTitleKeyDown={handleTitleKeyDown}
+        onNameChange={handleNameChange}
+        onTimeFromChange={handleTimeFromChange}
+        onTimeToChange={handleTimeToChange}
+        onLocationChange={handleLocationChange}
         onTagsChange={handleTagsChange}
         onTagsBlur={handleTagsBlur}
       />
