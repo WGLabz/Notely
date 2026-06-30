@@ -698,6 +698,12 @@ export function DocumentDetail({
   const [isOutlineCollapsed, setIsOutlineCollapsed] = useState(false);
   const [showMetadataPanel, setShowMetadataPanel] = useState(false);
   const [showOriginalImages, setShowOriginalImages] = useState(false);
+  const [inlineLinkedMarkdown, setInlineLinkedMarkdown] = useWorkspaceScopedStorage({
+    workspaceScope: workspaceStorageScope,
+    key: "notes:inline-linked-markdown",
+    defaultValue: false,
+    normalize: (value) => value === true,
+  });
   const [showMediaManager, setShowMediaManager] = useState(false);
   const [titleDraft, setTitleDraft] = useState(document.title || "");
   const [tagDraft, setTagDraft] = useState("");
@@ -1566,6 +1572,15 @@ export function DocumentDetail({
                 <span>Show Original Images</span>
               </button>
               <button
+                className={inlineLinkedMarkdown ? "active" : ""}
+                type="button"
+                title="Render linked markdown files inline in preview"
+                onClick={() => setInlineLinkedMarkdown((value) => !value)}
+              >
+                <FileText size={16} />
+                <span>Inline Linked Notes</span>
+              </button>
+              <button
                 className={showMediaManager ? "active" : ""}
                 type="button"
                 title="Open assets manager"
@@ -1636,6 +1651,7 @@ export function DocumentDetail({
             onAcceptInlineGhost={onAcceptInlineGhost}
             onRejectInlineGhost={onRejectInlineGhost}
             showOriginalImages={showOriginalImages}
+            inlineLinkedMarkdown={inlineLinkedMarkdown}
           />
         </main>
 

@@ -148,6 +148,18 @@ function registerDocumentIpcHandlers(ipcMain, deps) {
     return parseDocument(fs.readFileSync(resolved, "utf8"), resolved);
   });
 
+  registerTrustedHandler("documents:read-markdown-source", (_event, filePath) => {
+    const notesRoot = getNotesRoot();
+    const resolved = path.resolve(String(filePath || ""));
+    if (!filePathWithin(notesRoot, resolved) || path.extname(resolved).toLowerCase() !== ".md") {
+      throw new Error("Invalid document path.");
+    }
+    if (!fs.existsSync(resolved)) {
+      throw new Error("Document file does not exist.");
+    }
+    return fs.readFileSync(resolved, "utf8");
+  });
+
   registerTrustedHandler("documents:save", (_event, payload) => {
     const notesRoot = getNotesRoot();
     const resolved = path.resolve(payload.filePath);

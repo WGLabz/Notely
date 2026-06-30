@@ -4,6 +4,7 @@ import {
   parseMermaidBlocks,
   normalizeMarkdownImagePaths,
 } from "../utils/renderUtils";
+import { readMarkdownSource } from "../services/electronService";
 import { readImage, replaceImage, deleteImage, renameImage, getImageAnnotation, setImageAnnotation, getImageOriginalStatus, restoreImageOriginal } from "../services/electronService";
 import { readFileAsDataUrl } from "../utils/mediaTypeUtils";
 import { createImageMarkdown } from "../utils/markdownUtils";
@@ -59,7 +60,85 @@ function getImagePath(imageElement) {
   return imageElement?.getAttribute("data-asset-path") || imageElement?.getAttribute("src") || "";
 }
 
-export const MarkdownPreview = memo(function MarkdownPreviewContent({ content, basePath, externalRef, onNotify, onContentChange, onMediaClick, showOriginalImages = false }) {
+function normalizePathSeparators(value) {
+  return String(value || "").replace(/\\/g, "/");
+}
+
+function normalizeSegments(pathValue) {
+  const segments = normalizePathSeparators(pathValue).split("/");
+  const output = [];
+  for (const segment of segments) {
+    if (!segment || segment === ".") continue;
+    if (segment === "..") {
+      if (output.length > 0) output.pop();
+      continue;
+    }
+    output.push(segment);
+  }
+  return output;
+}
+
+function resolveMarkdownLinkPath(basePath, href) {
+  const cleanedHref = String(href || "").trim();
+  if (!cleanedHref) return "";
+
+  const withoutQuery = cleanedHref.split(/[?#]/)[0];
+  if (!withoutQuery || /^(https?:|data:|blob:|mailto:|#)/i.test(withoutQuery)) {
+    return "";
+  }
+
+  let decoded = withoutQuery;
+  for (let i = 0; i < 5; i += 1) {
+    try {
+      const next = decodeURIComponent(decoded);
+      if (next === decoded) break;
+      decoded = next;
+    } catch {
+      break;
+    }
+  }
+
+  if (!decoded.toLowerCase().endsWith(".md")) return "";
+  const normalizedBasePath = normalizePathSeparators(basePath);
+  if (!normalizedBasePath) return "";
+
+  if (/^[a-zA-Z]:\//.test(decoded)) {
+    return decoded.replace(/\//g, "\\");
+  }
+
+  const driveMatch = normalizedBasePath.match(/^([a-zA-Z]:)/);
+  const drive = driveMatch ? driveMatch[1] : "";
+  const baseDir = normalizedBasePath.split("/").slice(0, -1).join("/");
+
+  if (decoded.startsWith("/")) {
+    if (!drive) return "";
+    const absolute = `${drive}${decoded}`;
+    return absolute.replace(/\//g, "\\");
+  }
+
+  const merged = [...normalizeSegments(baseDir), ...normalizeSegments(decoded)];
+  return merged.join("/").replace(/\//g, "\\");
+}
+
+function clearInlineLinkedPreview(linkElement) {
+  const next = linkElement?.nextElementSibling;
+  if (next instanceof HTMLElement && next.classList.contains("inline-linked-note")) {
+    next.remove();
+    return true;
+  }
+  return false;
+}
+
+export const MarkdownPreview = memo(function MarkdownPreviewContent({
+  content,
+  basePath,
+  externalRef,
+  onNotify,
+  onContentChange,
+  onMediaClick,
+  showOriginalImages = false,
+  inlineLinkedMarkdown = false,
+}) {
   const previewRef = useRef(null);
   const menuRef = useRef(null);
   const menuItemsRef = useRef([]);
@@ -182,10 +261,46 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({ content, b
   }, [content, basePath, showOriginalImages]);
 
   useEffect(() => {
-    if (!onMediaClick) return;
+    if (!onMediaClick && !inlineLinkedMarkdown) return;
 
     const previewElement = previewRef.current;
     if (!previewElement) return;
+
+    const openInlineLinkedMarkdown = async (linkElement, event) => {
+      if (!inlineLinkedMarkdown || !basePath) return false;
+
+      const rawHref = linkElement.getAttribute("href") || "";
+      const resolvedPath = resolveMarkdownLinkPath(basePath, rawHref);
+      if (!resolvedPath) return false;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (clearInlineLinkedPreview(linkElement)) {
+        return true;
+      }
+
+      const wrapper = document.createElement("section");
+      wrapper.className = "inline-linked-note";
+      wrapper.innerHTML = "<div class=\"inline-linked-note-status\">Loading linked note…</div>";
+      linkElement.insertAdjacentElement("afterend", wrapper);
+
+      try {
+        const source = await readMarkdownSource(resolvedPath);
+        const normalized = normalizeMarkdownImagePaths(source || "");
+        wrapper.innerHTML = `
+          <div class="inline-linked-note-header">
+            <strong>Linked Note</strong>
+            <span>${resolvedPath.split(/[/\\\\]/).pop() || "note.md"}</span>
+          </div>
+          <div class="inline-linked-note-body">${renderMarkdown(normalized, { sourceLineOffset: 0 })}</div>
+        `;
+      } catch (error) {
+        wrapper.innerHTML = `<div class="inline-linked-note-status error">${error?.message || "Unable to load linked note."}</div>`;
+      }
+
+      return true;
+    };
 
     const openImageViewer = (imageElement, event) => {
       const src = getImagePath(imageElement);
@@ -244,7 +359,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({ content, b
       });
     };
 
-    const handleMediaClick = (event) => {
+    const handleMediaClick = async (event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
 
@@ -265,6 +380,11 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({ content, b
       // Handle markdown links to media files (e.g., [file](./images/file.pdf))
       const linkElement = target.closest("a");
       if (linkElement instanceof HTMLAnchorElement) {
+        if (inlineLinkedMarkdown) {
+          const openedInline = await openInlineLinkedMarkdown(linkElement, event);
+          if (openedInline) return;
+        }
+
         const rawHref = linkElement.getAttribute("href") || "";
         if (rawHref) {
           const normalizedHref = rawHref.split(/[?#]/)[0];
@@ -305,7 +425,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({ content, b
     return () => {
       previewElement.removeEventListener("click", handleMediaClick);
     };
-  }, [basePath, onMediaClick, onNotify]);
+  }, [basePath, inlineLinkedMarkdown, onMediaClick, onNotify]);
 
   useEffect(() => {
     if (!contextMenu) return undefined;

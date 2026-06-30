@@ -12,12 +12,14 @@ const readImageMock = vi.fn();
 const replaceImageMock = vi.fn();
 const deleteImageMock = vi.fn();
 const renameImageMock = vi.fn();
+const readMarkdownSourceMock = vi.fn();
 
 vi.mock("../services/electronService", () => ({
   readImage: (...args) => readImageMock(...args),
   replaceImage: (...args) => replaceImageMock(...args),
   deleteImage: (...args) => deleteImageMock(...args),
   renameImage: (...args) => renameImageMock(...args),
+  readMarkdownSource: (...args) => readMarkdownSourceMock(...args),
 }));
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -53,6 +55,7 @@ beforeEach(() => {
   replaceImageMock.mockReset();
   deleteImageMock.mockReset();
   renameImageMock.mockReset();
+  readMarkdownSourceMock.mockReset();
 });
 
 afterEach(() => {
@@ -132,6 +135,35 @@ describe("MarkdownPreview image behaviors", () => {
     const updatedContent = String(onContentChange.mock.calls.at(-1)?.[0] || "");
     expect(updatedContent).toContain("./images/renamed-photo.png");
     expect(onNotify).toHaveBeenCalledWith("Image renamed and markdown updated.", "success");
+
+    view.unmount();
+  });
+
+  it("renders linked markdown inline when toggle is enabled", async () => {
+    readMarkdownSourceMock.mockResolvedValue("# Nested Note\n\nInline linked content.");
+
+    const view = renderPreview({
+      content: "See [details](./nested.md)",
+      basePath: "C:/notes/doc.md",
+      inlineLinkedMarkdown: true,
+      onNotify: vi.fn(),
+      onContentChange: vi.fn(),
+    });
+
+    const link = view.host.querySelector("a[href='./nested.md']");
+    expect(link).toBeTruthy();
+
+    await act(async () => {
+      link.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await waitFor(0);
+      await waitFor(0);
+    });
+
+    expect(readMarkdownSourceMock).toHaveBeenCalledWith("C:\\notes\\nested.md");
+    const inlineBlock = view.host.querySelector(".inline-linked-note");
+    expect(inlineBlock).toBeTruthy();
+    expect(inlineBlock.textContent).toContain("Linked Note");
+    expect(inlineBlock.textContent).toContain("Inline linked content.");
 
     view.unmount();
   });

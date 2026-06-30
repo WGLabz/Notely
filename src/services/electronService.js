@@ -396,6 +396,14 @@ export async function readDocument(filePath) {
   return api.readDocument(filePath);
 }
 
+export async function readMarkdownSource(filePath) {
+  const api = getNotesApi();
+  if (typeof api.readMarkdownSource !== "function") {
+    throw new Error("Markdown source read action unavailable. Please restart the app.");
+  }
+  return api.readMarkdownSource(filePath);
+}
+
 export async function saveDocument(payload) {
   const api = getNotesApi();
   return api.saveDocument(payload);

@@ -4816,6 +4816,53 @@ button {
   padding: 8px;
 }
 
+.preview .inline-linked-note {
+  margin: 10px 0 14px;
+  border: 1px solid #d7e1dc;
+  border-radius: 8px;
+  background: #f8fbfa;
+  overflow: hidden;
+}
+
+.preview .inline-linked-note-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #d7e1dc;
+  background: #eef4f2;
+  color: #35545a;
+  font-size: 12px;
+}
+
+.preview .inline-linked-note-header strong {
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.preview .inline-linked-note-header span {
+  color: #60767c;
+  font-family: "Cascadia Code", "Consolas", ui-monospace, monospace;
+  font-size: 11px;
+}
+
+.preview .inline-linked-note-body {
+  padding: 10px 12px;
+}
+
+.preview .inline-linked-note-status {
+  padding: 10px 12px;
+  color: #45666b;
+  font-size: 12px;
+}
+
+.preview .inline-linked-note-status.error {
+  color: #8a3a1e;
+  background: #fff6f1;
+}
+
 .webview-shell {
   min-height: 0;
   flex: 1;

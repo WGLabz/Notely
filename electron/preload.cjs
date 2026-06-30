@@ -64,6 +64,7 @@ contextBridge.exposeInMainWorld("notesApi", {
   renameDocument: (payload) => ipcRenderer.invoke("documents:rename", payload),
   deleteDocument: (payload) => ipcRenderer.invoke("documents:delete", payload),
   readDocument: (filePath) => ipcRenderer.invoke("documents:read", filePath),
+  readMarkdownSource: (filePath) => ipcRenderer.invoke("documents:read-markdown-source", filePath),
   saveDocument: (payload) => ipcRenderer.invoke("documents:save", payload),
   getHistory: (filePath) => ipcRenderer.invoke("documents:history", filePath),
   restoreHistory: (payload) => ipcRenderer.invoke("documents:restore", payload),

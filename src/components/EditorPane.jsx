@@ -43,6 +43,7 @@ export function EditorPane({
   onAcceptInlineGhost,
   onRejectInlineGhost,
   showOriginalImages = false,
+  inlineLinkedMarkdown = false,
   workspaceStorageScope = "default",
 }) {
   const previewRef = useRef(null);
@@ -391,6 +392,7 @@ export function EditorPane({
             onContentChange={onChange}
             onMediaClick={setSelectedMediaPreview}
             showOriginalImages={showOriginalImages}
+            inlineLinkedMarkdown={inlineLinkedMarkdown}
           />
         </div>
         {selectedMediaPreview ? (
@@ -464,6 +466,7 @@ export function EditorPane({
               onContentChange={onChange}
               onMediaClick={setSelectedMediaPreview}
               showOriginalImages={showOriginalImages}
+              inlineLinkedMarkdown={inlineLinkedMarkdown}
             />
           </section>
         </div>
