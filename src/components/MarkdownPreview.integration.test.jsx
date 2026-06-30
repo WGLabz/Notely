@@ -195,4 +195,88 @@ describe("MarkdownPreview image behaviors", () => {
 
     view.unmount();
   });
+
+  it("renders inline markdown for extensionless local note links", async () => {
+    readMarkdownSourceMock.mockResolvedValue("# Architecture\n\nRendered from extensionless link.");
+
+    const view = renderPreview({
+      content: "See [Architecture](./Architecture)",
+      basePath: "C:/notes/doc.md",
+      inlineLinkedMarkdown: true,
+      onNotify: vi.fn(),
+      onContentChange: vi.fn(),
+    });
+
+    const link = view.host.querySelector("a[href='./Architecture']");
+    expect(link).toBeTruthy();
+
+    await act(async () => {
+      link.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await waitFor(0);
+      await waitFor(0);
+    });
+
+    expect(readMarkdownSourceMock).toHaveBeenCalledWith("C:\\notes\\Architecture.md");
+    const inlineBlock = view.host.querySelector(".inline-linked-note");
+    expect(inlineBlock).toBeTruthy();
+    expect(inlineBlock.textContent).toContain("Rendered from extensionless link.");
+
+    view.unmount();
+  });
+
+  it("resolves ../../ style links correctly from deep nested notes", async () => {
+    readMarkdownSourceMock.mockResolvedValue("# System Design\n\nResolved from parent traversal.");
+
+    const view = renderPreview({
+      content: "See [System Design](../../Architecture/System%20Design)",
+      basePath: "C:/notes/Team/2026/doc.md",
+      inlineLinkedMarkdown: true,
+      onNotify: vi.fn(),
+      onContentChange: vi.fn(),
+    });
+
+    const link = view.host.querySelector("a");
+    expect(link).toBeTruthy();
+
+    await act(async () => {
+      link.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await waitFor(0);
+      await waitFor(0);
+    });
+
+    expect(readMarkdownSourceMock).toHaveBeenCalledWith("C:\\notes\\Architecture\\System Design.md");
+    const inlineBlock = view.host.querySelector(".inline-linked-note");
+    expect(inlineBlock).toBeTruthy();
+    expect(inlineBlock.textContent).toContain("Resolved from parent traversal.");
+
+    view.unmount();
+  });
+
+  it("blocks directory-style markdown links like ./ with a helpful notice", async () => {
+    const onNotify = vi.fn();
+
+    const view = renderPreview({
+      content: "See [Architecture](./)",
+      basePath: "C:/notes/doc.md",
+      inlineLinkedMarkdown: true,
+      onNotify,
+      onContentChange: vi.fn(),
+    });
+
+    const link = view.host.querySelector("a[href='./']");
+    expect(link).toBeTruthy();
+
+    await act(async () => {
+      link.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await waitFor(0);
+    });
+
+    expect(readMarkdownSourceMock).not.toHaveBeenCalled();
+    expect(onNotify).toHaveBeenCalledWith(
+      "Directory links like ./ are not supported here. Link a specific .md file.",
+      "info"
+    );
+
+    view.unmount();
+  });
 });

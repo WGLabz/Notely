@@ -64,18 +64,55 @@ function normalizePathSeparators(value) {
   return String(value || "").replace(/\\/g, "/");
 }
 
-function normalizeSegments(pathValue) {
-  const segments = normalizePathSeparators(pathValue).split("/");
-  const output = [];
-  for (const segment of segments) {
-    if (!segment || segment === ".") continue;
-    if (segment === "..") {
-      if (output.length > 0) output.pop();
-      continue;
+function normalizeAbsolutePath(pathValue) {
+  const normalized = normalizePathSeparators(pathValue).trim();
+  if (!normalized) return "";
+
+  const driveMatch = normalized.match(/^([A-Za-z]:)(\/.*)?$/);
+  if (driveMatch) {
+    const drive = driveMatch[1];
+    const rest = driveMatch[2] || "/";
+    const segments = rest.split("/");
+    const output = [];
+    for (const segment of segments) {
+      if (!segment || segment === ".") continue;
+      if (segment === "..") {
+        if (output.length > 0) output.pop();
+        continue;
+      }
+      output.push(segment);
     }
-    output.push(segment);
+    return `${drive}/${output.join("/")}`;
   }
-  return output;
+
+  if (normalized.startsWith("/")) {
+    const segments = normalized.split("/");
+    const output = [];
+    for (const segment of segments) {
+      if (!segment || segment === ".") continue;
+      if (segment === "..") {
+        if (output.length > 0) output.pop();
+        continue;
+      }
+      output.push(segment);
+    }
+    return `/${output.join("/")}`;
+  }
+
+  return "";
+}
+
+function dirname(pathValue) {
+  const normalized = normalizePathSeparators(pathValue);
+  const at = normalized.lastIndexOf("/");
+  if (at <= 0) return normalized;
+  return normalized.slice(0, at);
+}
+
+function hasPathExtension(pathValue) {
+  const normalized = normalizePathSeparators(pathValue);
+  const leaf = normalized.split("/").pop() || "";
+  return /\.[^./\\]+$/.test(leaf);
 }
 
 function resolveMarkdownLinkPath(basePath, href) {
@@ -108,34 +145,43 @@ function resolveMarkdownLinkPath(basePath, href) {
       if (/^\/[A-Za-z]:\//.test(pathname)) {
         pathname = pathname.slice(1);
       }
-      const filePath = decodeURIComponent(pathname || "").replace(/\//g, "\\");
-      if (!/\.md$/i.test(filePath)) return "";
-      return filePath;
+      let filePath = decodeURIComponent(pathname || "");
+      if (filePath === "." || filePath === "./" || filePath.endsWith("/")) return "";
+      const hasExt = hasPathExtension(filePath);
+      if (hasExt && !filePath.toLowerCase().endsWith(".md")) return "";
+      if (!hasExt) filePath = `${filePath}.md`;
+      const normalizedFilePath = normalizeAbsolutePath(filePath);
+      return normalizedFilePath.replace(/\//g, "\\");
     } catch {
       return "";
     }
   }
 
-  if (!decoded.toLowerCase().endsWith(".md")) return "";
-  const normalizedBasePath = normalizePathSeparators(basePath);
+  if (decoded === "." || decoded === "./" || decoded.endsWith("/")) return "";
+  const hasExt = hasPathExtension(decoded);
+  if (hasExt && !decoded.toLowerCase().endsWith(".md")) return "";
+  if (!hasExt) {
+    decoded = `${decoded}.md`;
+  }
+  const normalizedBasePath = normalizeAbsolutePath(basePath);
   if (!normalizedBasePath) return "";
 
   if (/^[a-zA-Z]:\//.test(decoded)) {
-    return decoded.replace(/\//g, "\\");
+    const absolute = normalizeAbsolutePath(decoded);
+    return absolute.replace(/\//g, "\\");
   }
 
   const driveMatch = normalizedBasePath.match(/^([a-zA-Z]:)/);
   const drive = driveMatch ? driveMatch[1] : "";
-  const baseDir = normalizedBasePath.split("/").slice(0, -1).join("/");
+  const baseDir = dirname(normalizedBasePath);
 
   if (decoded.startsWith("/")) {
-    if (!drive) return "";
-    const absolute = `${drive}${decoded}`;
+    const absolute = normalizeAbsolutePath(drive ? `${drive}${decoded}` : decoded);
     return absolute.replace(/\//g, "\\");
   }
 
-  const merged = [...normalizeSegments(baseDir), ...normalizeSegments(decoded)];
-  return merged.join("/").replace(/\//g, "\\");
+  const absolute = normalizeAbsolutePath(`${baseDir}/${decoded}`);
+  return absolute.replace(/\//g, "\\");
 }
 
 function clearInlineLinkedPreview(linkElement) {
@@ -314,7 +360,9 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
           <div class="inline-linked-note-body">${renderMarkdown(normalized, { sourceLineOffset: 0 })}</div>
         `;
       } catch (error) {
-        wrapper.innerHTML = `<div class="inline-linked-note-status error">${error?.message || "Unable to load linked note."}</div>`;
+        const message = error?.message || "Unable to load linked note.";
+        wrapper.innerHTML = `<div class="inline-linked-note-status error">${message}</div>`;
+        onNotify?.(message, "error");
       }
 
       return true;
@@ -398,12 +446,19 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
       // Handle markdown links to media files (e.g., [file](./images/file.pdf))
       const linkElement = target.closest("a");
       if (linkElement instanceof HTMLAnchorElement) {
+        const rawHref = (linkElement.getAttribute("href") || "").trim();
+        if (rawHref === "." || rawHref === "./") {
+          event.preventDefault();
+          event.stopPropagation();
+          onNotify?.("Directory links like ./ are not supported here. Link a specific .md file.", "info");
+          return;
+        }
+
         if (inlineLinkedMarkdown) {
           const openedInline = await openInlineLinkedMarkdown(linkElement, event);
           if (openedInline) return;
         }
 
-        const rawHref = linkElement.getAttribute("href") || "";
         if (rawHref) {
           const normalizedHref = rawHref.split(/[?#]/)[0];
           const ext = normalizedHref.split(".").pop()?.toLowerCase();
