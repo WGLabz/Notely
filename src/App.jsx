@@ -1357,6 +1357,7 @@ export default function App() {
                   onSortByChange={setLandingSortMode}
                   visibleCount={visibleDocuments.length}
                   totalCount={documents.length}
+                  onCreateNote={() => handleDashboardAction("new-note")}
                 />
                 <DocumentList
                   documents={visibleDocuments}
@@ -1382,6 +1383,7 @@ export default function App() {
                 onSortByChange={setLandingSortMode}
                 visibleCount={visibleDocuments.length}
                 totalCount={documents.length}
+                onCreateNote={() => handleDashboardAction("new-note")}
               />
               <DocumentList
                 documents={visibleDocuments}

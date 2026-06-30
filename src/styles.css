@@ -1521,7 +1521,7 @@ button {
 }
 .landing-list-controls {
   display: grid;
-  grid-template-columns: minmax(220px, 1.8fr) minmax(140px, 1fr) minmax(170px, 1fr) auto;
+  grid-template-columns: minmax(220px, 1.8fr) minmax(140px, 1fr) minmax(170px, 1fr) auto auto;
   align-items: end;
   gap: 10px;
   margin: 0 0 10px;
@@ -1576,6 +1576,32 @@ button {
   margin: 0 2px;
 }
 
+.landing-new-note-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 8px;
+  background: #1a7f8c;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.landing-new-note-btn:hover {
+  background: #0d5a65;
+}
+.landing-new-note-btn:active {
+  background: #054347;
+}
+.landing-new-note-btn svg {
+  flex-shrink: 0;
+}
+
 .landing-path {
   margin-top: 10px;
   color: #4f6770;
@@ -1593,6 +1619,11 @@ button {
 
   .landing-list-count {
     justify-content: flex-start;
+  }
+
+  .landing-new-note-btn {
+    grid-column: 1 / -1;
+    justify-self: start;
   }
 }
 

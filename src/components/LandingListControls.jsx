@@ -1,3 +1,5 @@
+import { FilePlus2 } from "lucide-react";
+
 export function LandingListControls({
   query,
   onQueryChange,
@@ -7,6 +9,7 @@ export function LandingListControls({
   onSortByChange,
   visibleCount,
   totalCount,
+  onCreateNote,
 }) {
   return (
     <div className="landing-list-controls" aria-label="List controls">
@@ -51,6 +54,19 @@ export function LandingListControls({
       <div className="landing-list-count" aria-live="polite">
         Showing <strong>{visibleCount}</strong> of <strong>{totalCount}</strong>
       </div>
+
+      {onCreateNote && (
+        <button
+          className="landing-new-note-btn"
+          type="button"
+          onClick={onCreateNote}
+          title="Create a new note"
+          aria-label="Create a new note"
+        >
+          <FilePlus2 size={16} />
+          <span>New Note</span>
+        </button>
+      )}
     </div>
   );
 }
