@@ -322,6 +322,137 @@ describe("MarkdownToolbar validation panel interactions", () => {
     view.unmount();
   });
 
+  it("excludes the current note from workspace insert list with normalized path matching", async () => {
+    listImagesMock.mockResolvedValue([]);
+    listDocumentsMock.mockResolvedValue([
+      {
+        title: "Architecture",
+        fileName: "Architecture.md",
+        filePath: "c:/notes/Architecture.md",
+      },
+    ]);
+
+    const view = renderToolbar({
+      value: "",
+      onChange: vi.fn(),
+      textareaRef: { current: null },
+      basePath: "C:\\notes\\Architecture.md",
+      onNotify: vi.fn(),
+      validationStatus: "ready",
+      validationIssues: [],
+      onJumpToLine: vi.fn(),
+    });
+
+    const openWorkspaceInsert = view.host.querySelector('button[title="Insert from workspace"]');
+    expect(openWorkspaceInsert).toBeTruthy();
+
+    await act(async () => {
+      openWorkspaceInsert.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    const buttons = Array.from(view.host.querySelectorAll(".image-linker-list button"));
+    expect(buttons.some((button) => button.textContent?.includes("Architecture"))).toBe(false);
+
+    view.unmount();
+  });
+
+  it("does not show folder entries as linkable markdown notes", async () => {
+    listImagesMock.mockResolvedValue([]);
+    listDocumentsMock.mockResolvedValue([
+      {
+        entryType: "folder",
+        title: "Architecture",
+        filePath: "C:/notes/Architecture",
+      },
+      {
+        entryType: "file",
+        title: "Architecture",
+        fileName: "Architecture.md",
+        filePath: "C:/notes/Architecture.md",
+      },
+    ]);
+
+    const view = renderToolbar({
+      value: "",
+      onChange: vi.fn(),
+      textareaRef: { current: null },
+      basePath: "C:/notes/Current.md",
+      onNotify: vi.fn(),
+      validationStatus: "ready",
+      validationIssues: [],
+      onJumpToLine: vi.fn(),
+    });
+
+    const openWorkspaceInsert = view.host.querySelector('button[title="Insert from workspace"]');
+    expect(openWorkspaceInsert).toBeTruthy();
+
+    await act(async () => {
+      openWorkspaceInsert.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    const buttons = Array.from(view.host.querySelectorAll(".image-linker-list button"));
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0]?.textContent || "").toContain("Architecture");
+
+    view.unmount();
+  });
+
+  it("loads linkable markdown notes from subfolders", async () => {
+    listImagesMock.mockResolvedValue([]);
+    listDocumentsMock.mockImplementation(async (folderPath) => {
+      if (!folderPath) {
+        return [
+          {
+            entryType: "folder",
+            title: "Architecture",
+            filePath: "C:/notes/Architecture",
+          },
+        ];
+      }
+
+      if (folderPath === "C:/notes/Architecture") {
+        return [
+          {
+            entryType: "file",
+            title: "System Design",
+            fileName: "System Design.md",
+            filePath: "C:/notes/Architecture/System Design.md",
+          },
+        ];
+      }
+
+      return [];
+    });
+
+    const view = renderToolbar({
+      value: "",
+      onChange: vi.fn(),
+      textareaRef: { current: null },
+      basePath: "C:/notes/Current.md",
+      onNotify: vi.fn(),
+      validationStatus: "ready",
+      validationIssues: [],
+      onJumpToLine: vi.fn(),
+    });
+
+    const openWorkspaceInsert = view.host.querySelector('button[title="Insert from workspace"]');
+    expect(openWorkspaceInsert).toBeTruthy();
+
+    await act(async () => {
+      openWorkspaceInsert.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    const buttons = Array.from(view.host.querySelectorAll(".image-linker-list button"));
+    expect(buttons.some((button) => button.textContent?.includes("System Design"))).toBe(true);
+    expect(listDocumentsMock).toHaveBeenCalledWith(undefined);
+    expect(listDocumentsMock).toHaveBeenCalledWith("C:/notes/Architecture");
+
+    view.unmount();
+  });
+
   it("filters workspace insert list by selected asset type", async () => {
     listImagesMock.mockResolvedValue([
       "./images/photo.png",

@@ -23,10 +23,29 @@ import { applyMarkdownQuickFix, applyValidationSuggestion, getIssueFixType } fro
 import { MEDIA_FILE_INPUT_ACCEPT } from "../utils/mediaTypeUtils";
 import { getMediaTypeFromExtension } from "../utils/mediaUtils";
 
+function canonicalPathKey(pathValue) {
+  const normalized = String(pathValue || "").trim().replace(/\\/g, "/");
+  if (!normalized) return "";
+  const trimmed = normalized.replace(/\/+$/, "");
+  return trimmed.toLowerCase();
+}
+
+function stripUrlSuffix(pathValue) {
+  return String(pathValue || "").split(/[?#]/)[0];
+}
+
+function hasMarkdownExtension(pathValue) {
+  return /\.md$/i.test(stripUrlSuffix(pathValue));
+}
+
 function toRelativeDocPath(fromFilePath, toFilePath) {
   if (!fromFilePath || !toFilePath) return "";
   const fromNormalized = String(fromFilePath).replace(/\\/g, "/");
   const toNormalized = String(toFilePath).replace(/\\/g, "/");
+
+  if (canonicalPathKey(fromNormalized) === canonicalPathKey(toNormalized)) {
+    return "";
+  }
 
   const fromDrive = fromNormalized.match(/^([A-Za-z]:)\//)?.[1]?.toLowerCase() || "";
   const toDrive = toNormalized.match(/^([A-Za-z]:)\//)?.[1]?.toLowerCase() || "";
@@ -354,9 +373,38 @@ export function MarkdownToolbar({
 
     setAssetsLoading(true);
     try {
+      const listAllDocumentEntries = async () => {
+        const visited = new Set();
+        const seenFiles = new Set();
+        const files = [];
+        const queue = ["ROOT"];
+
+        while (queue.length > 0) {
+          const nextFolder = queue.shift();
+          const folderArg = nextFolder === "ROOT" ? undefined : nextFolder;
+          const entries = await listDocuments(folderArg);
+
+          for (const entry of entries || []) {
+            const key = canonicalPathKey(entry?.filePath);
+            if (!key) continue;
+            if (entry?.entryType === "folder") {
+              if (visited.has(key)) continue;
+              visited.add(key);
+              queue.push(entry.filePath);
+              continue;
+            }
+            if (seenFiles.has(key)) continue;
+            seenFiles.add(key);
+            files.push(entry);
+          }
+        }
+
+        return files;
+      };
+
       const [paths, docs] = await Promise.all([
         listImages(basePath),
-        listDocuments(),
+        listAllDocumentEntries(),
       ]);
 
       const mediaAssets = (paths || []).map((pathValue) => ({
@@ -364,8 +412,13 @@ export function MarkdownToolbar({
         path: pathValue,
         mediaType: getAssetMediaType(pathValue),
       }));
+      const currentPathKey = canonicalPathKey(basePath);
       const noteAssets = (docs || [])
-        .filter((entry) => entry.filePath !== basePath)
+        .filter((entry) => {
+          if (canonicalPathKey(entry.filePath) === currentPathKey) return false;
+          if (hasMarkdownExtension(entry?.filePath)) return true;
+          return hasMarkdownExtension(entry?.fileName);
+        })
         .map((entry) => ({
           type: "note",
           filePath: entry.filePath,
@@ -391,10 +444,18 @@ export function MarkdownToolbar({
   function insertDocLink(targetDoc) {
     const filePath = targetDoc?.filePath;
     const text = (linkText || "").trim() || targetDoc?.title || targetDoc?.fileName || "Linked note";
-    const relativePath = toRelativeDocPath(basePath, filePath);
+    if (!hasMarkdownExtension(filePath)) {
+      setAssetsError("Only markdown notes can be linked. Choose a .md file.");
+      return;
+    }
+
+    let relativePath = toRelativeDocPath(basePath, filePath);
+    if (relativePath && !hasMarkdownExtension(relativePath) && hasMarkdownExtension(targetDoc?.fileName)) {
+      relativePath = `${relativePath}.md`;
+    }
     const normalizedPath = normalizeImagePathForMarkdown(relativePath);
-    if (!normalizedPath) {
-      setAssetsError("Unable to build a relative link for that file.");
+    if (!normalizedPath || normalizedPath === "./" || normalizedPath === ".") {
+      setAssetsError("Choose a different note. Linking the current note is not supported.");
       return;
     }
 
