@@ -14,14 +14,14 @@ import {
   Table2,
   ImagePlus,
   Zap,
-  FileText,
   SpellCheck,
 } from "lucide-react";
-import { applySnippet, createImageMarkdown, createMediaMarkdown, insertTextAtCursor } from "../utils/markdownUtils";
+import { applySnippet, createMediaMarkdown, insertTextAtCursor, normalizeImagePathForMarkdown } from "../utils/markdownUtils";
 import { insertMediaFromFile } from "../services/imageService";
 import { listDocuments, listImages } from "../services/electronService";
 import { applyMarkdownQuickFix, applyValidationSuggestion, getIssueFixType } from "../utils/markdownQuickFix";
 import { MEDIA_FILE_INPUT_ACCEPT } from "../utils/mediaTypeUtils";
+import { getMediaTypeFromExtension } from "../utils/mediaUtils";
 
 function toRelativeDocPath(fromFilePath, toFilePath) {
   if (!fromFilePath || !toFilePath) return "";
@@ -60,6 +60,11 @@ function getIssueLabel(issue) {
   return "Issue";
 }
 
+function getAssetMediaType(pathValue) {
+  const extension = String(pathValue || "").split(/[?#]/)[0].split(".").pop()?.toLowerCase();
+  return getMediaTypeFromExtension(extension) || "document";
+}
+
 export function MarkdownToolbar({
   value,
   onChange,
@@ -82,31 +87,25 @@ export function MarkdownToolbar({
 }) {
   const imageInputRef = useRef(null);
   const mermaidPopoverRef = useRef(null);
-  const imageLinkPopoverRef = useRef(null);
+  const assetLinkPopoverRef = useRef(null);
   const webLinkPopoverRef = useRef(null);
-  const docLinkPopoverRef = useRef(null);
   const tablePopoverRef = useRef(null);
   const validationPopoverRef = useRef(null);
   const [showMermaidBuilder, setShowMermaidBuilder] = useState(false);
-  const [showImageLinker, setShowImageLinker] = useState(false);
+  const [showAssetLinker, setShowAssetLinker] = useState(false);
   const [showWebLinker, setShowWebLinker] = useState(false);
-  const [showDocLinker, setShowDocLinker] = useState(false);
   const [showTableBuilder, setShowTableBuilder] = useState(false);
   const [showValidationPanel, setShowValidationPanel] = useState(false);
-  const [availableImages, setAvailableImages] = useState([]);
-  const [imagesLoading, setImagesLoading] = useState(false);
-  const [imagesError, setImagesError] = useState("");
-  const [imageSearch, setImageSearch] = useState("");
-  const [imageAltText, setImageAltText] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  const [availableAssets, setAvailableAssets] = useState([]);
+  const [assetsLoading, setAssetsLoading] = useState(false);
+  const [assetsError, setAssetsError] = useState("");
+  const [assetSearch, setAssetSearch] = useState("");
+  const [assetFilter, setAssetFilter] = useState("all");
+  const [linkText, setLinkText] = useState("");
+  const [assetUrl, setAssetUrl] = useState("");
   const [webLinkText, setWebLinkText] = useState("");
   const [webLinkUrl, setWebLinkUrl] = useState("");
   const [webLinkError, setWebLinkError] = useState("");
-  const [docSearch, setDocSearch] = useState("");
-  const [docLinkText, setDocLinkText] = useState("");
-  const [availableDocs, setAvailableDocs] = useState([]);
-  const [docsLoading, setDocsLoading] = useState(false);
-  const [docsError, setDocsError] = useState("");
   const [chartType, setChartType] = useState("flowchart");
   const [flowDirection, setFlowDirection] = useState("LR");
   const [flowStart, setFlowStart] = useState("Start");
@@ -120,18 +119,16 @@ export function MarkdownToolbar({
 
   const closeToolbarPanels = () => {
     setShowMermaidBuilder(false);
-    setShowImageLinker(false);
+    setShowAssetLinker(false);
     setShowWebLinker(false);
-    setShowDocLinker(false);
     setShowTableBuilder(false);
     setShowValidationPanel(false);
   };
 
   const isPanelOpen = (panel) => {
     if (panel === "mermaid") return showMermaidBuilder;
-    if (panel === "image") return showImageLinker;
+    if (panel === "asset") return showAssetLinker;
     if (panel === "web") return showWebLinker;
-    if (panel === "doc") return showDocLinker;
     if (panel === "table") return showTableBuilder;
     if (panel === "validation") return showValidationPanel;
     return false;
@@ -139,9 +136,8 @@ export function MarkdownToolbar({
 
   const openPanel = (panel) => {
     if (panel === "mermaid") setShowMermaidBuilder(true);
-    if (panel === "image") setShowImageLinker(true);
+    if (panel === "asset") setShowAssetLinker(true);
     if (panel === "web") setShowWebLinker(true);
-    if (panel === "doc") setShowDocLinker(true);
     if (panel === "table") setShowTableBuilder(true);
     if (panel === "validation") setShowValidationPanel(true);
   };
@@ -157,9 +153,8 @@ export function MarkdownToolbar({
 
   const anyPopoverOpen =
     showMermaidBuilder ||
-    showImageLinker ||
+    showAssetLinker ||
     showWebLinker ||
-    showDocLinker ||
     showTableBuilder ||
     showValidationPanel;
 
@@ -170,16 +165,14 @@ export function MarkdownToolbar({
 
     const handleGlobalClick = (event) => {
       const insideMermaid = mermaidPopoverRef.current?.contains(event.target);
-      const insideImageLinker = imageLinkPopoverRef.current?.contains(event.target);
+      const insideAssetLinker = assetLinkPopoverRef.current?.contains(event.target);
       const insideWebLinker = webLinkPopoverRef.current?.contains(event.target);
-      const insideDocLinker = docLinkPopoverRef.current?.contains(event.target);
       const insideTableBuilder = tablePopoverRef.current?.contains(event.target);
       const insideValidation = validationPopoverRef.current?.contains(event.target);
       if (
         !insideMermaid &&
-        !insideImageLinker &&
+        !insideAssetLinker &&
         !insideWebLinker &&
-        !insideDocLinker &&
         !insideTableBuilder &&
         !insideValidation
       ) {
@@ -228,22 +221,26 @@ export function MarkdownToolbar({
     { key: "code", icon: Code, title: "Code", before: "`", after: "`", placeholder: "code" },
   ];
 
-  const filteredImages = availableImages.filter((pathValue) => {
-    const search = imageSearch.trim().toLowerCase();
+  const filteredAssets = availableAssets.filter((asset) => {
+    if (assetFilter === "notes" && asset.type !== "note") return false;
+    if (assetFilter !== "all" && assetFilter !== "notes" && asset.type === "media") {
+      const mediaType = getAssetMediaType(asset.path);
+      if (mediaType !== assetFilter) return false;
+    }
+    if (assetFilter !== "all" && assetFilter !== "notes" && asset.type !== "media") {
+      return false;
+    }
+
+    const search = assetSearch.trim().toLowerCase();
     if (!search) return true;
-    return pathValue.toLowerCase().includes(search);
-  });
-  const filteredDocs = availableDocs.filter((entry) => {
-    const query = docSearch.trim().toLowerCase();
-    if (!query) return true;
-    return (
-      (entry.title || "").toLowerCase().includes(query) ||
-      (entry.fileName || "").toLowerCase().includes(query)
-    );
+    const label = asset.type === "note"
+      ? (asset.title || asset.fileName || "")
+      : asset.path || "";
+    return label.toLowerCase().includes(search);
   });
   const normalizedTableRows = Math.min(Math.max(Number(tableRows) || 1, 1), 20);
   const normalizedTableColumns = Math.min(Math.max(Number(tableColumns) || 1, 1), 20);
-  const hasValidImageUrl = isValidHttpUrl(imageUrl);
+  const hasValidAssetUrl = isValidHttpUrl(assetUrl);
   const hasValidWebLinkUrl = isValidHttpUrl(webLinkUrl);
   const validationSummary =
     validationStatus === "checking"
@@ -333,27 +330,46 @@ export function MarkdownToolbar({
     onNotify?.("Table inserted.", "success");
   }
 
-  async function openImageLinker() {
-    const shouldOpen = toggleToolbarPanel("image");
-    setImagesError("");
+  async function openAssetLinker() {
+    const shouldOpen = toggleToolbarPanel("asset");
+    setAssetsError("");
 
     if (!shouldOpen) return;
 
     if (!basePath) {
-      setAvailableImages([]);
-      setImagesError("Save or open a note file before linking existing images.");
+      setAvailableAssets([]);
+      setAssetsError("Save or open a note file before linking workspace assets.");
       return;
     }
 
-    setImagesLoading(true);
+    setAssetsLoading(true);
     try {
-      const paths = await listImages(basePath);
-      setAvailableImages(paths);
+      const [paths, docs] = await Promise.all([
+        listImages(basePath),
+        listDocuments(),
+      ]);
+
+      const mediaAssets = (paths || []).map((pathValue) => ({
+        type: "media",
+        path: pathValue,
+        mediaType: getAssetMediaType(pathValue),
+      }));
+      const noteAssets = (docs || [])
+        .filter((entry) => entry.filePath !== basePath)
+        .map((entry) => ({
+          type: "note",
+          filePath: entry.filePath,
+          fileName: entry.fileName,
+          title: entry.title,
+        }));
+
+      setAvailableAssets([...noteAssets, ...mediaAssets]);
+      setAssetFilter("all");
     } catch (error) {
-      setAvailableImages([]);
-      setImagesError(error?.message || "Unable to load existing images.");
+      setAvailableAssets([]);
+      setAssetsError(error?.message || "Unable to load workspace assets.");
     } finally {
-      setImagesLoading(false);
+      setAssetsLoading(false);
     }
   }
 
@@ -362,71 +378,54 @@ export function MarkdownToolbar({
     setWebLinkError("");
   }
 
-  async function openDocLinker() {
-    const shouldOpen = toggleToolbarPanel("doc");
-    setDocsError("");
-
-    if (!shouldOpen) return;
-
-    setDocsLoading(true);
-    try {
-      const docs = await listDocuments();
-      setAvailableDocs((docs || []).filter((entry) => entry.filePath !== basePath));
-    } catch (error) {
-      setAvailableDocs([]);
-      setDocsError(error?.message || "Unable to load documents.");
-    } finally {
-      setDocsLoading(false);
-    }
-  }
-
   function insertDocLink(targetDoc) {
     const filePath = targetDoc?.filePath;
-    const text = (docLinkText || "").trim() || targetDoc?.title || targetDoc?.fileName || "Linked note";
+    const text = (linkText || "").trim() || targetDoc?.title || targetDoc?.fileName || "Linked note";
     const relativePath = toRelativeDocPath(basePath, filePath);
-    if (!relativePath) {
-      setDocsError("Unable to build a relative link for that file.");
+    const normalizedPath = normalizeImagePathForMarkdown(relativePath);
+    if (!normalizedPath) {
+      setAssetsError("Unable to build a relative link for that file.");
       return;
     }
 
-    insertTextAtCursor(value, onChange, `[${text}](${relativePath})`, textareaRef);
-    setShowDocLinker(false);
-    setDocLinkText("");
-    setDocSearch("");
+    insertTextAtCursor(value, onChange, `[${text}](${normalizedPath})`, textareaRef);
+    setShowAssetLinker(false);
+    setLinkText("");
+    setAssetSearch("");
     onNotify?.("Document link inserted.", "success");
   }
 
-  function linkExistingImage(pathValue) {
-    const fileName = pathValue.split(/[\\/]/).pop() || "Image";
-    const fallbackAlt = fileName.replace(/\.[^.]+$/, "");
-    const markdown = createImageMarkdown(imageAltText.trim() || fallbackAlt, pathValue);
+  function linkExistingAsset(pathValue) {
+    const fileName = pathValue.split(/[\\/]/).pop() || "Media";
+    const fallbackLabel = fileName.replace(/\.[^.]+$/, "");
+    const markdown = createMediaMarkdown(linkText.trim() || fallbackLabel, pathValue);
     insertTextAtCursor(value, onChange, `${markdown}\n`, textareaRef);
-    setShowImageLinker(false);
-    setImageAltText("");
-    setImageSearch("");
-    onNotify?.("Image link inserted.", "success");
+    setShowAssetLinker(false);
+    setLinkText("");
+    setAssetSearch("");
+    onNotify?.("Media link inserted.", "success");
   }
 
-  function linkImageFromUrl() {
-    const trimmedUrl = imageUrl.trim();
+  function linkAssetFromUrl() {
+    const trimmedUrl = assetUrl.trim();
     if (!trimmedUrl) {
-      setImagesError("Enter an image URL first.");
+      setAssetsError("Enter an asset URL first.");
       return;
     }
     if (!isValidHttpUrl(trimmedUrl)) {
-      setImagesError("Use a valid http/https image URL.");
+      setAssetsError("Use a valid http/https URL.");
       return;
     }
 
-    const fallbackAlt = trimmedUrl.split(/[/?#]/).filter(Boolean).pop() || "Image";
-    const markdown = createImageMarkdown(imageAltText.trim() || fallbackAlt, trimmedUrl);
+    const fallbackLabel = trimmedUrl.split(/[/?#]/).filter(Boolean).pop() || "Media";
+    const markdown = createMediaMarkdown(linkText.trim() || fallbackLabel, trimmedUrl);
     insertTextAtCursor(value, onChange, `${markdown}\n`, textareaRef);
-    setShowImageLinker(false);
-    setImageAltText("");
-    setImageSearch("");
-    setImageUrl("");
-    setImagesError("");
-    onNotify?.("Image URL inserted.", "success");
+    setShowAssetLinker(false);
+    setLinkText("");
+    setAssetSearch("");
+    setAssetUrl("");
+    setAssetsError("");
+    onNotify?.("Asset URL inserted.", "success");
   }
 
   function insertWebLink() {
@@ -507,13 +506,10 @@ export function MarkdownToolbar({
       <button onClick={openWebLinker} title="Insert web link">
         <Link2 size={18} />
       </button>
-      <button onClick={openDocLinker} title="Link to another note">
-        <FileText size={18} />
-      </button>
       <button onClick={() => imageInputRef.current?.click()} title="Insert media from file">
         <ImagePlus size={18} />
       </button>
-      <button onClick={openImageLinker} title="Insert media from existing">
+      <button onClick={openAssetLinker} title="Insert from workspace">
         <Link size={18} />
       </button>
       <button onClick={() => toggleToolbarPanel("mermaid")} title="Mermaid Builder">
@@ -671,64 +667,89 @@ export function MarkdownToolbar({
         </div>
       )}
 
-      {showImageLinker && (
-        <div className="image-linker" ref={imageLinkPopoverRef} role="dialog" aria-label="Image linker">
+      {showAssetLinker && (
+        <div className="image-linker" ref={assetLinkPopoverRef} role="dialog" aria-label="Workspace asset linker">
           <div className="mermaid-builder-header">
-            <strong>Link Existing Image</strong>
-            <button className="mermaid-close" onClick={() => setShowImageLinker(false)} title="Close">
+            <strong>Insert From Workspace</strong>
+            <button className="mermaid-close" onClick={() => setShowAssetLinker(false)} title="Close">
               x
             </button>
           </div>
 
           <div className="mermaid-fields">
             <label>
-              Search images
+              Search assets
               <input
-                value={imageSearch}
-                onChange={(event) => setImageSearch(event.target.value)}
-                placeholder="Type file name"
+                value={assetSearch}
+                onChange={(event) => setAssetSearch(event.target.value)}
+                placeholder="Type note title or file name"
               />
             </label>
             <label>
-              Alt text (optional)
+              Filter
+              <select
+                value={assetFilter}
+                onChange={(event) => setAssetFilter(event.target.value)}
+              >
+                <option value="all">All</option>
+                <option value="notes">Notes</option>
+                <option value="image">Images</option>
+                <option value="video">Videos</option>
+                <option value="audio">Audio</option>
+                <option value="pdf">PDFs</option>
+                <option value="document">Documents</option>
+              </select>
+            </label>
+            <label>
+              Link text (optional)
               <input
-                value={imageAltText}
-                onChange={(event) => setImageAltText(event.target.value)}
-                placeholder="Defaults to file name"
+                value={linkText}
+                onChange={(event) => setLinkText(event.target.value)}
+                placeholder="Defaults to item name"
               />
             </label>
             <label>
-              Image URL (optional)
+              Asset URL (optional)
               <input
-                value={imageUrl}
+                value={assetUrl}
                 onChange={(event) => {
-                  setImageUrl(event.target.value);
-                  setImagesError("");
+                  setAssetUrl(event.target.value);
+                  setAssetsError("");
                 }}
-                placeholder="https://example.com/image.png"
+                placeholder="https://example.com/file"
               />
             </label>
           </div>
 
           <div className="image-linker-url-actions">
-            <button onClick={linkImageFromUrl} disabled={!hasValidImageUrl}>Insert URL Image</button>
+            <button onClick={linkAssetFromUrl} disabled={!hasValidAssetUrl}>Insert URL Asset</button>
           </div>
 
-          {imageUrl.trim() && !hasValidImageUrl ? (
-            <p className="toolbar-inline-error">Use a valid http/https image URL.</p>
+          {assetUrl.trim() && !hasValidAssetUrl ? (
+            <p className="toolbar-inline-error">Use a valid http/https URL.</p>
           ) : null}
 
-          {imagesError && <p className="toolbar-inline-error">{imagesError}</p>}
-          {imagesLoading ? <p className="toolbar-inline-note">Loading images...</p> : null}
+          {assetsError && <p className="toolbar-inline-error">{assetsError}</p>}
+          {assetsLoading ? <p className="toolbar-inline-note">Loading assets...</p> : null}
 
-          {!imagesLoading && !filteredImages.length ? (
-            <p className="toolbar-inline-note">No matching images found.</p>
+          {!assetsLoading && !filteredAssets.length ? (
+            <p className="toolbar-inline-note">No matching assets found.</p>
           ) : (
             <div className="image-linker-list">
-              {filteredImages.map((pathValue) => (
-                <button key={pathValue} onClick={() => linkExistingImage(pathValue)} title={pathValue}>
-                  {pathValue}
-                </button>
+              {filteredAssets.map((asset) => (
+                asset.type === "note" ? (
+                  <button
+                    key={asset.filePath}
+                    onClick={() => insertDocLink(asset)}
+                    title={asset.fileName || asset.title}
+                  >
+                    {(asset.title || asset.fileName || "Untitled note").trim()}
+                  </button>
+                ) : (
+                  <button key={asset.path} onClick={() => linkExistingAsset(asset.path)} title={asset.path}>
+                    {asset.path}
+                  </button>
+                )
               ))}
             </div>
           )}
@@ -775,55 +796,6 @@ export function MarkdownToolbar({
           <div className="image-linker-url-actions">
             <button onClick={insertWebLink} disabled={!hasValidWebLinkUrl}>Insert Link</button>
           </div>
-        </div>
-      )}
-
-      {showDocLinker && (
-        <div className="doc-linker" ref={docLinkPopoverRef} role="dialog" aria-label="Document link inserter">
-          <div className="mermaid-builder-header">
-            <strong>Link to Note</strong>
-            <button className="mermaid-close" onClick={() => setShowDocLinker(false)} title="Close">
-              x
-            </button>
-          </div>
-
-          <div className="mermaid-fields">
-            <label>
-              Search notes
-              <input
-                value={docSearch}
-                onChange={(event) => setDocSearch(event.target.value)}
-                placeholder="Type title or filename"
-              />
-            </label>
-            <label>
-              Link text (optional)
-              <input
-                value={docLinkText}
-                onChange={(event) => setDocLinkText(event.target.value)}
-                placeholder="Defaults to note title"
-              />
-            </label>
-          </div>
-
-          {docsError ? <p className="toolbar-inline-error">{docsError}</p> : null}
-          {docsLoading ? <p className="toolbar-inline-note">Loading notes...</p> : null}
-
-          {!docsLoading && !filteredDocs.length ? (
-            <p className="toolbar-inline-note">No matching notes found.</p>
-          ) : (
-            <div className="doc-linker-list">
-              {filteredDocs.map((entry) => (
-                <button
-                  key={entry.filePath}
-                  onClick={() => insertDocLink(entry)}
-                  title={entry.fileName || entry.title}
-                >
-                  {(entry.title || entry.fileName || "Untitled note").trim()}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       )}
 

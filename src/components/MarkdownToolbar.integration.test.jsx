@@ -4,6 +4,18 @@ import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MarkdownToolbar } from "./MarkdownToolbar";
 
+const listImagesMock = vi.fn();
+const listDocumentsMock = vi.fn();
+
+vi.mock("../services/electronService", async () => {
+  const actual = await vi.importActual("../services/electronService");
+  return {
+    ...actual,
+    listImages: (...args) => listImagesMock(...args),
+    listDocuments: (...args) => listDocumentsMock(...args),
+  };
+});
+
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 function renderToolbar(props) {
@@ -32,6 +44,8 @@ function renderToolbar(props) {
 }
 
 afterEach(() => {
+  listImagesMock.mockReset();
+  listDocumentsMock.mockReset();
   document.body.innerHTML = "";
 });
 
@@ -131,6 +145,184 @@ describe("MarkdownToolbar validation panel interactions", () => {
 
     expect(onUndo).toHaveBeenCalledTimes(1);
     expect(onRedo).not.toHaveBeenCalled();
+
+    view.unmount();
+  });
+
+  it("encodes spaces when inserting linked note paths", async () => {
+    listImagesMock.mockResolvedValue([]);
+    listDocumentsMock.mockResolvedValue([
+      {
+        title: "My Linked Note",
+        fileName: "My Linked Note.md",
+        filePath: "C:/notes/Team Notes/My Linked Note.md",
+      },
+    ]);
+
+    const onChange = vi.fn();
+    const onNotify = vi.fn();
+    const textareaRef = {
+      current: {
+        selectionStart: 0,
+        selectionEnd: 0,
+        scrollTop: 0,
+        scrollLeft: 0,
+        focus: () => {},
+      },
+    };
+
+    const view = renderToolbar({
+      value: "",
+      onChange,
+      textareaRef,
+      basePath: "C:/notes/Current.md",
+      onNotify,
+      validationStatus: "ready",
+      validationIssues: [],
+      onJumpToLine: vi.fn(),
+    });
+
+    const openWorkspaceInsert = view.host.querySelector('button[title="Insert from workspace"]');
+    expect(openWorkspaceInsert).toBeTruthy();
+
+    await act(async () => {
+      openWorkspaceInsert.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    const noteButton = Array.from(view.host.querySelectorAll(".image-linker-list button")).find((button) =>
+      button.textContent?.includes("My Linked Note")
+    );
+    expect(noteButton).toBeTruthy();
+
+    act(() => {
+      noteButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(onChange).toHaveBeenCalled();
+    const inserted = String(onChange.mock.calls.at(-1)?.[0] || "");
+    expect(inserted).toContain("./Team%20Notes/My%20Linked%20Note.md");
+    expect(onNotify).toHaveBeenCalledWith("Document link inserted.", "success");
+
+    view.unmount();
+  });
+
+  it("encodes nested relative note paths with spaces", async () => {
+    listImagesMock.mockResolvedValue([]);
+    listDocumentsMock.mockResolvedValue([
+      {
+        title: "Nested Ops Runbook",
+        fileName: "Nested Ops Runbook.md",
+        filePath: "C:/notes/Team Notes/Sub Folder/Nested Ops Runbook.md",
+      },
+    ]);
+
+    const onChange = vi.fn();
+    const onNotify = vi.fn();
+    const textareaRef = {
+      current: {
+        selectionStart: 0,
+        selectionEnd: 0,
+        scrollTop: 0,
+        scrollLeft: 0,
+        focus: () => {},
+      },
+    };
+
+    const view = renderToolbar({
+      value: "",
+      onChange,
+      textareaRef,
+      basePath: "C:/notes/Current.md",
+      onNotify,
+      validationStatus: "ready",
+      validationIssues: [],
+      onJumpToLine: vi.fn(),
+    });
+
+    const openWorkspaceInsert = view.host.querySelector('button[title="Insert from workspace"]');
+    expect(openWorkspaceInsert).toBeTruthy();
+
+    await act(async () => {
+      openWorkspaceInsert.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    const noteButton = Array.from(view.host.querySelectorAll(".image-linker-list button")).find((button) =>
+      button.textContent?.includes("Nested Ops Runbook")
+    );
+    expect(noteButton).toBeTruthy();
+
+    act(() => {
+      noteButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(onChange).toHaveBeenCalled();
+    const inserted = String(onChange.mock.calls.at(-1)?.[0] || "");
+    expect(inserted).toContain("./Team%20Notes/Sub%20Folder/Nested%20Ops%20Runbook.md");
+    expect(onNotify).toHaveBeenCalledWith("Document link inserted.", "success");
+
+    view.unmount();
+  });
+
+  it("filters workspace insert list by selected asset type", async () => {
+    listImagesMock.mockResolvedValue([
+      "./images/photo.png",
+      "./images/spec.pdf",
+    ]);
+    listDocumentsMock.mockResolvedValue([
+      {
+        title: "Ops Guide",
+        fileName: "Ops Guide.md",
+        filePath: "C:/notes/Ops Guide.md",
+      },
+    ]);
+
+    const view = renderToolbar({
+      value: "",
+      onChange: vi.fn(),
+      textareaRef: { current: null },
+      basePath: "C:/notes/Current.md",
+      onNotify: vi.fn(),
+      validationStatus: "ready",
+      validationIssues: [],
+      onJumpToLine: vi.fn(),
+    });
+
+    const openWorkspaceInsert = view.host.querySelector('button[title="Insert from workspace"]');
+    expect(openWorkspaceInsert).toBeTruthy();
+
+    await act(async () => {
+      openWorkspaceInsert.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    const allButtons = () => Array.from(view.host.querySelectorAll(".image-linker-list button"));
+    expect(allButtons().some((button) => button.textContent?.includes("Ops Guide"))).toBe(true);
+    expect(allButtons().some((button) => button.textContent?.includes("photo.png"))).toBe(true);
+    expect(allButtons().some((button) => button.textContent?.includes("spec.pdf"))).toBe(true);
+
+    const filterSelect = view.host.querySelector('.image-linker select');
+    expect(filterSelect).toBeTruthy();
+
+    await act(async () => {
+      filterSelect.value = "notes";
+      filterSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(allButtons().some((button) => button.textContent?.includes("Ops Guide"))).toBe(true);
+    expect(allButtons().some((button) => button.textContent?.includes("photo.png"))).toBe(false);
+
+    await act(async () => {
+      filterSelect.value = "pdf";
+      filterSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(allButtons().some((button) => button.textContent?.includes("spec.pdf"))).toBe(true);
+    expect(allButtons().some((button) => button.textContent?.includes("Ops Guide"))).toBe(false);
+    expect(allButtons().some((button) => button.textContent?.includes("photo.png"))).toBe(false);
 
     view.unmount();
   });
