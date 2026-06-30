@@ -680,7 +680,7 @@ registerSyncIpcHandlers(ipcMain, {
   createVersionSnapshot: (...args) => p2pSyncEngine.createVersionSnapshot(...args),
   hashContent,
   moveFileToRemoved,
-  metadataStore,
+  getMetadataStore: () => metadataStore,
   getNotesRoot: () => notesRoot,
   getActiveProject,
   getP2PService: () => p2pService,

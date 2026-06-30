@@ -11,7 +11,7 @@ function registerSyncIpcHandlers(ipcMain, deps) {
     createVersionSnapshot,
     hashContent,
     moveFileToRemoved,
-    metadataStore,
+    getMetadataStore,
     getNotesRoot,
     getActiveProject,
     getP2PService,
@@ -130,7 +130,7 @@ function registerSyncIpcHandlers(ipcMain, deps) {
     const notesRoot = getNotesRoot();
     const activeProject = getActiveProject();
     const workspaceRoot = path.resolve(activeProject?.rootPath || notesRoot);
-    const rows = metadataStore.getWorkspaceActivity(workspaceRoot, payload?.limit || 200);
+    const rows = getMetadataStore().getWorkspaceActivity(workspaceRoot, payload?.limit || 200);
 
     const conflicts = rows
       .filter((entry) => String(entry.reason || "").startsWith("p2p-sync-conflict:"))
@@ -209,7 +209,7 @@ function registerSyncIpcHandlers(ipcMain, deps) {
       const previous = fs.readFileSync(localPath, "utf8");
       const backupPath = createVersionSnapshot(localPath, previous, "before-conflict-resolve");
       fs.writeFileSync(localPath, conflictContent, "utf8");
-      metadataStore.addHistory({
+      getMetadataStore().addHistory({
         filePath: localPath,
         versionPath: backupPath,
         fileHash: hashContent(previous),
@@ -220,7 +220,7 @@ function registerSyncIpcHandlers(ipcMain, deps) {
       const previous = fs.readFileSync(localPath, "utf8");
       const backupPath = createVersionSnapshot(localPath, previous, "before-conflict-merge");
       fs.writeFileSync(localPath, mergedContent, "utf8");
-      metadataStore.addHistory({
+      getMetadataStore().addHistory({
         filePath: localPath,
         versionPath: backupPath,
         fileHash: hashContent(previous),
@@ -237,7 +237,7 @@ function registerSyncIpcHandlers(ipcMain, deps) {
     const notesRoot = getNotesRoot();
     const activeProject = getActiveProject();
     const workspaceRoot = path.resolve(activeProject?.rootPath || notesRoot);
-    const rows = metadataStore.getWorkspaceActivity(workspaceRoot, payload?.limit);
+    const rows = getMetadataStore().getWorkspaceActivity(workspaceRoot, payload?.limit);
 
     const activity = rows.map((entry, index) => {
       const rawReason = String(entry.reason || "unknown");
