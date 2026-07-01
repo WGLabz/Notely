@@ -535,7 +535,9 @@ const imageMedia = createImageMedia({
   moveFileToRemoved,
   getUniquePath,
   getNotesRoot: () => notesRoot,
-  getAppDataDir: () => appDataDir
+  getAppDataDir: () => appDataDir,
+  emitLocalP2PSyncEvent: (payload) => p2pSyncEngine.emitLocalP2PSyncEvent(payload),
+  hashContent,
 });
 
 const {
@@ -782,4 +784,9 @@ registerDocumentIpcHandlers(ipcMain, {
 });
 
 imageMedia.registerIpcHandlers(ipcMain);
-setupDiagramHandlers(ipcMain, appDataDir);
+setupDiagramHandlers(ipcMain, appDataDir, {
+  getNotesRoot: () => notesRoot,
+  filePathWithin,
+  emitLocalP2PSyncEvent: (payload) => p2pSyncEngine.emitLocalP2PSyncEvent(payload),
+  hashContent,
+});

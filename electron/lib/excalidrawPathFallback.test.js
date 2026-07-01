@@ -68,10 +68,10 @@ describe("Excalidraw legacy path fallbacks", () => {
     const markdownPath = path.join(notesRoot, "note.md");
     const diagramId = "abc123ef";
     const legacyAsset = `excali-diagrams/my-note/${diagramId}/diagram.png`;
-    const sluglessAsset = `excali-diagrams/${diagramId}/diagram.png`;
+    const sluglessAsset = `.notes-app/excali-diagrams/${diagramId}/diagram.png`;
 
-    fs.mkdirSync(path.join(notesRoot, "excali-diagrams", diagramId), { recursive: true });
-    fs.writeFileSync(path.join(notesRoot, "excali-diagrams", diagramId, "diagram.png"), Buffer.from("png-data"));
+    fs.mkdirSync(path.join(notesRoot, ".notes-app", "excali-diagrams", diagramId), { recursive: true });
+    fs.writeFileSync(path.join(notesRoot, ".notes-app", "excali-diagrams", diagramId, "diagram.png"), Buffer.from("png-data"));
 
     const markdown = `![Excalidraw Diagram](${legacyAsset})`;
     fs.writeFileSync(markdownPath, markdown, "utf8");
@@ -120,7 +120,7 @@ describe("Excalidraw legacy path fallbacks", () => {
     const basePath = path.join(notesRoot, "meeting.md");
     const diagramId = "f00dbabe";
     const legacyAsset = `excali-diagrams/meeting/${diagramId}/diagram.png`;
-    const sluglessFile = path.join(notesRoot, "excali-diagrams", diagramId, "diagram.png");
+    const sluglessFile = path.join(notesRoot, ".notes-app", "excali-diagrams", diagramId, "diagram.png");
 
     fs.writeFileSync(basePath, "# Meeting", "utf8");
     fs.mkdirSync(path.dirname(sluglessFile), { recursive: true });

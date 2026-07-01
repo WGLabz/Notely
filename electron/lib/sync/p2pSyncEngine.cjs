@@ -1,5 +1,7 @@
 const { createP2PSyncHistory } = require("./p2pSyncHistory.cjs");
 const {
+  normalizeRelativePath,
+  isMarkdownSyncPath,
   isValidSyncRelativePath,
   createSyncConflictCopy,
   tryMergeDocumentContent,
@@ -54,6 +56,110 @@ function createP2PSyncEngine(deps) {
     hasMatchingFileBackedVersion,
   } = syncHistory;
 
+  function computeContentHash(value, encoding = "utf8") {
+    return hashContent(encoding === "base64" ? String(value || "") : String(value || ""));
+  }
+
+  function readSyncFilePayload(resolvedPath, relativePath) {
+    const normalizedRelativePath = normalizeRelativePath(normalizeToPosix, relativePath);
+    if (isMarkdownSyncPath(normalizedRelativePath)) {
+      const content = fs.readFileSync(resolvedPath, "utf8");
+      return {
+        content,
+        contentBase64: null,
+        contentEncoding: "utf8",
+        hash: computeContentHash(content, "utf8")
+      };
+    }
+
+    const binary = fs.readFileSync(resolvedPath);
+    const contentBase64 = binary.toString("base64");
+    return {
+      content: null,
+      contentBase64,
+      contentEncoding: "base64",
+      hash: computeContentHash(contentBase64, "base64")
+    };
+  }
+
+  function listSyncCandidateFiles(notesRoot) {
+    const candidates = new Set();
+    const skipDirNames = new Set([
+      ".git", ".svn", ".hg", "node_modules", "dist", "build", ".artifacts", ".cache", "__pycache__", "removed", ".versions", "coverage"
+    ]);
+
+    const addIfFile = (targetPath) => {
+      try {
+        if (fs.existsSync(targetPath) && fs.statSync(targetPath).isFile()) {
+          candidates.add(path.resolve(targetPath));
+        }
+      } catch {
+        // Ignore unreadable entries.
+      }
+    };
+
+    const collectRecursively = (startDir) => {
+      if (!startDir || !fs.existsSync(startDir)) return;
+      const stack = [path.resolve(startDir)];
+      while (stack.length) {
+        const current = stack.pop();
+        let entries = [];
+        try {
+          entries = fs.readdirSync(current, { withFileTypes: true });
+        } catch {
+          continue;
+        }
+
+        for (const entry of entries) {
+          const nextPath = path.join(current, entry.name);
+          if (entry.isDirectory()) {
+            stack.push(nextPath);
+          } else if (entry.isFile()) {
+            addIfFile(nextPath);
+          }
+        }
+      }
+    };
+
+    const collectNestedNotesAppDiagrams = (rootDir) => {
+      if (!rootDir || !fs.existsSync(rootDir)) return;
+      const stack = [path.resolve(rootDir)];
+      while (stack.length) {
+        const current = stack.pop();
+        let entries = [];
+        try {
+          entries = fs.readdirSync(current, { withFileTypes: true });
+        } catch {
+          continue;
+        }
+
+        for (const entry of entries) {
+          if (!entry.isDirectory()) continue;
+          if (skipDirNames.has(entry.name)) continue;
+
+          const nextPath = path.join(current, entry.name);
+          if (entry.name === ".notes-app") {
+            collectRecursively(path.join(nextPath, "excali-diagrams"));
+            continue;
+          }
+
+          stack.push(nextPath);
+        }
+      }
+    };
+
+    for (const filePath of walkFiles(notesRoot, { excludeDirs: [".notes-app", "removed", "images", "excali-diagrams"] })) {
+      addIfFile(filePath);
+    }
+
+    collectRecursively(path.join(notesRoot, "images"));
+    collectRecursively(path.join(notesRoot, "excali-diagrams"));
+    collectRecursively(path.join(notesRoot, ".notes-app", "excali-diagrams"));
+    collectNestedNotesAppDiagrams(notesRoot);
+
+    return Array.from(candidates);
+  }
+
   async function initiateFullSyncForPeer(peerId) {
     const p2pService = getP2PService();
     const notesRoot = getNotesRoot();
@@ -77,14 +183,17 @@ function createP2PSyncEngine(deps) {
     };
 
     try {
-      const allFiles = walkFiles(notesRoot, { excludeDirs: [".notes-app", "removed", "images", "excali-diagrams"] });
-      const mdFiles = allFiles.filter((f) => {
-        const lower = f.toLowerCase();
-        return lower.endsWith(".md") && !path.basename(f).includes(".sync-conflict-");
+      const allFiles = listSyncCandidateFiles(notesRoot);
+      const syncFiles = allFiles.filter((f) => {
+        const relativePath = normalizeRelativePath(normalizeToPosix, path.relative(notesRoot, f));
+        if (!isValidSyncRelativePath(normalizeToPosix, relativePath)) {
+          return false;
+        }
+        return !path.basename(f).includes(".sync-conflict-");
       });
 
-      const truncated = mdFiles.length > fullSyncMaxFiles;
-      const plannedFiles = truncated ? mdFiles.slice(0, fullSyncMaxFiles) : mdFiles;
+      const truncated = syncFiles.length > fullSyncMaxFiles;
+      const plannedFiles = truncated ? syncFiles.slice(0, fullSyncMaxFiles) : syncFiles;
       const totalFiles = plannedFiles.length;
       let queuedFiles = 0;
 
@@ -104,11 +213,11 @@ function createP2PSyncEngine(deps) {
 
         for (const filePath of batch) {
           try {
-            const content = fs.readFileSync(filePath, "utf8");
-            const relativePath = normalizeToPosix(path.relative(notesRoot, filePath));
+            const relativePath = normalizeRelativePath(normalizeToPosix, path.relative(notesRoot, filePath));
             if (!isValidSyncRelativePath(normalizeToPosix, relativePath)) {
               continue;
             }
+            const payload = readSyncFilePayload(filePath, relativePath);
 
             const queued = p2pService.queueSyncToPeer(targetPeerId, {
               eventId: randomId(10),
@@ -116,10 +225,12 @@ function createP2PSyncEngine(deps) {
               docId: relativePath.toLowerCase(),
               op: "update",
               baseHash: null,
-              newHash: hashContent(content),
+              newHash: payload.hash,
               payload: {
                 relativePath,
-                content,
+                content: payload.content,
+                contentBase64: payload.contentBase64,
+                contentEncoding: payload.contentEncoding,
                 baseContent: null,
                 delta: null
               }
@@ -186,7 +297,7 @@ function createP2PSyncEngine(deps) {
       return;
     }
 
-    const relativePath = normalizeToPosix(path.relative(notesRoot, resolved));
+    const relativePath = normalizeRelativePath(normalizeToPosix, path.relative(notesRoot, resolved));
     if (!isValidSyncRelativePath(normalizeToPosix, relativePath)) {
       return;
     }
@@ -196,16 +307,38 @@ function createP2PSyncEngine(deps) {
       return;
     }
 
+    let content = typeof event?.content === "string" ? event.content : null;
+    let contentBase64 = typeof event?.contentBase64 === "string" ? event.contentBase64 : null;
+    let contentEncoding = String(event?.contentEncoding || "").trim().toLowerCase();
+    if (!contentEncoding) {
+      contentEncoding = contentBase64 ? "base64" : "utf8";
+    }
+
+    if (contentEncoding === "base64" && !contentBase64 && typeof content === "string") {
+      contentBase64 = content;
+      content = null;
+    }
+
+    if (contentEncoding === "utf8" && !content && typeof contentBase64 === "string") {
+      content = Buffer.from(contentBase64, "base64").toString("utf8");
+    }
+
+    const computedNewHash = event?.newHash
+      || (contentEncoding === "base64" && contentBase64 ? computeContentHash(contentBase64, "base64") : null)
+      || (contentEncoding === "utf8" && content ? computeContentHash(content, "utf8") : null);
+
     p2pService.broadcastSyncEvent({
       eventId: randomId(10),
       timestamp: new Date().toISOString(),
       docId: relativePath.toLowerCase(),
       op,
       baseHash: event?.baseHash || null,
-      newHash: event?.newHash || null,
+      newHash: computedNewHash,
       payload: {
         relativePath,
-        content: typeof event?.content === "string" ? event.content : null,
+        content,
+        contentBase64,
+        contentEncoding,
         baseContent: typeof event?.baseContent === "string" ? event.baseContent : null,
         delta: event?.delta && typeof event.delta === "object" ? event.delta : null
       }
@@ -224,10 +357,11 @@ function createP2PSyncEngine(deps) {
   function handleIncomingP2PSyncEvent({ peerId, peerName, event }) {
     try {
       const op = String(event?.op || "").trim();
-      const relativePath = normalizeToPosix(String(event?.payload?.relativePath || "").trim());
+      const relativePath = normalizeRelativePath(normalizeToPosix, String(event?.payload?.relativePath || "").trim());
       if (!["create", "update", "delete"].includes(op) || !isValidSyncRelativePath(normalizeToPosix, relativePath)) {
         return;
       }
+      const isMarkdown = isMarkdownSyncPath(relativePath);
 
       const notesRoot = getNotesRoot();
       const resolved = path.resolve(notesRoot, relativePath);
@@ -255,8 +389,11 @@ function createP2PSyncEngine(deps) {
           return;
         }
 
-        const localContent = fs.readFileSync(resolved, "utf8");
-        const localHash = hashContent(localContent);
+        const localContent = isMarkdown ? fs.readFileSync(resolved, "utf8") : null;
+        const localBinaryBase64 = isMarkdown ? null : fs.readFileSync(resolved).toString("base64");
+        const localHash = isMarkdown
+          ? computeContentHash(localContent, "utf8")
+          : computeContentHash(localBinaryBase64, "base64");
         if (event?.baseHash && event.baseHash !== localHash) {
           addSyncHistoryEntry({
             filePath: resolved,
@@ -268,7 +405,9 @@ function createP2PSyncEngine(deps) {
           return;
         }
 
-        const result = deleteDocumentFile(resolved);
+        const result = isMarkdown
+          ? deleteDocumentFile(resolved)
+          : (fs.unlinkSync(resolved), { movedPath: null });
         addSyncHistoryEntry({
           filePath: resolved,
           reason: buildP2PSyncReason("p2p-sync-delete-applied", peerId),
@@ -282,37 +421,66 @@ function createP2PSyncEngine(deps) {
       const incomingDelta = event?.payload?.delta && typeof event.payload.delta === "object"
         ? event.payload.delta
         : null;
+      const incomingEncoding = String(event?.payload?.contentEncoding || "").trim().toLowerCase() || (isMarkdown ? "utf8" : "base64");
       let incomingContent = typeof event?.payload?.content === "string"
         ? event.payload.content
         : null;
+      let incomingBase64 = typeof event?.payload?.contentBase64 === "string"
+        ? event.payload.contentBase64
+        : null;
 
-      if (!incomingContent && incomingDelta && fs.existsSync(resolved)) {
-        const localForDelta = fs.readFileSync(resolved, "utf8");
-        incomingContent = applyNoteDelta({ parseDocument, buildDocumentContent }, {
-          filePath: resolved,
-          baseContent: localForDelta,
-          delta: incomingDelta
-        });
+      if (!isMarkdown) {
+        if (!incomingBase64 && incomingEncoding === "base64" && incomingContent) {
+          incomingBase64 = incomingContent;
+        }
+        if (!incomingBase64) {
+          return;
+        }
+      } else {
+        if (!incomingContent && incomingEncoding === "base64" && incomingBase64) {
+          incomingContent = Buffer.from(incomingBase64, "base64").toString("utf8");
+        }
+
+        if (!incomingContent && incomingDelta && fs.existsSync(resolved)) {
+          const localForDelta = fs.readFileSync(resolved, "utf8");
+          incomingContent = applyNoteDelta({ parseDocument, buildDocumentContent }, {
+            filePath: resolved,
+            baseContent: localForDelta,
+            delta: incomingDelta
+          });
+        }
+
+        if (!incomingContent) {
+          return;
+        }
       }
 
-      if (!incomingContent) {
-        return;
-      }
+      const incomingBuffer = !isMarkdown ? Buffer.from(incomingBase64, "base64") : null;
+      const incomingHash = isMarkdown
+        ? computeContentHash(incomingContent, "utf8")
+        : computeContentHash(incomingBase64, "base64");
 
       if (!fs.existsSync(resolved)) {
-        fs.writeFileSync(resolved, incomingContent, "utf8");
+        if (isMarkdown) {
+          fs.writeFileSync(resolved, incomingContent, "utf8");
+        } else {
+          fs.writeFileSync(resolved, incomingBuffer);
+        }
         addSyncHistoryEntry({
           filePath: resolved,
           reason: buildP2PSyncReason("p2p-sync-applied", peerId),
           versionPath: `p2p://${event?.eventId || "unknown"}`,
-          fileHash: hashContent(incomingContent)
+          fileHash: incomingHash
         });
         pushSyncApplied({ op, relativePath, filePath: resolved, peerName: peerName || peerId });
         return;
       }
 
-      const localContent = fs.readFileSync(resolved, "utf8");
-      const localHash = hashContent(localContent);
+      const localContent = isMarkdown ? fs.readFileSync(resolved, "utf8") : null;
+      const localBinaryBase64 = isMarkdown ? null : fs.readFileSync(resolved).toString("base64");
+      const localHash = isMarkdown
+        ? computeContentHash(localContent, "utf8")
+        : computeContentHash(localBinaryBase64, "base64");
       if (event?.newHash && localHash === event.newHash) {
         addSyncHistoryEntry({
           filePath: resolved,
@@ -320,6 +488,36 @@ function createP2PSyncEngine(deps) {
           versionPath: `p2p://${event?.eventId || "unknown"}`,
           fileHash: localHash
         });
+        return;
+      }
+
+      if (!isMarkdown) {
+        if (event?.baseHash && localHash === event.baseHash) {
+          fs.writeFileSync(resolved, incomingBuffer);
+          addSyncHistoryEntry({
+            filePath: resolved,
+            reason: buildP2PSyncReason("p2p-sync-applied", peerId),
+            versionPath: `p2p://${event?.eventId || "unknown"}`,
+            fileHash: localHash
+          });
+          pushSyncApplied({ op, relativePath, filePath: resolved, peerName: peerName || peerId });
+          return;
+        }
+
+        const conflictPath = createSyncConflictCopy(
+          { path, slugify, nowStamp, getUniquePath, fs },
+          resolved,
+          peerId,
+          incomingBuffer,
+          { isBinary: true }
+        );
+        addSyncHistoryEntry({
+          filePath: resolved,
+          reason: buildP2PSyncReason("p2p-sync-conflict", peerId),
+          versionPath: conflictPath,
+          fileHash: incomingHash
+        });
+        pushSyncApplied({ op: "conflict", relativePath, filePath: resolved, peerName: peerName || peerId });
         return;
       }
 
@@ -366,7 +564,13 @@ function createP2PSyncEngine(deps) {
         return;
       }
 
-      const conflictPath = createSyncConflictCopy({ path, slugify, nowStamp, getUniquePath, fs }, resolved, peerId, incomingContent);
+      const conflictPath = createSyncConflictCopy(
+        { path, slugify, nowStamp, getUniquePath, fs },
+        resolved,
+        peerId,
+        incomingContent,
+        { isBinary: false }
+      );
       addSyncHistoryEntry({
         filePath: resolved,
         reason: buildP2PSyncReason("p2p-sync-conflict", peerId),

@@ -72,9 +72,13 @@ function buildWebsiteMarkdownRenderer() {
     if (legacyDiagramMatch) {
       const scopeRoot = path.resolve(getScopeRoot());
       const legacyResolved = `${legacyDiagramMatch[1]}${legacyDiagramMatch[2]}`;
+      const currentResolved = `.notes-app/${legacyResolved}`;
       const currentAbsPath = path.resolve(scopeRoot, resolved.replace(/\//g, path.sep));
       const legacyAbsPath = path.resolve(scopeRoot, legacyResolved.replace(/\//g, path.sep));
-      if (!fs.existsSync(currentAbsPath) && fs.existsSync(legacyAbsPath)) {
+      const newAbsPath = path.resolve(scopeRoot, currentResolved.replace(/\//g, path.sep));
+      if (!fs.existsSync(currentAbsPath) && fs.existsSync(newAbsPath)) {
+        resolved = currentResolved;
+      } else if (!fs.existsSync(currentAbsPath) && fs.existsSync(legacyAbsPath)) {
         resolved = legacyResolved;
       }
     }

@@ -59,7 +59,7 @@ export function renderMarkdown(content, options = {}) {
 export function parseDiagramBlocks(content) {
   const chunks = [];
   const mermaidRegex = /```mermaid\s*([\s\S]*?)```/gi;
-  const excalidrawRegex = /!\[Excalidraw Diagram\]\((excali-diagrams\/(?:(?:[^/]+\/)?([^/]+))\/diagram\.png)\)(?:\{[^}]*data-diagram-id=["“]([^"”]+)["”][^}]*\})?/gi;
+  const excalidrawRegex = /!\[Excalidraw Diagram\]\(((?:\.notes-app\/)?excali-diagrams\/(?:(?:[^/]+\/)?([^/]+))\/diagram\.png)\)(?:\{[^}]*data-diagram-id=["“]([^"”]+)["”][^}]*\})?/gi;
   const positions = [];
   let match;
 

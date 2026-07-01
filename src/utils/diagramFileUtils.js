@@ -18,7 +18,7 @@ export function generateDiagramId() {
  * @returns {string} Path to diagrams root folder
  */
 export function getDiagramFolderPath() {
-  return "excali-diagrams";
+  return ".notes-app/excali-diagrams";
 }
 
 /**
@@ -69,9 +69,10 @@ export function getDiagramMarkdownReference(docSlug, diagramId) {
  */
 export function parseDiagramReference(markdownRef) {
   // Match both:
-  // - excali-diagrams/diagramId/diagram.png (current)
-  // - excali-diagrams/docSlug/diagramId/diagram.png (legacy)
-  const match = markdownRef.match(/!\[.*?\]\((excali-diagrams\/(?:(?:([^/]+)\/)?([^/]+))\/diagram\.png)\)/);
+  // - .notes-app/excali-diagrams/diagramId/diagram.png (current)
+  // - excali-diagrams/diagramId/diagram.png (legacy)
+  // - excali-diagrams/docSlug/diagramId/diagram.png (legacy slugged)
+  const match = markdownRef.match(/!\[.*?\]\(((?:\.notes-app\/)?excali-diagrams\/(?:(?:([^/]+)\/)?([^/]+))\/diagram\.png)\)/);
   
   if (match) {
     return {
@@ -144,7 +145,7 @@ export function extractDiagramReferences(markdown) {
   const diagramRefs = [];
   
   // Match both current and legacy diagram reference paths.
-  const pattern = /!\[Excalidraw Diagram\]\((excali-diagrams\/(?:(?:[^/]+\/)?([^/]+))\/diagram\.png)\)\{data-diagram-id="([^"]+)"/g;
+  const pattern = /!\[Excalidraw Diagram\]\(((?:\.notes-app\/)?excali-diagrams\/(?:(?:[^/]+\/)?([^/]+))\/diagram\.png)\)\{data-diagram-id="([^"]+)"/g;
   
   let match;
   while ((match = pattern.exec(markdown)) !== null) {

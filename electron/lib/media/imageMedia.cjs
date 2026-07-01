@@ -22,7 +22,9 @@ function createImageMedia(deps) {
     moveFileToRemoved,
     getUniquePath,
     getNotesRoot,
-    getAppDataDir
+    getAppDataDir,
+    emitLocalP2PSyncEvent,
+    hashContent
   } = deps;
 
   const THUMBNAIL_DIR_NAME = "thumbnails";
@@ -84,6 +86,46 @@ function moveOriginalImageBackup(fromImagePath, toImagePath) {
   ensureDir(path.dirname(toBackupPath));
   fs.renameSync(fromBackupPath, toBackupPath);
   removeOriginalImageBackup(fromImagePath);
+}
+
+function emitImageSyncFromDisk(filePath, options = {}) {
+  if (typeof emitLocalP2PSyncEvent !== "function" || typeof hashContent !== "function") {
+    return;
+  }
+
+  const { op = "update", baseHash = null } = options;
+  const resolved = path.resolve(String(filePath || ""));
+  if (!resolved || !filePathWithin(getNotesRoot(), resolved)) {
+    return;
+  }
+
+  if (op === "delete") {
+    emitLocalP2PSyncEvent({
+      op: "delete",
+      filePath: resolved,
+      baseHash,
+      newHash: null,
+      content: null,
+      contentBase64: null,
+      contentEncoding: "base64"
+    });
+    return;
+  }
+
+  if (!fs.existsSync(resolved)) {
+    return;
+  }
+
+  const contentBase64 = fs.readFileSync(resolved).toString("base64");
+  emitLocalP2PSyncEvent({
+    op,
+    filePath: resolved,
+    baseHash,
+    newHash: hashContent(contentBase64),
+    content: null,
+    contentBase64,
+    contentEncoding: "base64"
+  });
 }
 
 function buildPdfExportHtml({ title, markdownContent, baseHref, sourceDir, downsampleImages = false, pdfQualityPreset = "full" }) {
@@ -249,7 +291,8 @@ function resolveImageAssetPath(basePath, assetPath) {
     const normalizedAsset = decodedAsset
       .replace(/^\.\//, "")
       .replace(/^[/\\]+images[/\\]/i, "images/");
-    const legacyDiagramMatch = normalizedAsset.match(/^excali-diagrams[\\/]([^\\/]+)[\\/]([^\\/]+)[\\/]diagram\.png$/i);
+    const legacyDiagramMatch = normalizedAsset.match(/^(?:\.notes-app[\\/])?excali-diagrams[\\/]([^\\/]+)[\\/]([^\\/]+)[\\/]diagram\.png$/i);
+    const sluglessDiagramMatch = normalizedAsset.match(/^(?:\.notes-app[\\/])?excali-diagrams[\\/]([^\\/]+)[\\/]diagram\.png$/i);
 
     // For asset paths like "./images/foo.jpg", try the markdown file's own
     // sibling folder first (most common case for per-note images/), then fall
@@ -263,11 +306,16 @@ function resolveImageAssetPath(basePath, assetPath) {
       candidates.push(path.resolve(getNotesRoot(), normalizedAsset));
     } else {
       candidates.push(path.resolve(baseDir, normalizedAsset));
+      if (sluglessDiagramMatch && !/^\.notes-app[\\/]/i.test(normalizedAsset)) {
+        const [, diagramId] = sluglessDiagramMatch;
+        candidates.push(path.resolve(baseDir, `.notes-app/excali-diagrams/${diagramId}/diagram.png`));
+      }
       // Backward compatibility for legacy Excalidraw paths:
       // excali-diagrams/<doc-slug>/<diagram-id>/diagram.png
-      // Current storage is: excali-diagrams/<diagram-id>/diagram.png
+      // Current storage is: .notes-app/excali-diagrams/<diagram-id>/diagram.png
       if (legacyDiagramMatch) {
         const [, _legacyDocSlug, diagramId] = legacyDiagramMatch;
+        candidates.push(path.resolve(baseDir, `.notes-app/excali-diagrams/${diagramId}/diagram.png`));
         candidates.push(path.resolve(baseDir, `excali-diagrams/${diagramId}/diagram.png`));
       }
     }
@@ -500,6 +548,7 @@ registerTrustedHandler("images:save", (_event, payload) => {
   }
   fs.writeFileSync(imagePath, buffer);
   ensureImageThumbnail(imagePath);
+  emitImageSyncFromDisk(imagePath, { op: "create" });
 
   // Return relative path for markdown insertion
   return savedToWorkspace ? `/images/${finalName}` : `./images/${finalName}`;
@@ -650,6 +699,7 @@ registerTrustedHandler("images:restore-original", (_event, payload) => {
   clearThumbnailCacheForImage(resolvedAssetPath);
   fs.copyFileSync(backupPath, resolvedAssetPath);
   ensureImageThumbnail(resolvedAssetPath);
+  emitImageSyncFromDisk(resolvedAssetPath, { op: "update" });
   return { restored: true };
 });
 
@@ -666,6 +716,8 @@ registerTrustedHandler("images:delete", (_event, payload) => {
   if (!resolvedAssetPath || !fs.existsSync(resolvedAssetPath)) {
     return { deletedFile: false, referencesRemoved: 0, documentsUpdated: [] };
   }
+  const existingBase64 = fs.readFileSync(resolvedAssetPath).toString("base64");
+  const existingHash = hashContent(existingBase64);
 
   const referenceResult = removeImageReferencesForAsset(resolvedAssetPath, {
     basePath,
@@ -680,6 +732,7 @@ registerTrustedHandler("images:delete", (_event, payload) => {
     delete annotations[getImageAnnotationKey(resolvedAssetPath)];
     writeImageAnnotations(annotations);
     movedPath = moveFileToRemoved(resolvedAssetPath, "images");
+    emitImageSyncFromDisk(resolvedAssetPath, { op: "delete", baseHash: existingHash });
   }
 
   return {
@@ -719,6 +772,7 @@ registerTrustedHandler("images:replace", (_event, payload) => {
   clearThumbnailCacheForImage(resolvedAssetPath);
   fs.writeFileSync(resolvedAssetPath, buffer);
   ensureImageThumbnail(resolvedAssetPath);
+  emitImageSyncFromDisk(resolvedAssetPath, { op: "update" });
   return true;
 });
 
@@ -751,6 +805,8 @@ registerTrustedHandler("images:rename", (_event, payload) => {
   const candidatePath = path.join(path.dirname(resolvedAssetPath), `${desiredBase}${desiredExt}`);
 
   const normalizedCurrent = path.resolve(resolvedAssetPath);
+  const previousBase64 = fs.readFileSync(normalizedCurrent).toString("base64");
+  const previousHash = hashContent(previousBase64);
   const normalizedCandidate = path.resolve(candidatePath);
   let finalPath = normalizedCandidate;
   if (normalizedCandidate.toLowerCase() !== normalizedCurrent.toLowerCase()) {
@@ -768,6 +824,10 @@ registerTrustedHandler("images:rename", (_event, payload) => {
   }
 
   moveOriginalImageBackup(normalizedCurrent, finalPath);
+  if (normalizedCandidate.toLowerCase() !== normalizedCurrent.toLowerCase()) {
+    emitImageSyncFromDisk(normalizedCurrent, { op: "delete", baseHash: previousHash });
+    emitImageSyncFromDisk(finalPath, { op: "create" });
+  }
 
   return `./images/${path.basename(finalPath)}`;
 });

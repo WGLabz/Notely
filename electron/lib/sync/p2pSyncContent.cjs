@@ -1,19 +1,57 @@
+const path = require("node:path");
+
+const BINARY_SYNC_EXTENSIONS = new Set([
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".webp",
+  ".bmp",
+  ".ico",
+  ".svg",
+  ".excalidraw"
+]);
+
+function normalizeRelativePath(normalizeToPosix, relativePath) {
+  return normalizeToPosix(String(relativePath || "").trim());
+}
+
+function isMarkdownSyncPath(relativePath) {
+  return String(relativePath || "").toLowerCase().endsWith(".md");
+}
+
+function isBinarySyncPath(relativePath) {
+  const normalized = String(relativePath || "").toLowerCase().replace(/\\/g, "/");
+  if (/(^|\/)images\//.test(normalized)) {
+    return BINARY_SYNC_EXTENSIONS.has(path.extname(normalized));
+  }
+  if (/(^|\/)(?:\.notes-app\/)?excali-diagrams\//.test(normalized)) {
+    return normalized.endsWith("/diagram.png") || normalized.endsWith("/diagram.excalidraw");
+  }
+  return false;
+}
+
 function isValidSyncRelativePath(normalizeToPosix, relativePath) {
-  const normalized = normalizeToPosix(String(relativePath || "").trim());
+  const normalized = normalizeRelativePath(normalizeToPosix, relativePath);
   if (!normalized || normalized.startsWith("/") || normalized.includes("..")) {
     return false;
   }
-  return normalized.toLowerCase().endsWith(".md");
+  return isMarkdownSyncPath(normalized) || isBinarySyncPath(normalized);
 }
 
-function createSyncConflictCopy(deps, filePath, peerId, incomingContent) {
+function createSyncConflictCopy(deps, filePath, peerId, incomingContent, options = {}) {
   const { path, slugify, nowStamp, getUniquePath, fs } = deps;
+  const { isBinary = false } = options;
 
   const ext = path.extname(filePath) || ".md";
   const baseName = path.basename(filePath, ext);
   const conflictName = `${baseName}.sync-conflict-${slugify(peerId || "peer")}-${nowStamp()}${ext}`;
   const conflictPath = getUniquePath(path.join(path.dirname(filePath), conflictName));
-  fs.writeFileSync(conflictPath, incomingContent, "utf8");
+  if (isBinary) {
+    fs.writeFileSync(conflictPath, incomingContent);
+  } else {
+    fs.writeFileSync(conflictPath, incomingContent, "utf8");
+  }
   return conflictPath;
 }
 
@@ -80,6 +118,9 @@ function applyNoteDelta(deps, { filePath, baseContent, delta }) {
 }
 
 module.exports = {
+  normalizeRelativePath,
+  isMarkdownSyncPath,
+  isBinarySyncPath,
   isValidSyncRelativePath,
   createSyncConflictCopy,
   tryMergeDocumentContent,

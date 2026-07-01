@@ -7,8 +7,8 @@
  */
 
 const fs = require('fs').promises;
+const fsSync = require('fs');
 const path = require('path');
-const fsMkdir = require('fs').mkdir;
 
 function isNotFoundError(err) {
   return Boolean(err && err.code === 'ENOENT');
@@ -19,13 +19,76 @@ function isNotFoundError(err) {
  * @param {Object} ipcMain - Electron's ipcMain
  * @param {string} appDataPath - Application data directory
  */
-function setupDiagramHandlers(ipcMain, appDataPath) {
+function setupDiagramHandlers(ipcMain, appDataPath, deps = {}) {
+  const {
+    getNotesRoot = () => "",
+    filePathWithin = () => false,
+    emitLocalP2PSyncEvent = null,
+    hashContent = null,
+  } = deps;
+
+  function getCurrentDiagramDir(documentPath, diagramId) {
+    return path.join(documentPath, '.notes-app', 'excali-diagrams', diagramId);
+  }
+
+  function getLegacyDiagramDir(documentPath, diagramId) {
+    return path.join(documentPath, 'excali-diagrams', diagramId);
+  }
+
+  function getPreferredExistingDiagramDir(documentPath, diagramId) {
+    const currentDir = getCurrentDiagramDir(documentPath, diagramId);
+    if (fsSync.existsSync(currentDir)) return currentDir;
+    const legacyDir = getLegacyDiagramDir(documentPath, diagramId);
+    if (fsSync.existsSync(legacyDir)) return legacyDir;
+    return currentDir;
+  }
+
+  function emitDiagramSync(filePath, options = {}) {
+    if (typeof emitLocalP2PSyncEvent !== 'function' || typeof hashContent !== 'function') {
+      return;
+    }
+
+    const { op = 'update', baseHash = null } = options;
+    const notesRoot = getNotesRoot();
+    const resolved = path.resolve(String(filePath || ''));
+    if (!resolved || !filePathWithin(notesRoot, resolved)) {
+      return;
+    }
+
+    if (op === 'delete') {
+      emitLocalP2PSyncEvent({
+        op: 'delete',
+        filePath: resolved,
+        baseHash,
+        newHash: null,
+        content: null,
+        contentBase64: null,
+        contentEncoding: 'base64',
+      });
+      return;
+    }
+
+    if (!fsSync.existsSync(resolved)) {
+      return;
+    }
+
+    const contentBase64 = fsSync.readFileSync(resolved).toString('base64');
+    emitLocalP2PSyncEvent({
+      op,
+      filePath: resolved,
+      baseHash,
+      newHash: hashContent(contentBase64),
+      content: null,
+      contentBase64,
+      contentEncoding: 'base64',
+    });
+  }
   /**
    * Read diagram source file
    */
   ipcMain.handle('diagram:read-source', async (event, { documentPath, diagramId }) => {
     try {
-      const sourceFile = path.join(documentPath, 'excali-diagrams', diagramId, 'diagram.excalidraw');
+      const sourceFile = path.join(getPreferredExistingDiagramDir(documentPath, diagramId), 'diagram.excalidraw');
       const data = await fs.readFile(sourceFile, 'utf-8');
       
       return {
@@ -52,13 +115,17 @@ function setupDiagramHandlers(ipcMain, appDataPath) {
    */
   ipcMain.handle('diagram:write-source', async (event, { documentPath, diagramId, data }) => {
     try {
-      const diagramDir = path.join(documentPath, 'excali-diagrams', diagramId);
+      const diagramDir = getCurrentDiagramDir(documentPath, diagramId);
+      const sourceFile = path.join(diagramDir, 'diagram.excalidraw');
+      const existed = fsSync.existsSync(sourceFile);
+      const previousBase64 = existed ? fsSync.readFileSync(sourceFile).toString('base64') : null;
+      const previousHash = previousBase64 && typeof hashContent === 'function' ? hashContent(previousBase64) : null;
       
       // Create directory if it doesn't exist
       await mkdirRecursive(diagramDir);
-      
-      const sourceFile = path.join(diagramDir, 'diagram.excalidraw');
+
       await fs.writeFile(sourceFile, data, 'utf-8');
+      emitDiagramSync(sourceFile, { op: existed ? 'update' : 'create', baseHash: previousHash });
       
       return {
         success: true,
@@ -77,12 +144,15 @@ function setupDiagramHandlers(ipcMain, appDataPath) {
    */
   ipcMain.handle('diagram:write-image', async (event, { documentPath, diagramId, imageData }) => {
     try {
-      const diagramDir = path.join(documentPath, 'excali-diagrams', diagramId);
+      const diagramDir = getCurrentDiagramDir(documentPath, diagramId);
+      const imageFile = path.join(diagramDir, 'diagram.png');
+      const existed = fsSync.existsSync(imageFile);
+      const previousBase64 = existed ? fsSync.readFileSync(imageFile).toString('base64') : null;
+      const previousHash = previousBase64 && typeof hashContent === 'function' ? hashContent(previousBase64) : null;
       
       // Create directory if it doesn't exist
       await mkdirRecursive(diagramDir);
-      
-      const imageFile = path.join(diagramDir, 'diagram.png');
+
       
       // Handle both base64 strings and buffers
       let buffer;
@@ -95,6 +165,7 @@ function setupDiagramHandlers(ipcMain, appDataPath) {
       }
       
       await fs.writeFile(imageFile, buffer);
+      emitDiagramSync(imageFile, { op: existed ? 'update' : 'create', baseHash: previousHash });
       
       return {
         success: true,
@@ -113,8 +184,29 @@ function setupDiagramHandlers(ipcMain, appDataPath) {
    */
   ipcMain.handle('diagram:delete', async (event, { documentPath, diagramId }) => {
     try {
-      const diagramDir = path.join(documentPath, 'excali-diagrams', diagramId);
-      await rmRecursive(diagramDir);
+      const diagramDirs = [
+        getCurrentDiagramDir(documentPath, diagramId),
+        getLegacyDiagramDir(documentPath, diagramId),
+      ];
+      const sourceFileHashes = [];
+      const imageFileHashes = [];
+      for (const diagramDir of diagramDirs) {
+        const sourceFile = path.join(diagramDir, 'diagram.excalidraw');
+        const imageFile = path.join(diagramDir, 'diagram.png');
+        const sourceHash = (typeof hashContent === 'function' && fsSync.existsSync(sourceFile))
+          ? hashContent(fsSync.readFileSync(sourceFile).toString('base64'))
+          : null;
+        const imageHash = (typeof hashContent === 'function' && fsSync.existsSync(imageFile))
+          ? hashContent(fsSync.readFileSync(imageFile).toString('base64'))
+          : null;
+        sourceFileHashes.push({ filePath: sourceFile, hash: sourceHash });
+        imageFileHashes.push({ filePath: imageFile, hash: imageHash });
+      }
+      for (const diagramDir of diagramDirs) {
+        await rmRecursive(diagramDir);
+      }
+      sourceFileHashes.forEach((entry) => emitDiagramSync(entry.filePath, { op: 'delete', baseHash: entry.hash }));
+      imageFileHashes.forEach((entry) => emitDiagramSync(entry.filePath, { op: 'delete', baseHash: entry.hash }));
       
       return {
         success: true,
@@ -133,7 +225,7 @@ function setupDiagramHandlers(ipcMain, appDataPath) {
    */
   ipcMain.handle('diagram:exists', async (event, { documentPath, diagramId }) => {
     try {
-      const sourceFile = path.join(documentPath, 'excali-diagrams', diagramId, 'diagram.excalidraw');
+      const sourceFile = path.join(getPreferredExistingDiagramDir(documentPath, diagramId), 'diagram.excalidraw');
       
       try {
         await fs.access(sourceFile);
@@ -159,7 +251,7 @@ function setupDiagramHandlers(ipcMain, appDataPath) {
    */
   ipcMain.handle('diagram:read-image', async (event, { documentPath, diagramId }) => {
     try {
-      const imageFile = path.join(documentPath, 'excali-diagrams', diagramId, 'diagram.png');
+      const imageFile = path.join(getPreferredExistingDiagramDir(documentPath, diagramId), 'diagram.png');
       const imageData = await fs.readFile(imageFile);
       const base64 = imageData.toString('base64');
       
