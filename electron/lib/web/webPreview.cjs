@@ -36,7 +36,8 @@ function createWebPreview(deps) {
     return activeProject.isRoot ? "Root" : activeProject.name;
   }
 
-  function resolveRelativeToNotesRoot(relPath) {
+  function resolveRelativeToNotesRoot(relPath, options = {}) {
+    const allowExcludedDirs = options.allowExcludedDirs === true;
     const scopeRoot = webPreviewScopeRoot || getWebPreviewScopeRoot();
     const normalized = normalizeToPosix(String(relPath || "")).replace(/^\/+/, "");
     const resolved = path.resolve(scopeRoot, normalized);
@@ -45,7 +46,7 @@ function createWebPreview(deps) {
     }
 
     const relNorm = normalizeToPosix(path.relative(scopeRoot, resolved));
-    if (relNorm.split("/").some((part) => walkExcludeDirs.has(part))) {
+    if (!allowExcludedDirs && relNorm.split("/").some((part) => walkExcludeDirs.has(part))) {
       return null;
     }
 
@@ -150,7 +151,7 @@ function createWebPreview(deps) {
 
     if (pathname.startsWith("/raw/")) {
       const relPath = normalizeToPosix(decodeUrlPath(pathname, "/raw/"));
-      const resolved = resolveRelativeToNotesRoot(relPath);
+      const resolved = resolveRelativeToNotesRoot(relPath, { allowExcludedDirs: true });
       if (!resolved || !fs.existsSync(resolved.resolved) || fs.statSync(resolved.resolved).isDirectory()) {
         writeTextResponse(res, "Asset not found.", 404);
         return;

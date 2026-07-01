@@ -59,7 +59,7 @@ export function renderMarkdown(content, options = {}) {
 export function parseDiagramBlocks(content) {
   const chunks = [];
   const mermaidRegex = /```mermaid\s*([\s\S]*?)```/gi;
-  const excalidrawRegex = /!\[Excalidraw Diagram\]\((excali-diagrams\/([^/]+)\/([^/]+)\/diagram\.png)\)(?:\{[^}]*data-diagram-id=["“]([^"”]+)["”][^}]*\})?/gi;
+  const excalidrawRegex = /!\[Excalidraw Diagram\]\((excali-diagrams\/(?:(?:[^/]+\/)?([^/]+))\/diagram\.png)\)(?:\{[^}]*data-diagram-id=["“]([^"”]+)["”][^}]*\})?/gi;
   const positions = [];
   let match;
 
@@ -84,7 +84,7 @@ export function parseDiagramBlocks(content) {
       type: "excalidraw",
       imagePath: match[1],
       // Prefer explicit data-diagram-id if present, else derive from path segment.
-      diagramId: match[4] || match[3],
+      diagramId: match[3] || match[2],
       fullMatch: match[0],
     });
   }

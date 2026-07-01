@@ -13,22 +13,22 @@ export function generateDiagramId() {
 }
 
 /**
- * Get the diagram folder path for a document
- * @param {string} docSlug - Document slug/identifier
- * @returns {string} Path to diagrams folder for this document
+ * Get the root diagram folder path.
+ * The on-disk storage is keyed by diagram ID, not document slug.
+ * @returns {string} Path to diagrams root folder
  */
-export function getDiagramFolderPath(docSlug) {
-  return `excali-diagrams/${docSlug}`;
+export function getDiagramFolderPath() {
+  return "excali-diagrams";
 }
 
 /**
  * Get the diagram folder path for a specific diagram
- * @param {string} docSlug - Document slug
+ * @param {string} _docSlug - Legacy argument kept for API compatibility
  * @param {string} diagramId - Diagram identifier
  * @returns {string} Path to specific diagram folder
  */
-export function getDiagramPath(docSlug, diagramId) {
-  return `${getDiagramFolderPath(docSlug)}/${diagramId}`;
+export function getDiagramPath(_docSlug, diagramId) {
+  return `${getDiagramFolderPath()}/${diagramId}`;
 }
 
 /**
@@ -68,12 +68,14 @@ export function getDiagramMarkdownReference(docSlug, diagramId) {
  * @returns {object|null} {docSlug, diagramId} or null if not a diagram reference
  */
 export function parseDiagramReference(markdownRef) {
-  // Match pattern: ![...](excali-diagrams/docSlug/diagramId/diagram.png)
-  const match = markdownRef.match(/!\[.*?\]\((excali-diagrams\/([^/]+)\/([^/]+)\/diagram\.png)\)/);
+  // Match both:
+  // - excali-diagrams/diagramId/diagram.png (current)
+  // - excali-diagrams/docSlug/diagramId/diagram.png (legacy)
+  const match = markdownRef.match(/!\[.*?\]\((excali-diagrams\/(?:(?:([^/]+)\/)?([^/]+))\/diagram\.png)\)/);
   
   if (match) {
     return {
-      docSlug: match[2],
+      docSlug: match[2] || null,
       diagramId: match[3],
       fullPath: match[1],
     };
@@ -141,8 +143,8 @@ export function createDiagramMarkdown(docSlug, diagramId, diagramData) {
 export function extractDiagramReferences(markdown) {
   const diagramRefs = [];
   
-  // Match pattern for diagram references
-  const pattern = /!\[Excalidraw Diagram\]\((excali-diagrams\/[^/]+\/([^/]+)\/diagram\.png)\)\{data-diagram-id="([^"]+)"/g;
+  // Match both current and legacy diagram reference paths.
+  const pattern = /!\[Excalidraw Diagram\]\((excali-diagrams\/(?:(?:[^/]+\/)?([^/]+))\/diagram\.png)\)\{data-diagram-id="([^"]+)"/g;
   
   let match;
   while ((match = pattern.exec(markdown)) !== null) {

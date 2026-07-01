@@ -249,6 +249,7 @@ function resolveImageAssetPath(basePath, assetPath) {
     const normalizedAsset = decodedAsset
       .replace(/^\.\//, "")
       .replace(/^[/\\]+images[/\\]/i, "images/");
+    const legacyDiagramMatch = normalizedAsset.match(/^excali-diagrams[\\/]([^\\/]+)[\\/]([^\\/]+)[\\/]diagram\.png$/i);
 
     // For asset paths like "./images/foo.jpg", try the markdown file's own
     // sibling folder first (most common case for per-note images/), then fall
@@ -262,6 +263,13 @@ function resolveImageAssetPath(basePath, assetPath) {
       candidates.push(path.resolve(getNotesRoot(), normalizedAsset));
     } else {
       candidates.push(path.resolve(baseDir, normalizedAsset));
+      // Backward compatibility for legacy Excalidraw paths:
+      // excali-diagrams/<doc-slug>/<diagram-id>/diagram.png
+      // Current storage is: excali-diagrams/<diagram-id>/diagram.png
+      if (legacyDiagramMatch) {
+        const [, _legacyDocSlug, diagramId] = legacyDiagramMatch;
+        candidates.push(path.resolve(baseDir, `excali-diagrams/${diagramId}/diagram.png`));
+      }
     }
 
     resolvedAssetPath = candidates.find((candidate) => {

@@ -64,9 +64,21 @@ function buildWebsiteMarkdownRenderer() {
   const rewriteAssetPath = (rawPath, env) => {
     const fromRelMd = env?.relMdPath || "";
     const normalizedPath = safeDecode(String(rawPath || "").replace(/\\/g, "/"));
-    const resolved = normalizedPath.startsWith("/")
+    let resolved = normalizedPath.startsWith("/")
       ? path.posix.normalize(normalizedPath.slice(1))
       : path.posix.normalize(path.posix.join(path.posix.dirname(fromRelMd), normalizedPath));
+
+    const legacyDiagramMatch = resolved.match(/^(.*?excali-diagrams\/)[^/]+\/([^/]+\/diagram\.png)$/i);
+    if (legacyDiagramMatch) {
+      const scopeRoot = path.resolve(getScopeRoot());
+      const legacyResolved = `${legacyDiagramMatch[1]}${legacyDiagramMatch[2]}`;
+      const currentAbsPath = path.resolve(scopeRoot, resolved.replace(/\//g, path.sep));
+      const legacyAbsPath = path.resolve(scopeRoot, legacyResolved.replace(/\//g, path.sep));
+      if (!fs.existsSync(currentAbsPath) && fs.existsSync(legacyAbsPath)) {
+        resolved = legacyResolved;
+      }
+    }
+
     return `/raw/${encodePathForUrl(resolved)}`;
   };
 
