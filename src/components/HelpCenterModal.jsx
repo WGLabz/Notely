@@ -2,6 +2,24 @@ import { X } from "lucide-react";
 import { useMemo, useState } from "react";
 import MarkdownIt from "markdown-it";
 
+const TREE_GROUPS = [
+  {
+    id: "start",
+    title: "Getting Started",
+    slugs: ["overview", "user-guide", "top-tasks"],
+  },
+  {
+    id: "features",
+    title: "Features",
+    slugs: ["feature-reference", "feature-availability"],
+  },
+  {
+    id: "safety",
+    title: "Data and Support",
+    slugs: ["data-sync-security", "troubleshooting"],
+  },
+];
+
 function normalizeDocPath(value) {
   const raw = String(value || "").trim().toLowerCase();
   if (!raw) return "";
@@ -32,6 +50,12 @@ export function HelpCenterModal({ open, onClose, appInfo, documents = [] }) {
 
   const normalizedDocs = Array.isArray(documents) ? documents : [];
   const [activeSlug, setActiveSlug] = useState(() => String(normalizedDocs?.[0]?.slug || ""));
+  const [expandedGroups, setExpandedGroups] = useState(() => ({
+    start: true,
+    features: true,
+    safety: true,
+    other: true,
+  }));
 
   const markdownRenderer = useMemo(() => {
     return new MarkdownIt({
@@ -51,6 +75,61 @@ export function HelpCenterModal({ open, onClose, appInfo, documents = [] }) {
     ? markdownRenderer.render(String(activeDocument.markdown || ""))
     : "";
 
+  const groupedDocuments = useMemo(() => {
+    const docsBySlug = new Map(normalizedDocs.map((entry) => [String(entry?.slug || ""), entry]));
+    const used = new Set();
+
+    const groups = TREE_GROUPS.map((group) => {
+      const items = group.slugs
+        .map((slug) => docsBySlug.get(slug))
+        .filter(Boolean);
+      for (const item of items) {
+        used.add(String(item.slug || ""));
+      }
+      return {
+        id: group.id,
+        title: group.title,
+        items,
+      };
+    }).filter((group) => group.items.length > 0);
+
+    const uncategorized = normalizedDocs.filter((entry) => !used.has(String(entry?.slug || "")));
+    if (uncategorized.length) {
+      groups.push({
+        id: "other",
+        title: "Other",
+        items: uncategorized,
+      });
+    }
+
+    return groups;
+  }, [normalizedDocs]);
+
+  function toggleGroup(groupId) {
+    setExpandedGroups((current) => ({
+      ...current,
+      [groupId]: !current[groupId],
+    }));
+  }
+
+  function activateDocumentSlug(slug) {
+    const nextSlug = String(slug || "").trim();
+    if (!nextSlug) return;
+
+    setActiveSlug(nextSlug);
+
+    const parentGroup = groupedDocuments.find((group) => {
+      return group.items.some((entry) => String(entry?.slug || "") === nextSlug);
+    });
+
+    if (parentGroup?.id) {
+      setExpandedGroups((current) => ({
+        ...current,
+        [parentGroup.id]: true,
+      }));
+    }
+  }
+
   function handleMarkdownLinkClick(event) {
     const anchor = event.target?.closest?.("a[href]");
     if (!anchor) return;
@@ -67,7 +146,7 @@ export function HelpCenterModal({ open, onClose, appInfo, documents = [] }) {
     const docSlug = resolveDocSlugFromHref(href, normalizedDocs);
     if (docSlug) {
       event.preventDefault();
-      setActiveSlug(docSlug);
+      activateDocumentSlug(docSlug);
     }
   }
 
@@ -92,19 +171,40 @@ export function HelpCenterModal({ open, onClose, appInfo, documents = [] }) {
         <div className="help-center-content">
           <div className="help-doc-layout" aria-label="Documentation viewer">
             <aside className="help-doc-nav" aria-label="Help sections">
-              {normalizedDocs.length ? normalizedDocs.map((entry) => {
-                const isActive = entry.slug === resolvedSlug;
+              {groupedDocuments.length ? groupedDocuments.map((group) => {
+                const isExpanded = expandedGroups[group.id] !== false;
                 return (
-                  <button
-                    key={entry.slug || entry.fileName}
-                    type="button"
-                    className={`help-doc-nav-item${isActive ? " active" : ""}`}
-                    onClick={() => setActiveSlug(entry.slug)}
-                    aria-current={isActive ? "page" : undefined}
-                  >
-                    <span className="help-doc-nav-title">{entry.title || "Documentation"}</span>
-                    {entry.summary ? <span className="help-doc-nav-summary">{entry.summary}</span> : null}
-                  </button>
+                  <section className="help-doc-tree-group" key={group.id}>
+                    <button
+                      type="button"
+                      className="help-doc-tree-group-toggle"
+                      onClick={() => toggleGroup(group.id)}
+                      aria-expanded={isExpanded}
+                    >
+                      <span className="help-doc-tree-chevron" aria-hidden="true">{isExpanded ? "▾" : "▸"}</span>
+                      <span>{group.title}</span>
+                    </button>
+                    {isExpanded ? (
+                      <ul className="help-doc-tree-items" role="list">
+                        {group.items.map((entry) => {
+                          const isActive = entry.slug === resolvedSlug;
+                          return (
+                            <li className="help-doc-tree-item" key={entry.slug || entry.fileName}>
+                              <button
+                                type="button"
+                                className={`help-doc-nav-item${isActive ? " active" : ""}`}
+                                onClick={() => activateDocumentSlug(entry.slug)}
+                                aria-current={isActive ? "page" : undefined}
+                                title={entry.title || "Documentation"}
+                              >
+                                <span className="help-doc-nav-title">{entry.title || "Documentation"}</span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : null}
+                  </section>
                 );
               }) : (
                 <p className="help-doc-empty">No documentation files were found in docs/.</p>

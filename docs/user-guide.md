@@ -1,84 +1,79 @@
 # Notely User Guide
 
-## 1. Product Scope
+Use this guide for everyday work in Notely: creating notes, editing safely, finding information quickly, and working with visuals.
 
-Notely is a desktop Markdown workspace for structured notes, media-rich documentation, note history, and team collaboration features such as peer-to-peer sync and conflict handling.
+## 1. Set Up Your Workspace
 
-## 2. First-Time Setup
+1. Open Notely.
+2. Go to **File -> Notes Folder**.
+3. Select the folder where your notes should live.
+4. Confirm and continue.
 
-### Prerequisites
+Result: your notes and folders appear in the main list.
 
-- Local write access to a workspace directory
-- Desktop app installation (development or packaged build)
+## 2. Create and Organize Notes
 
-### Procedure
+1. Create a note from **File -> New Note** (`Ctrl/Cmd + N`).
+2. Create folders to group related notes.
+3. Use clear titles and optional tags so notes are easier to find later.
 
-1. Launch Notely.
-2. Open **File -> Notes Folder**.
-3. Select the workspace root directory for notes.
-4. Confirm the folder path and save.
+## 3. Write and Edit Faster
 
-### Expected Result
+Choose the view mode that fits your task:
 
-- Notely initializes workspace metadata under `.notes-app`.
-- Notes and folders become visible in the landing view.
+- `Edit`: write raw markdown.
+- `Split`: write and preview side-by-side.
+- `Preview`: read final output.
 
-## 3. Authoring Workflow
+Helpful actions:
 
-### Create and organize content
+- Find text: `Ctrl/Cmd + F`
+- Use toolbar buttons for headings, lists, links, tables, and diagrams.
+- Fix issues shown by markdown validation and typo checks.
 
-1. Use **File -> New Note** (`Ctrl/Cmd+N`) to create a document.
-2. Use folder creation controls to structure the workspace.
-3. Use tags in metadata for improved discovery.
+## 4. Recover Changes with Version History
 
-### Edit with quality controls
+1. Open **File -> Versions** (`Ctrl/Cmd + Shift + H`).
+2. Select an older version.
+3. Compare it with your current note.
+4. Restore if needed.
 
-1. Use editor modes (`Edit`, `Split`, `Preview`) based on task.
-2. Run **Find or Replace** (`Ctrl/Cmd+F`) for targeted updates.
-3. Address validation and typo findings shown by the editor.
+Use this when content was accidentally changed or removed.
 
-### Manage versions
+## 5. Work with Images and Files
 
-1. Open **File -> Versions** (`Ctrl/Cmd+Shift+H`).
-2. Compare current note with a historical snapshot.
-3. Restore or delete historical versions as needed.
+You can insert and manage media directly from your notes:
 
-## 4. Media and Diagram Operations
+- Add images and linked files.
+- Rename or replace existing media.
+- Open media in the default app.
+- Use image tools like crop and annotation when needed.
 
-- Insert, replace, rename, and remove images from note workflows.
-- Use image editing controls (crop, rotate, annotations) without destructive text overlays.
-- Use Mermaid and Excalidraw support for visual documentation.
+Tip: keep image names meaningful so teammates can identify assets quickly.
 
-### Mermaid workflow
+## 6. Use Diagrams (Mermaid and Excalidraw)
 
-1. Insert a Mermaid block from the markdown toolbar.
-2. Write valid Mermaid syntax for the selected diagram type.
-3. Use split or preview mode to confirm rendering.
-4. Keep diagram sources in-note for Git-friendly review and diffs.
+### Mermaid
 
-### Excalidraw workflow
+1. Insert a Mermaid block from the toolbar.
+2. Write Mermaid syntax.
+3. Check rendering in `Split` or `Preview`.
 
-1. Insert an Excalidraw diagram from the editor workflow.
-2. Edit in the Excalidraw surface and save changes.
-3. Notely stores source and rendered image assets for portability.
-4. Re-open and iterate directly from the note preview when needed.
+### Excalidraw
 
-### Diagram governance recommendations
+1. Insert an Excalidraw diagram.
+2. Edit visually and save.
+3. Re-open from preview to continue editing.
 
-- Prefer one diagram per conceptual section to limit review scope.
-- Use deterministic naming for diagram assets in long-lived notes.
-- Validate rendering before release or export workflows.
-- Keep textual explanation below each diagram for accessibility and audits.
+## 7. Navigate Large Workspaces
 
-## 5. Workspace Navigation and View Controls
+- **View -> Show Outline** for quick jumps inside long notes.
+- **View -> Split Preview** to keep source and output aligned.
+- **View -> Focus Mode** to reduce distractions.
+- **Workspace -> Workspace Graph** to explore note and media relationships.
 
-- Use **View -> Show Outline** for structure navigation.
-- Use **View -> Split Preview** for source/preview synchronization.
-- Use **View -> Focus Mode** for distraction reduction.
-- Open **Workspace -> Workspace Graph** to explore linked documents and assets.
+## 8. Get Help Quickly
 
-## 6. Help and Support Surfaces
-
-- **Help -> Help Center** (`F1`) for in-app product documentation.
-- **Help -> Keyboard Shortcuts** (`Ctrl/Cmd+/`) for key bindings.
-- **Help -> About Notely** for version and build identification.
+- **Help -> Documentation** (`F1`) for in-app help.
+- **Help -> Keyboard Shortcuts** (`Ctrl/Cmd + /`) for key bindings.
+- **Help -> About Notely** for app version details.

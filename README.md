@@ -35,9 +35,12 @@ Project documentation is organized under `docs/` for maintainability and profess
 
 - `docs/index.md` documentation entry point
 - `docs/user-guide.md` end-user workflows and procedures
-- `docs/operations-guide.md` operational and support guidance
+- `docs/data-sync-security.md` data storage, sync, and privacy guidance
+- `docs/feature-reference.md` complete end-user feature reference
+- `docs/top-tasks.md` quick task-oriented workflows
+- `docs/feature-availability.md` setup and connectivity requirements
 - `docs/versioning-release.md` versioning and release process
-- `docs/help-center-ia.md` Help Center information architecture
+- `docs/troubleshooting.md` troubleshooting and common issue fixes
 
 ## Workspace Graph
 

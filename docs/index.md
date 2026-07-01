@@ -1,19 +1,33 @@
 # Notely Documentation
 
-Canonical documentation source for user, operations, and release workflows.
+Welcome to the in-app help for Notely. This guide is written for everyday users who create, organize, and review notes.
 
-## Documents
+## Start Here
 
-- [User Guide](./user-guide.md)
-- [Operations Guide](./operations-guide.md)
-- [Help Center Information Architecture](./help-center-ia.md)
+If you are new to Notely, follow this order:
 
-## Maintainer Documents
+1. Set your notes folder.
+2. Create your first note.
+3. Learn editing modes (Edit, Split, Preview).
+4. Scan the full feature list.
+5. Learn how to find notes quickly.
+6. Learn how to recover from mistakes using note history.
 
-- [Versioning and Release Guide](./versioning-release.md)
+## Documentation Map
 
-## Documentation Standards
+- [User Guide](./user-guide.md): day-to-day note creation, editing, search, media, and diagrams.
+- [Feature Reference](./feature-reference.md): complete feature-by-feature explanation in one place.
+- [Top 15 Common Tasks](./top-tasks.md): fast click-by-click steps for frequent actions.
+- [Feature Availability](./feature-availability.md): what works offline, what needs setup, and what needs internet.
+- [Data & Sync](./data-sync-security.md): how your data is stored, synced, and protected.
+- [Troubleshooting](./troubleshooting.md): common issues and quick fixes.
 
-- Use concise, imperative procedures.
-- Prefer explicit menu paths and shortcuts.
-- Keep docs synchronized with shipped behavior.
+## Keyboard and Help Shortcuts
+
+- Open Help: `F1`
+- Open Keyboard Shortcuts: `Ctrl/Cmd + /`
+- Find in current note: `Ctrl/Cmd + F`
+
+## About This Help
+
+This Help Center shows the same markdown files stored in the project `docs/` folder, so in-app guidance and repository guidance stay aligned.
