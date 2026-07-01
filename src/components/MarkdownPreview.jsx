@@ -1,19 +1,21 @@
 import { useEffect, useMemo, useRef, useState, memo } from "react";
 import {
   renderMarkdown,
-  parseMermaidBlocks,
   parseDiagramBlocks,
   normalizeMarkdownImagePaths,
 } from "../utils/renderUtils";
 import { readMarkdownSource } from "../services/electronService";
 import { readImage, replaceImage, deleteImage, renameImage, getImageAnnotation, setImageAnnotation, getImageOriginalStatus, restoreImageOriginal } from "../services/electronService";
 import { readFileAsDataUrl } from "../utils/mediaTypeUtils";
-import { createImageMarkdown } from "../utils/markdownUtils";
+import { createImageMarkdown, normalizeImagePathForMarkdown } from "../utils/markdownUtils";
+import { createDiagramMarkdown, generateDiagramId } from "../utils/diagramFileUtils";
+import { writeDiagramSource } from "../services/diagramService";
 import { getMediaTypeFromExtension } from "../utils/mediaUtils";
 import { formatImageDeleteResult } from "../utils/imageDeleteResult";
 import { removeImageReferenceFromMarkdown } from "../utils/imageMarkdownReferences";
 import { MermaidBlock } from "./MermaidBlock";
 import { ExcalidrawBlock } from "./ExcalidrawBlock";
+import ExcalidrawComponent from "./ExcalidrawEditor";
 import { ImageCropModal } from "./ImageCropModal";
 
 function replaceAllLiteral(source, needle, replacement) {
@@ -51,7 +53,168 @@ function getExcalidrawActionContext(target) {
     bounds,
     diagramId: block.getAttribute("data-diagram-id") || "",
     imagePath: block.getAttribute("data-diagram-image-path") || "",
+    originAssetPath: block.getAttribute("data-origin-asset-path") || "",
+    originAltText: block.getAttribute("data-origin-alt-text") || "",
   };
+}
+
+function sanitizeAttributeValue(value) {
+  return String(value || "").replace(/"/g, "&quot;");
+}
+
+function toComparableAssetPath(value) {
+  let normalized = String(value || "").trim();
+  if (!normalized) return "";
+  for (let i = 0; i < 5; i += 1) {
+    try {
+      const next = decodeURIComponent(normalized);
+      if (next === normalized) break;
+      normalized = next;
+    } catch {
+      break;
+    }
+  }
+  return normalized.replace(/\\/g, "/");
+}
+
+function replaceFirstImageReferenceWithDiagram(content, targetAssetPath, replacementMarkdown) {
+  const source = String(content || "");
+  const targetComparable = toComparableAssetPath(targetAssetPath);
+  if (!targetComparable) {
+    return { nextContent: source, replaced: false, originalAlt: "" };
+  }
+
+  const imageRegex = /!\[([^\]]*)\]\((<[^>]+>|[^)]+)\)/g;
+  let replaced = false;
+  let originalAlt = "";
+  const nextContent = source.replace(imageRegex, (match, alt, rawPath) => {
+    if (replaced) return match;
+    const cleanedPath = String(rawPath || "").trim().replace(/^<|>$/g, "");
+    const comparablePath = toComparableAssetPath(cleanedPath);
+    if (comparablePath !== targetComparable) return match;
+    replaced = true;
+    originalAlt = String(alt || "").trim();
+    return replacementMarkdown;
+  });
+
+  return { nextContent, replaced, originalAlt };
+}
+
+function replaceDiagramReferenceWithOriginal(content, options = {}) {
+  const source = String(content || "");
+  const {
+    diagramId,
+    diagramImagePath,
+    originAssetPath,
+    originAltText,
+  } = options;
+
+  const comparableDiagramPath = toComparableAssetPath(diagramImagePath);
+  const replacementMarkdown = createImageMarkdown(originAltText || "Image", originAssetPath || "");
+  const diagramRegex = /!\[Excalidraw Diagram\]\(((?:\.notes-app\/)?excali-diagrams\/(?:(?:[^/]+\/)?([^/]+))\/diagram\.png)\)(\{[^}]*\})?/gi;
+  let replaced = false;
+
+  const nextContent = source.replace(diagramRegex, (match, imagePath, fallbackDiagramId, attributeBlock) => {
+    if (replaced) return match;
+    const explicitIdMatch = String(attributeBlock || "").match(/data-diagram-id=["“]([^"”]+)["”]/i);
+    const currentDiagramId = String(explicitIdMatch?.[1] || fallbackDiagramId || "").trim();
+    const currentComparablePath = toComparableAssetPath(imagePath);
+    const idMatch = diagramId && currentDiagramId && diagramId === currentDiagramId;
+    const pathMatch = comparableDiagramPath && comparableDiagramPath === currentComparablePath;
+    if (!idMatch && !pathMatch) return match;
+    replaced = true;
+    return replacementMarkdown;
+  });
+
+  return { nextContent, replaced };
+}
+
+function inferDataUrlMimeType(dataUrl) {
+  const match = String(dataUrl || "").match(/^data:([^;]+);base64,/i);
+  return String(match?.[1] || "image/png").toLowerCase();
+}
+
+function measureDataUrlImage(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      resolve({
+        width: Number(image.naturalWidth || image.width || 1280),
+        height: Number(image.naturalHeight || image.height || 720),
+      });
+    };
+    image.onerror = () => reject(new Error("Unable to load image for Excalidraw background."));
+    image.src = dataUrl;
+  });
+}
+
+function createExcalidrawSeed() {
+  return Math.floor(Math.random() * 2147483647);
+}
+
+function buildExcalidrawInitialDataFromImage(imageDataUrl, dimensions = {}, imageLabel = "Image") {
+  const fileId = `file-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  const elementId = `el-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  const width = Math.max(1, Math.round(Number(dimensions.width) || 1280));
+  const height = Math.max(1, Math.round(Number(dimensions.height) || 720));
+  const now = Date.now();
+
+  return {
+    elements: [
+      {
+        id: elementId,
+        type: "image",
+        x: 0,
+        y: 0,
+        width,
+        height,
+        angle: 0,
+        strokeColor: "transparent",
+        backgroundColor: "transparent",
+        fillStyle: "solid",
+        strokeWidth: 1,
+        strokeStyle: "solid",
+        roughness: 0,
+        opacity: 100,
+        groupIds: [],
+        roundness: null,
+        seed: createExcalidrawSeed(),
+        version: 1,
+        versionNonce: createExcalidrawSeed(),
+        isDeleted: false,
+        boundElements: null,
+        updated: now,
+        link: null,
+        locked: false,
+        status: "saved",
+        fileId,
+        scale: [1, 1],
+        crop: null,
+      },
+    ],
+    appState: {
+      viewBackgroundColor: "#ffffff",
+      selectedElementIds: {
+        [elementId]: true,
+      },
+    },
+    files: {
+      [fileId]: {
+        id: fileId,
+        dataURL: imageDataUrl,
+        mimeType: inferDataUrlMimeType(imageDataUrl),
+        created: now,
+        lastRetrieved: now,
+        size: 0,
+        name: imageLabel || "Image",
+      },
+    },
+  };
+}
+
+function resolveDocumentPathFromBase(basePath) {
+  if (!basePath) return "";
+  return String(basePath).split(/[\\/]/).slice(0, -1).join("/");
 }
 
 function applyImageAnnotation(image, annotation) {
@@ -245,6 +408,14 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
   const [menuIndex, setMenuIndex] = useState(0);
   const [cropSaving, setCropSaving] = useState(false);
   const [replaceState, setReplaceState] = useState({ busy: false, assetPath: "" });
+  const [diagramEditState, setDiagramEditState] = useState({
+    open: false,
+    diagramId: "",
+    documentPath: "",
+    initialData: null,
+    sourceAssetPath: "",
+    sourceAltText: "",
+  });
   const parts = useMemo(() => {
     return parseDiagramBlocks(content);
   }, [content]);
@@ -554,9 +725,13 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
     activeItem?.focus();
   }, [contextMenu, menuIndex]);
 
-  const closeContextMenu = () => {
+  const closeContextMenu = (options = {}) => {
+    const { restoreFocus = true } = options;
+    const shouldRestoreFocus = restoreFocus && Boolean(contextMenu?.keyboardOpened);
     setContextMenu(null);
-    menuSourceRef.current?.focus?.();
+    if (shouldRestoreFocus) {
+      menuSourceRef.current?.focus?.();
+    }
     menuSourceRef.current = null;
     menuItemsRef.current = [];
     setMenuIndex(0);
@@ -577,13 +752,15 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
         anchorY: diagramContext.bounds.top + Math.min(diagramContext.bounds.height * 0.5, 80),
         diagramId: diagramContext.diagramId,
         diagramImagePath: diagramContext.imagePath,
+        originAssetPath: diagramContext.originAssetPath,
+        originAltText: diagramContext.originAltText,
       });
       return;
     }
 
     const imageElement = sourceImage || getImageActionElement(event.target);
     if (!imageElement) {
-      closeContextMenu();
+      closeContextMenu({ restoreFocus: false });
       return;
     }
 
@@ -655,7 +832,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
       hasOriginal,
       annotationOnly: false,
     });
-    closeContextMenu();
+    closeContextMenu({ restoreFocus: false });
   };
 
   const viewImageFromMenu = () => {
@@ -675,7 +852,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
     const ext = imagePath.split(/[?#]/)[0].split(".").pop()?.toLowerCase();
     const mediaType = getMediaTypeFromExtension(ext) || "image";
     onMediaClick({ path: imagePath, type: mediaType });
-    closeContextMenu();
+    closeContextMenu({ restoreFocus: false });
   };
 
   const copyMarkdownFromMenu = async () => {
@@ -709,7 +886,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
   const copyDiagramMarkdownFromMenu = async () => {
     if (!contextMenu?.diagramImagePath) {
       onNotify?.("Diagram reference unavailable.", "info");
-      closeContextMenu();
+      closeContextMenu({ restoreFocus: false });
       return;
     }
 
@@ -726,6 +903,113 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
     } finally {
       closeContextMenu();
     }
+  };
+
+  const closeDiagramEditor = () => {
+    setDiagramEditState({
+      open: false,
+      diagramId: "",
+      documentPath: "",
+      initialData: null,
+      sourceAssetPath: "",
+      sourceAltText: "",
+    });
+  };
+
+  const openExcalidrawFromImageMenu = async () => {
+    if (!basePath || !contextMenu?.isWorkspaceImage || !contextMenu?.assetPath) {
+      onNotify?.("Edit with Excalidraw is available for workspace images only.", "info");
+      closeContextMenu({ restoreFocus: false });
+      return;
+    }
+
+    const sourceAssetPath = contextMenu.assetPath;
+    const sourceAltText = contextMenu.imageLabel || "Image";
+    closeContextMenu();
+
+    try {
+      const fullSizeSrc = await readImage(basePath, sourceAssetPath);
+      const dimensions = await measureDataUrlImage(fullSizeSrc);
+      const diagramId = generateDiagramId();
+      const initialData = buildExcalidrawInitialDataFromImage(fullSizeSrc, dimensions, sourceAltText);
+
+      setDiagramEditState({
+        open: true,
+        diagramId,
+        documentPath: resolveDocumentPathFromBase(basePath),
+        initialData,
+        sourceAssetPath,
+        sourceAltText,
+      });
+    } catch (error) {
+      onNotify?.(error?.message || "Unable to open image in Excalidraw.", "error");
+    }
+  };
+
+  const saveExcalidrawFromImageMenu = async (newDiagramData, previewImageData) => {
+    if (!diagramEditState.diagramId || !diagramEditState.documentPath || !diagramEditState.sourceAssetPath) {
+      return;
+    }
+
+    const sourceAssetPath = diagramEditState.sourceAssetPath;
+    const sourceAltText = diagramEditState.sourceAltText || "Image";
+
+    try {
+      const sourceSaved = await writeDiagramSource(diagramEditState.documentPath, diagramEditState.diagramId, newDiagramData);
+      if (!sourceSaved) {
+        throw new Error("Failed to persist diagram source.");
+      }
+
+      const baseMarkdown = createDiagramMarkdown("document", diagramEditState.diagramId);
+      const normalizedOriginAsset = normalizeImagePathForMarkdown(sourceAssetPath);
+      const metadataSuffix = ` data-origin-asset="${sanitizeAttributeValue(normalizedOriginAsset)}" data-origin-alt="${sanitizeAttributeValue(sourceAltText)}"}`;
+      const diagramMarkdown = baseMarkdown.includes("}")
+        ? baseMarkdown.replace(/\}$/, metadataSuffix)
+        : `${baseMarkdown}{data-diagram-id="${diagramEditState.diagramId}" data-diagram-type="excalidraw" data-origin-asset="${sanitizeAttributeValue(normalizedOriginAsset)}" data-origin-alt="${sanitizeAttributeValue(sourceAltText)}"}`;
+
+      const replacementResult = replaceFirstImageReferenceWithDiagram(content, sourceAssetPath, diagramMarkdown);
+      if (!replacementResult.replaced) {
+        throw new Error("Could not locate the source image markdown to replace.");
+      }
+
+      const finalContent = replacementResult.nextContent;
+      if (typeof onContentChange === "function" && finalContent !== String(content || "")) {
+        onContentChange(finalContent);
+      }
+
+      onNotify?.("Image converted to Excalidraw diagram.", "success");
+      closeDiagramEditor();
+      void previewImageData;
+    } catch (error) {
+      onNotify?.(error?.message || "Unable to save Excalidraw diagram.", "error");
+    }
+  };
+
+  const restoreOriginalImageFromDiagramMenu = () => {
+    if (!contextMenu?.originAssetPath) {
+      onNotify?.("Original image metadata is unavailable for this diagram.", "info");
+      closeContextMenu();
+      return;
+    }
+
+    const result = replaceDiagramReferenceWithOriginal(content, {
+      diagramId: contextMenu.diagramId,
+      diagramImagePath: contextMenu.diagramImagePath,
+      originAssetPath: contextMenu.originAssetPath,
+      originAltText: contextMenu.originAltText || "Image",
+    });
+
+    if (!result.replaced) {
+      onNotify?.("Unable to restore the original image reference.", "error");
+      closeContextMenu();
+      return;
+    }
+
+    if (typeof onContentChange === "function" && result.nextContent !== String(content || "")) {
+      onContentChange(result.nextContent);
+    }
+    onNotify?.("Restored original image reference.", "success");
+    closeContextMenu({ restoreFocus: false });
   };
 
   const openReplaceFromMenu = () => {
@@ -883,6 +1167,12 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
       disabled: false,
     },
     {
+      key: "edit-excalidraw",
+      label: "Edit with Excalidraw",
+      onSelect: openExcalidrawFromImageMenu,
+      disabled: false,
+    },
+    {
       key: "copy",
       label: "Copy markdown",
       onSelect: copyMarkdownFromMenu,
@@ -922,6 +1212,15 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
       disabled: false,
     },
   ];
+
+  if (contextMenu?.originAssetPath) {
+    diagramMenuActions.push({
+      key: "restore-original",
+      label: "Restore original image",
+      onSelect: restoreOriginalImageFromDiagramMenu,
+      disabled: false,
+    });
+  }
 
   const activeMenuActions = contextMenu?.kind === "diagram" ? diagramMenuActions : imageMenuActions;
 
@@ -1069,7 +1368,8 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
             <ExcalidrawBlock 
               imagePath={part.imagePath}
               diagramId={part.diagramId}
-              docSlug={basePath?.split(/[/\\]/).pop()?.replace('.md', '') || 'document'}
+              originAssetPath={part.originAssetPath}
+              originAltText={part.originAltText}
               documentPath={basePath?.split(/[/\\]/).slice(0, -1).join('/')}
               index={index}
               key={`${part.type}-${index}`}
@@ -1127,6 +1427,15 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
         hidden
         onChange={handleReplaceImageFile}
       />
+      {diagramEditState.open ? (
+        <ExcalidrawComponent
+          initialData={diagramEditState.initialData}
+          diagramId={diagramEditState.diagramId}
+          documentPath={diagramEditState.documentPath}
+          onClose={closeDiagramEditor}
+          onSave={saveExcalidrawFromImageMenu}
+        />
+      ) : null}
       <ImageCropModal
         open={cropState.open}
         imageSrc={cropState.src}

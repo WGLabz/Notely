@@ -3,46 +3,53 @@ import { readDiagramImage, readDiagramSource, writeDiagramSource } from "../serv
 import ExcalidrawComponent from "./ExcalidrawEditor";
 import "./ExcalidrawBlock.css";
 
-export function ExcalidrawBlock({ imagePath, diagramId, docSlug, documentPath, onUpdate }) {
+export function ExcalidrawBlock({ imagePath, diagramId, documentPath, originAssetPath, originAltText, onUpdate }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [thumbnail, setThumbnail] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [diagramData, setDiagramData] = useState(null);
 
-  // Load diagram source and image on mount
   useEffect(() => {
-    loadDiagram();
-  }, [diagramId, documentPath]);
-
-  const loadDiagram = async () => {
     if (!diagramId || !documentPath) return;
-    
-    try {
-      setLoading(true);
-      
-      // Try to load the source file
-      const source = await readDiagramSource(documentPath, diagramId);
-      if (source) {
-        setDiagramData(source);
-      }
 
-      const imageDataUrl = await readDiagramImage(documentPath, diagramId);
-      if (imageDataUrl) {
-        setThumbnail(imageDataUrl);
-      } else if (imagePath) {
-        // fallback for legacy references
-        setThumbnail(imagePath);
+    let cancelled = false;
+    const loadDiagram = async () => {
+      try {
+        setLoading(true);
+
+        const source = await readDiagramSource(documentPath, diagramId);
+        if (!cancelled && source) {
+          setDiagramData(source);
+        }
+
+        const imageDataUrl = await readDiagramImage(documentPath, diagramId);
+        if (!cancelled) {
+          if (imageDataUrl) {
+            setThumbnail(imageDataUrl);
+          } else if (imagePath) {
+            // fallback for legacy references
+            setThumbnail(imagePath);
+          }
+          setError("");
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Failed to load diagram:", err);
+          setError("Failed to load diagram");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
-      
-      setError("");
-    } catch (err) {
-      console.error("Failed to load diagram:", err);
-      setError("Failed to load diagram");
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+
+    void loadDiagram();
+    return () => {
+      cancelled = true;
+    };
+  }, [diagramId, documentPath, imagePath]);
 
   const handleSave = async (newDiagramData, previewImageData) => {
     try {
@@ -80,6 +87,8 @@ export function ExcalidrawBlock({ imagePath, diagramId, docSlug, documentPath, o
       className="excalidraw-block"
       data-diagram-id={diagramId || ""}
       data-diagram-image-path={imagePath || ""}
+      data-origin-asset-path={originAssetPath || ""}
+      data-origin-alt-text={originAltText || ""}
     >
       <div
         className="excalidraw-preview-container"

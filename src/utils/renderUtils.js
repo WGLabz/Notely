@@ -59,9 +59,16 @@ export function renderMarkdown(content, options = {}) {
 export function parseDiagramBlocks(content) {
   const chunks = [];
   const mermaidRegex = /```mermaid\s*([\s\S]*?)```/gi;
-  const excalidrawRegex = /!\[Excalidraw Diagram\]\(((?:\.notes-app\/)?excali-diagrams\/(?:(?:[^/]+\/)?([^/]+))\/diagram\.png)\)(?:\{[^}]*data-diagram-id=["“]([^"”]+)["”][^}]*\})?/gi;
+  const excalidrawRegex = /!\[Excalidraw Diagram\]\(((?:\.notes-app\/)?excali-diagrams\/(?:(?:[^/]+\/)?([^/]+))\/diagram\.png)\)(\{[^}]*\})?/gi;
   const positions = [];
   let match;
+
+  const readAttribute = (attributeBlock, attributeName) => {
+    if (!attributeBlock) return "";
+    const pattern = new RegExp(`${attributeName}=["“]([^"”]+)["”]`, "i");
+    const attrMatch = String(attributeBlock).match(pattern);
+    return attrMatch ? String(attrMatch[1] || "") : "";
+  };
 
   const countLines = (value) => (String(value || "").match(/\n/g) || []).length;
 
@@ -78,13 +85,19 @@ export function parseDiagramBlocks(content) {
 
   // Find all excalidraw image references
   while ((match = excalidrawRegex.exec(content || ""))) {
+    const attributeBlock = match[3] || "";
+    const explicitDiagramId = readAttribute(attributeBlock, "data-diagram-id");
+    const originAssetPath = readAttribute(attributeBlock, "data-origin-asset");
+    const originAltText = readAttribute(attributeBlock, "data-origin-alt");
     positions.push({
       index: match.index,
       endIndex: excalidrawRegex.lastIndex,
       type: "excalidraw",
       imagePath: match[1],
       // Prefer explicit data-diagram-id if present, else derive from path segment.
-      diagramId: match[3] || match[2],
+      diagramId: explicitDiagramId || match[2],
+      originAssetPath,
+      originAltText,
       fullMatch: match[0],
     });
   }
@@ -109,6 +122,8 @@ export function parseDiagramBlocks(content) {
         type: "excalidraw",
         imagePath: pos.imagePath,
         diagramId: pos.diagramId,
+        originAssetPath: pos.originAssetPath,
+        originAltText: pos.originAltText,
         startLine: currentLine,
       });
     }
