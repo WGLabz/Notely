@@ -35,15 +35,18 @@ function createMainHelpers(deps) {
 
   function getLastPdfExportPath() {
     const settings = readUserSettings();
-    const lastPath = typeof settings?.lastPdfExportPath === "string"
+    const rawLastPath = typeof settings?.lastPdfExportPath === "string"
       ? settings.lastPdfExportPath.trim()
       : "";
-    if (!lastPath) return "";
+    if (!rawLastPath) return "";
 
     try {
-      const resolvedLastPath = path.resolve(lastPath);
-      if (fs.existsSync(path.dirname(resolvedLastPath))) {
-        return resolvedLastPath;
+      const resolvedLastPath = path.resolve(rawLastPath);
+      const lastExportDir = path.extname(resolvedLastPath).toLowerCase() === ".pdf"
+        ? path.dirname(resolvedLastPath)
+        : resolvedLastPath;
+      if (fs.existsSync(lastExportDir)) {
+        return lastExportDir;
       }
     } catch {
       return "";
@@ -55,7 +58,7 @@ function createMainHelpers(deps) {
   function rememberPdfExportPath(filePath) {
     if (!filePath || typeof filePath !== "string") return;
     const settings = readUserSettings();
-    settings.lastPdfExportPath = path.resolve(filePath);
+    settings.lastPdfExportPath = path.dirname(path.resolve(filePath));
     writeUserSettings(settings);
   }
 

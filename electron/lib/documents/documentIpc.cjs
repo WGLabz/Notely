@@ -311,9 +311,12 @@ function registerDocumentIpcHandlers(ipcMain, deps) {
     const focusedWindow = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0] || null;
     const defaultName = `${path.basename(resolved, ".md") || "note"}.pdf`;
     const lastPdfExportPath = getLastPdfExportPath();
+    const defaultSavePath = lastPdfExportPath
+      ? path.join(lastPdfExportPath, defaultName)
+      : path.join(path.dirname(resolved), defaultName);
     const saveResult = await dialog.showSaveDialog(focusedWindow, {
       title: "Save note as PDF",
-      defaultPath: lastPdfExportPath || path.join(path.dirname(resolved), defaultName),
+      defaultPath: defaultSavePath,
       filters: [{ name: "PDF", extensions: ["pdf"] }]
     });
 
