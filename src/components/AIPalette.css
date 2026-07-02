@@ -23,7 +23,7 @@
   box-shadow: 0 24px 64px rgba(16, 38, 41, 0.22);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: auto;
   animation: slideDown 0.2s ease-out;
 }
 

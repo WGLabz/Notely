@@ -7,6 +7,7 @@ import {
 } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
 import { writeDiagramImage } from "../services/diagramService";
+import OverlayDialog from "./OverlayDialog";
 import "./ExcalidrawEditor.css";
 
 const BUNDLED_EXCALIDRAW_LIBRARY_URLS = Object.values(
@@ -395,8 +396,13 @@ const ExcalidrawComponent = ({
   }, []);
 
   return (
-    <div className="excalidraw-modal-overlay" onClick={onClose}>
-      <div className="excalidraw-modal-container" onClick={(event) => event.stopPropagation()}>
+    <OverlayDialog
+      onClose={onClose}
+      ariaLabel="Create or edit diagram"
+      overlayClassName="excalidraw-modal-overlay"
+      cardClassName="excalidraw-modal-container"
+      useDefaultCardClass={false}
+    >
         <div className="excalidraw-modal-header">
           <h2>Create/Edit Diagram</h2>
           <div className="excalidraw-library-search" aria-label="Search library components">
@@ -455,8 +461,7 @@ const ExcalidrawComponent = ({
             />
           </div>
         </div>
-      </div>
-    </div>
+    </OverlayDialog>
   );
 };
 

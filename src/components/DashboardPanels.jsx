@@ -82,7 +82,7 @@ export function DashboardPanels({ documents, loading, onOpen, onAction, continue
                 <span>Last edited {formatDate(continueCandidate.updatedAt)}</span>
                 <em>
                   Open
-                  <ArrowRight size={13} />
+                  <ArrowRight size={14} />
                 </em>
               </button>
               {continueHistory.length ? (
@@ -189,7 +189,7 @@ export function DashboardPanels({ documents, loading, onOpen, onAction, continue
                 <span>Last edited {formatDate(continueCandidate.updatedAt)}</span>
                 <em>
                   Open
-                  <ArrowRight size={13} />
+                  <ArrowRight size={14} />
                 </em>
               </button>
               {continueHistory.length ? (

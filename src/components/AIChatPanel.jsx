@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import AppButton from "./AppButton";
+import AppTextarea from "./AppTextarea";
 
 const SCOPE_OPTIONS = [
   { id: "auto", label: "Auto" },
@@ -101,8 +103,8 @@ export default function AIChatPanel({
           <div className="ai-chat-subtitle">Grounded in {noteTitle}</div>
         </div>
         <div className="ai-chat-header-actions">
-          <button type="button" className="small-button" onClick={onClear}>Clear</button>
-          <button type="button" className="small-button" onClick={onHide}>Hide</button>
+          <AppButton variant="small" onClick={onClear}>Clear</AppButton>
+          <AppButton variant="small" onClick={onHide}>Hide</AppButton>
         </div>
       </div>
 
@@ -133,23 +135,21 @@ export default function AIChatPanel({
             <div className="ai-chat-message-body">{message.text}</div>
             {message.role === "assistant" && message.text ? (
               <div className="ai-chat-apply-row">
-                <button type="button" className="small-button" onClick={() => onApply?.({ text: message.text, mode: "insert" })}>Insert</button>
-                <button
-                  type="button"
-                  className="small-button"
+                <AppButton variant="small" onClick={() => onApply?.({ text: message.text, mode: "insert" })}>Insert</AppButton>
+                <AppButton
+                  variant="small"
                   disabled={!contextSummary?.hasSelection}
                   onClick={() => onApply?.({ text: message.text, mode: "replace-selection" })}
                 >
                   Replace Selection
-                </button>
-                <button
-                  type="button"
-                  className="small-button"
+                </AppButton>
+                <AppButton
+                  variant="small"
                   disabled={!contextSummary?.hasCurrentBlock}
                   onClick={() => onApply?.({ text: message.text, mode: "replace-block" })}
                 >
                   Replace Block
-                </button>
+                </AppButton>
               </div>
             ) : null}
           </div>
@@ -171,7 +171,7 @@ export default function AIChatPanel({
       {error ? <div className="ai-chat-error">{error}</div> : null}
 
       <div className="ai-chat-composer">
-        <textarea
+        <AppTextarea
           ref={inputRef}
           className="ai-chat-input"
           value={draft}
@@ -190,9 +190,8 @@ export default function AIChatPanel({
         />
         <div className="ai-chat-composer-actions">
           <span className="ai-chat-hint">Ctrl/Cmd+Enter to send</span>
-          <button
-            type="button"
-            className="primary-button"
+          <AppButton
+            variant="primary"
             disabled={isLoading || !draft.trim()}
             onClick={() => {
               if (!draft.trim()) return;
@@ -201,7 +200,7 @@ export default function AIChatPanel({
             }}
           >
             {isLoading ? "Thinking..." : "Send"}
-          </button>
+          </AppButton>
         </div>
       </div>
     </aside>

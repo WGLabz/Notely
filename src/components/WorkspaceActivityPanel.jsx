@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { RefreshCw } from "lucide-react";
+import AppButton from "./AppButton";
+import AppInput from "./AppInput";
+import AppSelect from "./AppSelect";
 
 const FILTER_STORAGE_KEY = "notely:workspace-activity-filters";
 
@@ -113,14 +116,14 @@ export function WorkspaceActivityPanel({ data, loading, onRefresh }) {
     <div className="activity-wrap">
       <div className="activity-actions">
         <div className="activity-actions-left">
-          <button className="small-button" type="button" onClick={handleClearFilters}>
+          <AppButton variant="small" onClick={handleClearFilters}>
             Clear Filters
-          </button>
+          </AppButton>
         </div>
-        <button className="small-button" type="button" onClick={onRefresh} disabled={loading}>
+        <AppButton variant="small" onClick={onRefresh} disabled={loading}>
           <RefreshCw size={14} />
           {loading ? "Refreshing..." : "Refresh"}
-        </button>
+        </AppButton>
       </div>
 
       <div className="activity-summary-grid">
@@ -141,18 +144,18 @@ export function WorkspaceActivityPanel({ data, loading, onRefresh }) {
       <div className="activity-filters">
         <label className="activity-filter-field">
           <span>Action Type</span>
-          <select value={actionFilter} onChange={(event) => setActionFilter(event.target.value)}>
+          <AppSelect value={actionFilter} onChange={(event) => setActionFilter(event.target.value)}>
             {actionTypes.map((value) => (
               <option key={value} value={value}>
                 {value === "all" ? "All actions" : formatReason(value)}
               </option>
             ))}
-          </select>
+          </AppSelect>
         </label>
 
         <label className="activity-filter-field activity-filter-file">
           <span>File Name / Path</span>
-          <input
+          <AppInput
             type="text"
             value={fileQuery}
             onChange={(event) => setFileQuery(event.target.value)}
@@ -162,12 +165,12 @@ export function WorkspaceActivityPanel({ data, loading, onRefresh }) {
 
         <label className="activity-filter-field">
           <span>From Date</span>
-          <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
+          <AppInput type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
         </label>
 
         <label className="activity-filter-field">
           <span>To Date</span>
-          <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
+          <AppInput type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
         </label>
       </div>
 

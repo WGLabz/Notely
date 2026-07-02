@@ -1,3 +1,6 @@
+import { OverlayDialog } from "./OverlayDialog";
+import AppButton from "./AppButton";
+
 const DEFAULT_SHORTCUTS = [
   { keys: "Ctrl/Cmd+K", action: "Open Command Palette", group: "Global" },
   { keys: "Ctrl/Cmd+Shift+F", action: "Open Global Search", group: "Global" },
@@ -11,19 +14,10 @@ export function KeyboardShortcutsModal({ isOpen, onClose, shortcuts = DEFAULT_SH
   if (!isOpen) return null;
 
   return (
-    <div
-      className="overlay-dialog"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Keyboard shortcuts"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <div className="overlay-dialog-card keyboard-shortcuts-card">
+    <OverlayDialog open={isOpen} onClose={onClose} ariaLabel="Keyboard shortcuts" cardClassName="keyboard-shortcuts-card">
         <div className="overlay-dialog-header">
           <h2>Keyboard Shortcuts</h2>
-          <button className="small-button" type="button" onClick={onClose}>Close</button>
+          <AppButton variant="small" onClick={onClose}>Close</AppButton>
         </div>
         <div className="keyboard-shortcuts-table-wrap">
           <table className="keyboard-shortcuts-table">
@@ -45,7 +39,6 @@ export function KeyboardShortcutsModal({ isOpen, onClose, shortcuts = DEFAULT_SH
             </tbody>
           </table>
         </div>
-      </div>
-    </div>
+    </OverlayDialog>
   );
 }

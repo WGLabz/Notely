@@ -1,6 +1,8 @@
 import { X } from "lucide-react";
 import { useMemo, useState } from "react";
 import MarkdownIt from "markdown-it";
+import AppIconButton from "./AppIconButton";
+import { OverlayDialog } from "./OverlayDialog";
 
 const TREE_GROUPS = [
   {
@@ -158,21 +160,12 @@ export function HelpCenterModal({ open, onClose, _appInfo, documents = [] }) {
   }
 
   return (
-    <div
-      className="overlay-dialog"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Help center"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <div className="overlay-dialog-card help-center-dialog-card">
+    <OverlayDialog open={open} onClose={onClose} ariaLabel="Help center" cardClassName="help-center-dialog-card">
         <div className="overlay-dialog-header">
           <h2>Documentation</h2>
-          <button className="icon-button" onClick={onClose} type="button" aria-label="Close help center">
+          <AppIconButton onClick={onClose} aria-label="Close help center">
             <X size={16} />
-          </button>
+          </AppIconButton>
         </div>
 
         <div className="help-center-content">
@@ -237,7 +230,6 @@ export function HelpCenterModal({ open, onClose, _appInfo, documents = [] }) {
             </article>
           </div>
         </div>
-      </div>
-    </div>
+    </OverlayDialog>
   );
 }

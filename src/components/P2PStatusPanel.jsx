@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { RefreshCw, Wifi, WifiOff } from "lucide-react";
+import AppButton from "./AppButton";
+import AppInput from "./AppInput";
+import AppSelect from "./AppSelect";
 
 function formatDateTime(value) {
   if (!value) return "Unknown";
@@ -100,19 +103,18 @@ export function P2PStatusPanel({
     <div className="p2p-status-wrap">
       <div className="p2p-status-actions">
         <div className="p2p-status-actions-left">
-          <button
-            className="small-button"
-            type="button"
+          <AppButton
+            variant="small"
             onClick={() => runAction("discovery", discoveryRunning ? onStopDiscovery : onStartDiscovery)}
             disabled={loading || busyAction === "discovery"}
           >
             {discoveryRunning ? "Stop Discovery" : "Start Discovery"}
-          </button>
+          </AppButton>
         </div>
-        <button className="small-button" type="button" onClick={onRefresh} disabled={loading}>
+        <AppButton variant="small" onClick={onRefresh} disabled={loading}>
           <RefreshCw size={14} />
           {loading ? "Refreshing..." : "Refresh"}
-        </button>
+        </AppButton>
       </div>
 
       <div className="p2p-status-summary-grid">
@@ -224,28 +226,27 @@ export function P2PStatusPanel({
               <h3>Device</h3>
               <label>
                 <span>Device Name</span>
-                <input
+                <AppInput
                   type="text"
                   value={deviceNameDraft}
                   onChange={(event) => setDeviceNameDraft(event.target.value)}
                   placeholder="Your peer name"
                 />
               </label>
-              <button
-                className="small-button"
-                type="button"
+              <AppButton
+                variant="small"
                 disabled={busyAction === "name" || !deviceNameDraft.trim()}
                 onClick={() => runAction("name", () => onSetDeviceName(deviceNameDraft))}
               >
                 Save Name
-              </button>
+              </AppButton>
             </div>
 
             <div className="p2p-control-card">
               <h3>Key Policy</h3>
               <label>
                 <span>Expiry (Days)</span>
-                <input
+                <AppInput
                   type="number"
                   min="1"
                   max="365"
@@ -253,72 +254,69 @@ export function P2PStatusPanel({
                   onChange={(event) => setKeyPolicyDraft(event.target.value)}
                 />
               </label>
-              <button
-                className="small-button"
-                type="button"
+              <AppButton
+                variant="small"
                 disabled={busyAction === "key-policy" || !String(keyPolicyDraft || "").trim()}
                 onClick={() => runAction("key-policy", () => onSetKeyPolicyDays(Number(keyPolicyDraft)))}
               >
                 Save Key Policy
-              </button>
+              </AppButton>
             </div>
 
             <div className="p2p-control-card">
               <h3>Create Invite</h3>
               <label>
                 <span>Target Peer (Optional)</span>
-                <select value={invitePeerId} onChange={(event) => setInvitePeerId(event.target.value)}>
+                <AppSelect value={invitePeerId} onChange={(event) => setInvitePeerId(event.target.value)}>
                   <option value="">Any discovered peer</option>
                   {sortedDiscovered.map((peer) => (
                     <option key={peer.peerId} value={peer.peerId}>{peer.name} ({peer.peerId})</option>
                   ))}
-                </select>
+                </AppSelect>
               </label>
-              <button
-                className="small-button"
-                type="button"
+              <AppButton
+                variant="small"
                 disabled={busyAction === "invite"}
                 onClick={() => runAction("invite", () => onCreateInvite(invitePeerId || null))}
               >
                 Generate Invite Code
-              </button>
+              </AppButton>
             </div>
 
             <div className="p2p-control-card">
               <h3>Pair With Code</h3>
               <label>
                 <span>Peer</span>
-                <select value={pairPeerId} onChange={(event) => setPairPeerId(event.target.value)}>
+                <AppSelect value={pairPeerId} onChange={(event) => setPairPeerId(event.target.value)}>
                   <option value="">Select discovered peer</option>
                   {sortedDiscovered.map((peer) => (
                     <option key={peer.peerId} value={peer.peerId}>{peer.name} ({peer.peerId})</option>
                   ))}
-                </select>
+                </AppSelect>
               </label>
               <label>
                 <span>Invite Code</span>
-                <input
+                <AppInput
                   type="text"
                   value={pairCode}
                   onChange={(event) => setPairCode(event.target.value)}
                   placeholder="amber-lotus-42-nova"
                 />
               </label>
-              <button
-                className="small-button"
-                type="button"
+              <AppButton
+                variant="small"
                 disabled={busyAction === "pair" || !pairPeerId || !pairCode.trim()}
                 onClick={() => runAction("pair", () => onPairWithCode(pairPeerId, pairCode))}
               >
                 Pair
-              </button>
+              </AppButton>
             </div>
 
             <div className="p2p-control-card">
               <h3>Manual Connect</h3>
               <label>
                 <span>Address</span>
-                <input
+                <AppInput
                   type="text"
                   value={manualAddress}
                   onChange={(event) => setManualAddress(event.target.value)}
@@ -327,29 +325,27 @@ export function P2PStatusPanel({
               </label>
               <label>
                 <span>Port</span>
-                <input
+                <AppInput
                   type="number"
                   value={manualPort}
                   onChange={(event) => setManualPort(event.target.value)}
                   placeholder="47501"
                 />
               </label>
-              <button
-                className="small-button"
-                type="button"
+              <AppButton
+                variant="small"
                 disabled={busyAction === "connect" || !manualAddress.trim() || !manualPort.trim()}
                 onClick={() => runAction("connect", () => onManualConnect(manualAddress, manualPort))}
               >
                 Connect
-              </button>
-              <button
-                className="small-button"
-                type="button"
+              </AppButton>
+              <AppButton
+                variant="small"
                 disabled={busyAction === "rotate-all" || !trustedPeers.length}
                 onClick={() => runAction("rotate-all", () => onRotateWorkspaceKeys())}
               >
                 Rotate All Keys
-              </button>
+              </AppButton>
             </div>
           </div>
         ) : null}
@@ -383,22 +379,20 @@ export function P2PStatusPanel({
                         <td>{peer.listenPort || "N/A"}</td>
                         <td>{formatDateTime(peer.pairedAt)}</td>
                         <td className="p2p-status-actions-cell">
-                          <button
-                            className="small-button"
-                            type="button"
+                          <AppButton
+                            variant="small"
                             disabled={busyAction === `remove-${peer.peerId}`}
                             onClick={() => runAction(`remove-${peer.peerId}`, () => onRemoveTrustedPeer(peer.peerId))}
                           >
                             Remove
-                          </button>
-                          <button
-                            className="small-button"
-                            type="button"
+                          </AppButton>
+                          <AppButton
+                            variant="small"
                             disabled={busyAction === `rotate-${peer.peerId}`}
                             onClick={() => runAction(`rotate-${peer.peerId}`, () => onRotateWorkspaceKeys(peer.peerId))}
                           >
                             Rotate Key
-                          </button>
+                          </AppButton>
                         </td>
                       </tr>
                     ))
@@ -541,13 +535,12 @@ export function P2PStatusPanel({
 
             {peers.length ? (
               <div className="p2p-debug-toggle-wrap">
-                <button
-                  className="small-button"
-                  type="button"
+                <AppButton
+                  variant="small"
                   onClick={() => setShowDebugDetails((currentValue) => !currentValue)}
                 >
                   {showDebugDetails ? "Hide Debug" : "Show Debug"}
-                </button>
+                </AppButton>
               </div>
             ) : null}
 

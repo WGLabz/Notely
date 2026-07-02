@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { OverlayDialog } from "./OverlayDialog";
 import { useWorkspaceScopedStorage } from "../hooks/useWorkspaceScopedStorage";
 
 const RECENT_SEARCHES_KEY = "notely:recent-searches";
@@ -151,16 +152,13 @@ export function GlobalSearchOverlay({
   if (!isOpen) return null;
 
   return (
-    <div
-      className="overlay-dialog"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Global search"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
+    <OverlayDialog
+      open={isOpen}
+      onClose={onClose}
+      ariaLabel="Global search"
+      cardClassName="global-search-card"
+      initialFocusRef={inputRef}
     >
-      <div className="overlay-dialog-card global-search-card">
         <div className="global-search-header">
           <input
             ref={inputRef}
@@ -271,7 +269,6 @@ export function GlobalSearchOverlay({
             ))
           )}
         </div>
-      </div>
-    </div>
+    </OverlayDialog>
   );
 }

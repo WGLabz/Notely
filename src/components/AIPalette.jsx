@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./AIPalette.css";
-import { useFocusTrap } from "../hooks/useFocusTrap";
+import AppButton from "./AppButton";
+import AppChipButton from "./AppChipButton";
+import OverlayDialog from "./OverlayDialog";
 
 const TARGET_OPTIONS = [
   { id: "selection", label: "Selection" },
@@ -240,7 +242,6 @@ export default function AIPalette({
   const [selectedDiffRows, setSelectedDiffRows] = useState({});
   const inputRef = useRef(null);
   const lastAutoRunRequestIdRef = useRef("");
-  const dialogRef = useFocusTrap(isOpen, inputRef);
 
   const availableApplyOptions = useMemo(
     () => APPLY_OPTIONS.map((option) => ({
@@ -413,18 +414,16 @@ export default function AIPalette({
     setSelectedDiffRows({});
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="ai-palette-overlay" onClick={onClose}>
-      <div
-        ref={dialogRef}
-        className="ai-palette"
-        role="dialog"
-        aria-modal="true"
-        aria-label={`AI Assistant for ${noteTitle}`}
-        onClick={(event) => event.stopPropagation()}
-      >
+    <OverlayDialog
+      open={isOpen}
+      onClose={onClose}
+      ariaLabel={`AI Assistant for ${noteTitle}`}
+      overlayClassName="ai-palette-overlay"
+      cardClassName="ai-palette"
+      useDefaultCardClass={false}
+      initialFocusRef={inputRef}
+    >
         <div className="ai-palette-header">
           <div>
             <div className="ai-palette-title">AI Assistant</div>
@@ -436,26 +435,26 @@ export default function AIPalette({
         <div className="ai-palette-context-bar">
           <div className="ai-palette-preset-row" role="group" aria-label="Note type preset">
             {NOTE_PRESETS.map((preset) => (
-              <button
+              <AppChipButton
                 key={preset.id}
-                type="button"
-                className={`ai-preset-chip ${notePreset === preset.id ? "active" : ""}`}
+                className="ai-preset-chip"
+                active={notePreset === preset.id}
                 onClick={() => setNotePreset(preset.id)}
               >
                 {preset.label}
-              </button>
+              </AppChipButton>
             ))}
           </div>
           <div className="ai-palette-targets" role="group" aria-label="AI target scope">
             {TARGET_OPTIONS.map((option) => (
-              <button
+              <AppChipButton
                 key={option.id}
-                type="button"
-                className={`ai-target-chip ${target === option.id ? "active" : ""}`}
+                className="ai-target-chip"
+                active={target === option.id}
                 onClick={() => setTarget(option.id)}
               >
                 {option.label}
-              </button>
+              </AppChipButton>
             ))}
           </div>
           <div className="ai-palette-context-copy">
@@ -587,7 +586,7 @@ export default function AIPalette({
               <div className="ai-diff-preview">
                 <div className="ai-diff-preview-head">
                   <strong>Preview replacement</strong>
-                  <button type="button" className="small-button" onClick={() => setPendingApply(null)}>Cancel</button>
+                  <AppButton variant="small" onClick={() => setPendingApply(null)}>Cancel</AppButton>
                 </div>
                 <div className="ai-diff-preview-body">
                   {diffPreview.map((row) => (
@@ -614,7 +613,7 @@ export default function AIPalette({
                   ))}
                 </div>
                 <div className="ai-diff-preview-actions">
-                  <button type="button" className="primary-button" onClick={handleConfirmApply}>Apply Replacement</button>
+                  <AppButton variant="primary" onClick={handleConfirmApply}>Apply Replacement</AppButton>
                 </div>
               </div>
             ) : null}
@@ -624,7 +623,6 @@ export default function AIPalette({
         <div className="ai-palette-footer">
           <span className="footer-hint">Ctrl/Cmd+K opens the palette. Run a prompt, then insert or replace directly in the editor.</span>
         </div>
-      </div>
-    </div>
+    </OverlayDialog>
   );
 }

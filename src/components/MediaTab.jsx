@@ -2,7 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Copy, ExternalLink, Eye, ImageOff, ImagePlus, ListTree, RefreshCw, Upload, Trash2, X } from "lucide-react";
 import { extractAllMediaFromMarkdown } from "../utils/mediaUtils";
 import { getMediaTypeFromExtension } from "../utils/mediaUtils";
+import AppButton from "./AppButton";
+import AppInput from "./AppInput";
+import AppSelect from "./AppSelect";
 import { MediaPreviewPane } from "./MediaPreviewPane";
+import OverlayDialog from "./OverlayDialog";
 import {
   getImageUsage,
   listImages,
@@ -514,7 +518,7 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
       <div className={`media-health-panel ${healthReport.issueCount ? "warn" : "ok"}`}>
         <div className="media-health-main">
           <div className="media-health-title">
-            <AlertTriangle size={15} />
+            <AlertTriangle size={14} />
             <strong>Workspace Health</strong>
             <span className="media-health-status">
               {healthReport.issueCount ? `${healthReport.issueCount} item${healthReport.issueCount === 1 ? "" : "s"} to review` : "No issues"}
@@ -578,7 +582,7 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
               disabled={busy}
               title="Delete all unused media files"
             >
-              <Trash2 size={13} />
+              <Trash2 size={14} />
               Clean unused
             </button>
           ) : null}
@@ -586,14 +590,14 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
       </div>
 
       <div className="media-toolbar">
-        <input
+        <AppInput
           className="media-search"
           type="text"
           value={searchText}
           onChange={(event) => setSearchText(event.target.value)}
           placeholder="Search by name or path"
         />
-        <select className="media-select" value={filterType} onChange={(event) => setFilterType(event.target.value)}>
+        <AppSelect className="media-select" value={filterType} onChange={(event) => setFilterType(event.target.value)}>
           <option value="all">All Media</option>
           <option value="referenced">Referenced Only</option>
           <option value="unused">Unused Only</option>
@@ -608,16 +612,16 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
             <option value="pdfs">PDFs Only</option>
             <option value="documents">Documents Only</option>
           </optgroup>
-        </select>
-        <select className="media-select" value={sortType} onChange={(event) => setSortType(event.target.value)}>
+        </AppSelect>
+        <AppSelect className="media-select" value={sortType} onChange={(event) => setSortType(event.target.value)}>
           <option value="name-asc">Name A-Z</option>
           <option value="name-desc">Name Z-A</option>
           <option value="referenced-first">Referenced First</option>
-        </select>
+        </AppSelect>
         <div className="media-toolbar-actions">
           <label className="media-upload-target" title="Choose where newly added media is stored">
             <span>Save to</span>
-            <select
+            <AppSelect
               className="media-select"
               value={uploadTarget}
               onChange={(event) => setUploadTarget(event.target.value)}
@@ -626,37 +630,40 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
             >
               <option value="note">Note folder</option>
               <option value="workspace">Workspace library</option>
-            </select>
+            </AppSelect>
           </label>
           {unusedCount > 0 && (
-            <button
-              className="small-button danger"
+            <AppButton
+              variant="small"
+              danger
               onClick={handleDeleteUnusedMedia}
               disabled={busy}
               title={`Delete ${unusedCount} unused media file${unusedCount === 1 ? "" : "s"}`}
             >
               <Trash2 size={14} />
               <span>Delete unused ({unusedCount})</span>
-            </button>
+            </AppButton>
           )}
-          <button
-            className="small-button icon-only"
+          <AppButton
+            variant="small"
+            iconOnly
             onClick={() => addInputRef.current?.click()}
             disabled={busy}
             title="Add media"
           >
             <ImagePlus size={16} />
-          </button>
-          <button
-            className="small-button icon-only"
+          </AppButton>
+          <AppButton
+            variant="small"
+            iconOnly
             onClick={() => setRefreshKey((value) => value + 1)}
             disabled={busy}
             title="Refresh media"
           >
             <RefreshCw size={16} />
-          </button>
-          <input ref={addInputRef} type="file" accept={MEDIA_FILE_INPUT_ACCEPT} onChange={handleAddImage} hidden />
-          <input ref={replaceInputRef} type="file" accept={MEDIA_FILE_INPUT_ACCEPT} onChange={handleReplaceImage} hidden />
+          </AppButton>
+          <AppInput ref={addInputRef} type="file" accept={MEDIA_FILE_INPUT_ACCEPT} onChange={handleAddImage} hidden />
+          <AppInput ref={replaceInputRef} type="file" accept={MEDIA_FILE_INPUT_ACCEPT} onChange={handleReplaceImage} hidden />
         </div>
       </div>
 
@@ -807,47 +814,53 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
                   </button>
                 ) : null}
                 <div className="media-item-actions">
-                  <button
-                    className="small-button icon-only"
+                  <AppButton
+                    variant="small"
+                    iconOnly
                     onClick={() => setSelectedMediaPreview({ path: image.path, type: mediaType })}
                     title="Preview media"
                   >
                     <Eye size={14} />
-                  </button>
-                  <button className="small-button icon-only" onClick={() => handleCopyMarkdown(image)} title="Copy markdown">
+                  </AppButton>
+                  <AppButton variant="small" iconOnly onClick={() => handleCopyMarkdown(image)} title="Copy markdown">
                     <Copy size={14} />
-                  </button>
-                  <button
-                    className="small-button icon-only"
+                  </AppButton>
+                  <AppButton
+                    variant="small"
+                    iconOnly
                     onClick={() => setUsageInspectorImage(image)}
                     title="Inspect usage"
                   >
                     <ListTree size={14} />
-                  </button>
-                  <button
-                    className="small-button icon-only"
+                  </AppButton>
+                  <AppButton
+                    variant="small"
+                    iconOnly
                     onClick={() => handleOpenInDefaultApp(image.path)}
                     disabled={!basePath || openingPath === image.path}
                     title={openingPath === image.path ? "Opening..." : "Open in default app"}
                   >
                     <ExternalLink size={14} />
-                  </button>
-                  <button
-                    className="small-button icon-only"
+                  </AppButton>
+                  <AppButton
+                    variant="small"
+                    iconOnly
                     onClick={() => openReplacePicker(image.path)}
                     disabled={busy}
                     title="Update media"
                   >
                     <Upload size={14} />
-                  </button>
-                  <button
-                    className="small-button danger icon-only"
+                  </AppButton>
+                  <AppButton
+                    variant="small"
+                    danger
+                    iconOnly
                     onClick={() => handleDeleteImage(image.path, referenced)}
                     disabled={busy}
                     title={referenced ? "Remove media links" : "Delete media"}
                   >
                     <Trash2 size={14} />
-                  </button>
+                  </AppButton>
                 </div>
               </div>
             </div>
@@ -857,8 +870,13 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
       )}
 
       {selectedMediaPreview && (
-        <div className="media-full-preview-overlay" role="dialog" aria-modal="true" aria-label="Media preview">
-          <div className="media-full-preview-content">
+        <OverlayDialog
+          onClose={() => setSelectedMediaPreview(null)}
+          ariaLabel="Media preview"
+          overlayClassName="media-full-preview-overlay"
+          cardClassName="media-full-preview-content"
+          useDefaultCardClass={false}
+        >
             <MediaPreviewPane
               mediaPath={selectedMediaPreview.path}
               mediaType={selectedMediaPreview.type}
@@ -866,26 +884,30 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
               onClose={() => setSelectedMediaPreview(null)}
               onMediaChanged={() => setRefreshKey((value) => value + 1)}
             />
-          </div>
-        </div>
+        </OverlayDialog>
       )}
 
       {usageInspectorImage ? (
-        <div className="media-usage-overlay" role="dialog" aria-modal="true" aria-label="Media usage inspector">
-          <div className="media-usage-dialog">
+        <OverlayDialog
+          onClose={() => setUsageInspectorImage(null)}
+          ariaLabel="Media usage inspector"
+          overlayClassName="media-usage-overlay"
+          cardClassName="media-usage-dialog"
+          useDefaultCardClass={false}
+        >
             <div className="media-usage-header">
               <div>
                 <h3>Media Usage</h3>
                 <p title={usageInspectorImage.path}>{usageInspectorImage.path}</p>
               </div>
-              <button
-                className="small-button icon-only"
-                type="button"
+              <AppButton
+                variant="small"
+                iconOnly
                 onClick={() => setUsageInspectorImage(null)}
                 aria-label="Close usage inspector"
               >
                 <X size={14} />
-              </button>
+              </AppButton>
             </div>
 
             {(usageInspectorImage.referencedBy || []).length ? (
@@ -897,14 +919,10 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
                       <span title={documentRef.filePath}>{documentRef.filePath}</span>
                     </div>
                     {typeof onOpenDocument === "function" ? (
-                      <button
-                        className="small-button"
-                        type="button"
-                        onClick={() => handleOpenUsageDocument(documentRef.filePath)}
-                      >
-                        <ExternalLink size={13} />
+                      <AppButton variant="small" onClick={() => handleOpenUsageDocument(documentRef.filePath)}>
+                        <ExternalLink size={14} />
                         <span>Open</span>
-                      </button>
+                      </AppButton>
                     ) : null}
                   </div>
                 ))}
@@ -914,8 +932,7 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
                 <p>This media item is not referenced by any note in the current workspace.</p>
               </div>
             )}
-          </div>
-        </div>
+        </OverlayDialog>
       ) : null}
     </div>
   );

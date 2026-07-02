@@ -5,6 +5,7 @@ import { MarkdownToolbar } from "./MarkdownToolbar";
 import { MarkdownValidationBanner } from "./MarkdownValidationBanner";
 import { WebViewPreview } from "./WebViewPreview";
 import { MediaPreviewPane } from "./MediaPreviewPane";
+import OverlayDialog from "./OverlayDialog";
 import { useMarkdownValidation } from "../hooks/useMarkdownValidation";
 import { useWorkspaceScopedStorage } from "../hooks/useWorkspaceScopedStorage";
 import { Link2, Unlink } from "lucide-react";
@@ -395,8 +396,13 @@ export function EditorPane({
           />
         </div>
         {selectedMediaPreview ? (
-          <div className="media-full-preview-overlay" role="dialog" aria-modal="true" aria-label="Media preview">
-            <div className="media-full-preview-content">
+          <OverlayDialog
+            onClose={() => setSelectedMediaPreview(null)}
+            ariaLabel="Media preview"
+            overlayClassName="media-full-preview-overlay"
+            cardClassName="media-full-preview-content"
+            useDefaultCardClass={false}
+          >
               <MediaPreviewPane
                 mediaPath={selectedMediaPreview.path}
                 mediaType={selectedMediaPreview.type}
@@ -404,8 +410,7 @@ export function EditorPane({
                 showOriginalImages={showOriginalImages}
                 onClose={() => setSelectedMediaPreview(null)}
               />
-            </div>
-          </div>
+          </OverlayDialog>
         ) : null}
       </>
     );
@@ -452,7 +457,7 @@ export function EditorPane({
                 title={scrollSyncEnabled ? "Scroll sync is on" : "Scroll sync is off"}
                 aria-pressed={scrollSyncEnabled}
               >
-                {scrollSyncEnabled ? <Link2 size={13} /> : <Unlink size={13} />}
+                {scrollSyncEnabled ? <Link2 size={14} /> : <Unlink size={14} />}
                 <span>{scrollSyncEnabled ? "Sync scroll" : "Independent scroll"}</span>
               </button>
             </div>
@@ -470,8 +475,13 @@ export function EditorPane({
           </section>
         </div>
         {selectedMediaPreview ? (
-          <div className="media-full-preview-overlay" role="dialog" aria-modal="true" aria-label="Media preview">
-            <div className="media-full-preview-content">
+          <OverlayDialog
+            onClose={() => setSelectedMediaPreview(null)}
+            ariaLabel="Media preview"
+            overlayClassName="media-full-preview-overlay"
+            cardClassName="media-full-preview-content"
+            useDefaultCardClass={false}
+          >
               <MediaPreviewPane
                 mediaPath={selectedMediaPreview.path}
                 mediaType={selectedMediaPreview.type}
@@ -479,8 +489,7 @@ export function EditorPane({
                 showOriginalImages={showOriginalImages}
                 onClose={() => setSelectedMediaPreview(null)}
               />
-            </div>
-          </div>
+          </OverlayDialog>
         ) : null}
       </>
     );

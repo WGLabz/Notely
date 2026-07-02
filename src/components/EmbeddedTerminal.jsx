@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
+import AppButton from "./AppButton";
 import {
   createTerminalSession,
   killTerminalSession,
@@ -133,22 +134,22 @@ export function EmbeddedTerminal({
         <strong>Terminal</strong>
         <div className="embedded-terminal-header-right">
           <div className="embedded-terminal-shell-switch" role="group" aria-label="Terminal shell selector">
-            <button
-              className={`small-button ${selectedShell === "bash" ? "active" : ""}`}
-              type="button"
+            <AppButton
+              variant="small"
+              className={selectedShell === "bash" ? "active" : ""}
               onClick={() => onShellPreferenceChange?.("bash")}
               title="Use Bash shell"
             >
               Bash
-            </button>
-            <button
-              className={`small-button ${selectedShell === "cmd" ? "active" : ""}`}
-              type="button"
+            </AppButton>
+            <AppButton
+              variant="small"
+              className={selectedShell === "cmd" ? "active" : ""}
               onClick={() => onShellPreferenceChange?.("cmd")}
               title="Use CMD shell"
             >
               CMD
-            </button>
+            </AppButton>
           </div>
           {sessionShellLabel ? <span className="embedded-terminal-shell-label">{sessionShellLabel.toUpperCase()}</span> : null}
           {shellHint ? <span className="embedded-terminal-shell-hint">{shellHint}</span> : null}
@@ -156,12 +157,12 @@ export function EmbeddedTerminal({
             <span className="embedded-terminal-error" title={sessionError}>{sessionError}</span>
           ) : null}
           {sessionError ? (
-            <button className="small-button" type="button" onClick={() => setRetryTick((value) => value + 1)}>
+            <AppButton variant="small" onClick={() => setRetryTick((value) => value + 1)}>
               Retry
-            </button>
+            </AppButton>
           ) : null}
           <span title={sessionPath || initialCwdRef.current || ""}>{sessionPath || initialCwdRef.current || ""}</span>
-          <button className="small-button" type="button" onClick={onClose}>Close</button>
+          <AppButton variant="small" onClick={onClose}>Close</AppButton>
         </div>
       </div>
       <div className="embedded-terminal-xterm" ref={mountRef} />

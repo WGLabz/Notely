@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, X } from "lucide-react";
 import { rotateImage } from "../utils/imageProcessingUtils";
+import AppButton from "./AppButton";
+import OverlayDialog from "./OverlayDialog";
 import "./ImageCropModal.css";
 
 const ASPECT_PRESETS = [
@@ -460,8 +462,17 @@ export function ImageCropModal({
   };
 
   return (
-    <div className="image-crop-modal-backdrop" role="dialog" aria-modal="true" aria-label={annotationOnly ? "Annotate image" : "Edit image"}>
-      <div className={`image-crop-modal${annotationOnly ? " annotation-only" : ""}`} ref={modalRef} onKeyDown={handleModalKeyDown}>
+    <OverlayDialog
+      open={open}
+      onClose={onClose}
+      ariaLabel={annotationOnly ? "Annotate image" : "Edit image"}
+      overlayClassName="image-crop-modal-backdrop"
+      cardClassName={`image-crop-modal${annotationOnly ? " annotation-only" : ""}`}
+      useDefaultCardClass={false}
+      cardRef={modalRef}
+      onCardKeyDown={handleModalKeyDown}
+      initialFocusRef={closeButtonRef}
+    >
         <div className="image-crop-header">
           <div>
             <h3>{annotationOnly ? "Annotate Image" : "Edit Image"}</h3>
@@ -471,17 +482,17 @@ export function ImageCropModal({
                 : `${imageLabel || "Draw a rectangle to edit."} Use arrows to move, Alt+arrows to resize.`}
             </p>
           </div>
-          <button
+          <AppButton
             ref={closeButtonRef}
-            type="button"
-            className="small-button icon-only"
+            variant="small"
+            iconOnly
             onClick={onClose}
             disabled={saving}
             aria-label="Close image dialog"
             title="Close"
           >
             <X size={14} />
-          </button>
+          </AppButton>
         </div>
 
         {annotationOnly ? (
@@ -593,9 +604,8 @@ export function ImageCropModal({
                   disabled={saving || rotating}
                   aria-label="Image annotation text"
                 />
-                <button
-                  type="button"
-                  className="small-button"
+                <AppButton
+                  variant="small"
                   onClick={() => {
                     setSelection(null);
                     setRotationAngle(0);
@@ -605,24 +615,22 @@ export function ImageCropModal({
                   disabled={saving || rotating || (!selection && rotationAngle === 0 && !hasAnnotation && !annotationDirty)}
                 >
                   Reset
-                </button>
+                </AppButton>
               </>
             ) : null}
             {!annotationOnly && restoreOriginalAvailable ? (
-              <button
-                type="button"
-                className="small-button"
+              <AppButton
+                variant="small"
                 onClick={() => {
                   void handleRestoreOriginal();
                 }}
                 disabled={saving || rotating || restoringOriginal}
               >
                 {restoringOriginal ? "Restoring original..." : "Restore original"}
-              </button>
+              </AppButton>
             ) : null}
-            <button
-              type="button"
-              className="small-button"
+            <AppButton
+              variant="small"
               onClick={handleSave}
               disabled={(
                 annotationOnly
@@ -632,10 +640,9 @@ export function ImageCropModal({
             >
               <Check size={14} />
               {saving ? "Saving..." : rotating ? "Previewing..." : "Save"}
-            </button>
+            </AppButton>
           </div>
         </div>
-      </div>
-    </div>
+    </OverlayDialog>
   );
 }

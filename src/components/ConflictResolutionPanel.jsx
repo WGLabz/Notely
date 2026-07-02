@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import AppButton from "./AppButton";
+import AppTextarea from "./AppTextarea";
 
 const MAX_DIFF_LINES = 400;
 
@@ -193,12 +195,12 @@ export function ConflictResolutionPanel({
       </div>
 
       <div className="conflict-tab-actions">
-        <button className="small-button" type="button" onClick={toggleCurrentSectionCollapse}>
+        <AppButton variant="small" onClick={toggleCurrentSectionCollapse}>
           {isActiveCollapsed ? "Expand Current Section" : "Collapse Current Section"}
-        </button>
-        <button className="small-button" type="button" onClick={expandAllSections}>
+        </AppButton>
+        <AppButton variant="small" onClick={expandAllSections}>
           Expand All Sections
-        </button>
+        </AppButton>
       </div>
 
       {isActiveCollapsed ? (
@@ -213,23 +215,21 @@ export function ConflictResolutionPanel({
             <div className="conflict-merge-editor-label">
               <span>Merged ({SECTIONS.find((s) => s.key === activeSection)?.label})</span>
               <div className="conflict-merge-shortcuts">
-                <button
-                  className="small-button"
-                  type="button"
+                <AppButton
+                  variant="small"
                   onClick={() => editorState.onChange(localSection)}
                 >
                   Use Mine
-                </button>
-                <button
-                  className="small-button"
-                  type="button"
+                </AppButton>
+                <AppButton
+                  variant="small"
                   onClick={() => editorState.onChange(conflictSection)}
                 >
                   Use Theirs
-                </button>
+                </AppButton>
               </div>
             </div>
-            <textarea
+            <AppTextarea
               className="conflict-merge-textarea"
               value={editorState.value}
               onChange={(event) => editorState.onChange(event.target.value)}
@@ -240,30 +240,27 @@ export function ConflictResolutionPanel({
       )}
 
       <div className="conflict-resolve-actions">
-        <button
-          className="small-button"
-          type="button"
+        <AppButton
+          variant="small"
           disabled={loading || Boolean(busyAction)}
           onClick={() => runAction("local", () => onResolve("local"))}
         >
           {busyAction === "local" ? "Applying..." : "Keep All Mine"}
-        </button>
-        <button
-          className="primary-button"
-          type="button"
+        </AppButton>
+        <AppButton
+          variant="primary"
           disabled={loading || Boolean(busyAction)}
           onClick={() => runAction("merged", () => onResolve({ mergedContent: getMergedContent() }))}
         >
           {busyAction === "merged" ? "Saving..." : "Save Merged"}
-        </button>
-        <button
-          className="small-button"
-          type="button"
+        </AppButton>
+        <AppButton
+          variant="small"
           disabled={loading || Boolean(busyAction)}
           onClick={() => runAction("remote", () => onResolve("remote"))}
         >
           {busyAction === "remote" ? "Applying..." : "Keep All Theirs"}
-        </button>
+        </AppButton>
       </div>
     </div>
   );
