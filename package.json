@@ -26,9 +26,10 @@
     "format": "node ./node_modules/prettier/bin/prettier.cjs --write .",
     "format:check": "node ./node_modules/prettier/bin/prettier.cjs --check .",
     "test": "node scripts/run-vitest.cjs run",
+    "test:a11y-smoke": "node scripts/run-vitest.cjs run src/components/accessibility.smoke.test.js",
     "test:p2p": "node scripts/p2p-harness.cjs",
     "test:p2p:packaged": "node scripts/p2p-packaged-validation.cjs",
-    "ci:check": "npm run lint && npm run build && npm run lint:markdown && npm run test"
+    "ci:check": "npm run lint && npm run build && npm run lint:markdown && npm run test && npm run test:a11y-smoke"
   },
   "dependencies": {
     "@codemirror/lang-markdown": "^6.5.0",

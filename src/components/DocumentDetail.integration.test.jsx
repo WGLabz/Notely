@@ -260,6 +260,35 @@ describe("DocumentDetail popup and panel toggles", () => {
     view.unmount();
   });
 
+  it("shows focus mode contract banner with an exit action", () => {
+    const view = renderDetail({
+      ...baseProps,
+      focusModeEnabled: true,
+      onFocusModeChange: vi.fn(),
+    });
+
+    const banner = view.host.querySelector(".mode-contract-banner");
+    expect(banner?.textContent).toContain("Focus mode is active");
+    expect(view.host.querySelector('button[title="Exit focus mode"]')).toBeTruthy();
+
+    view.unmount();
+  });
+
+  it("does not show an outline restore banner when outline is disabled", () => {
+    const view = renderDetail({
+      ...baseProps,
+      outlineEnabled: false,
+      onOutlineEnabledChange: vi.fn(),
+      focusModeEnabled: false,
+    });
+
+    const banner = view.host.querySelector(".mode-contract-banner");
+    expect(banner).toBeFalsy();
+    expect(view.host.querySelector('button[title="Show outline panel"]')).toBeFalsy();
+
+    view.unmount();
+  });
+
   it("supports Ctrl+S save shortcut with notification", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     const onNotify = vi.fn();

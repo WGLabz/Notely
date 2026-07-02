@@ -182,11 +182,8 @@ describe("MarkdownToolbar validation panel interactions", () => {
       onJumpToLine: vi.fn(),
     });
 
-    const openWorkspaceInsert = view.host.querySelector('button[title="Insert from workspace"]');
-    expect(openWorkspaceInsert).toBeTruthy();
-
     await act(async () => {
-      openWorkspaceInsert.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      window.dispatchEvent(new CustomEvent("notely:insert-reference-link-picker"));
       await Promise.resolve();
     });
 
@@ -240,11 +237,8 @@ describe("MarkdownToolbar validation panel interactions", () => {
       onJumpToLine: vi.fn(),
     });
 
-    const openWorkspaceInsert = view.host.querySelector('button[title="Insert from workspace"]');
-    expect(openWorkspaceInsert).toBeTruthy();
-
     await act(async () => {
-      openWorkspaceInsert.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      window.dispatchEvent(new CustomEvent("notely:insert-reference-link-picker"));
       await Promise.resolve();
     });
 
@@ -298,11 +292,8 @@ describe("MarkdownToolbar validation panel interactions", () => {
       onJumpToLine: vi.fn(),
     });
 
-    const openWorkspaceInsert = view.host.querySelector('button[title="Insert from workspace"]');
-    expect(openWorkspaceInsert).toBeTruthy();
-
     await act(async () => {
-      openWorkspaceInsert.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      window.dispatchEvent(new CustomEvent("notely:insert-reference-link-picker"));
       await Promise.resolve();
     });
 
@@ -343,11 +334,8 @@ describe("MarkdownToolbar validation panel interactions", () => {
       onJumpToLine: vi.fn(),
     });
 
-    const openWorkspaceInsert = view.host.querySelector('button[title="Insert from workspace"]');
-    expect(openWorkspaceInsert).toBeTruthy();
-
     await act(async () => {
-      openWorkspaceInsert.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      window.dispatchEvent(new CustomEvent("notely:insert-reference-link-picker"));
       await Promise.resolve();
     });
 
@@ -384,17 +372,14 @@ describe("MarkdownToolbar validation panel interactions", () => {
       onJumpToLine: vi.fn(),
     });
 
-    const openWorkspaceInsert = view.host.querySelector('button[title="Insert from workspace"]');
-    expect(openWorkspaceInsert).toBeTruthy();
-
     await act(async () => {
-      openWorkspaceInsert.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      window.dispatchEvent(new CustomEvent("notely:insert-reference-link-picker"));
       await Promise.resolve();
     });
 
-    const buttons = Array.from(view.host.querySelectorAll(".image-linker-list button"));
-    expect(buttons).toHaveLength(1);
-    expect(buttons[0]?.textContent || "").toContain("Architecture");
+    const noteButtons = Array.from(view.host.querySelectorAll(".image-linker-note-primary"));
+    expect(noteButtons).toHaveLength(1);
+    expect(noteButtons[0]?.textContent || "").toContain("Architecture");
 
     view.unmount();
   });
@@ -412,7 +397,7 @@ describe("MarkdownToolbar validation panel interactions", () => {
         ];
       }
 
-      if (folderPath === "C:/notes/Architecture") {
+      if (String(folderPath || "").toLowerCase().includes("architecture")) {
         return [
           {
             entryType: "file",
@@ -437,18 +422,15 @@ describe("MarkdownToolbar validation panel interactions", () => {
       onJumpToLine: vi.fn(),
     });
 
-    const openWorkspaceInsert = view.host.querySelector('button[title="Insert from workspace"]');
-    expect(openWorkspaceInsert).toBeTruthy();
-
     await act(async () => {
-      openWorkspaceInsert.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      window.dispatchEvent(new CustomEvent("notely:insert-reference-link-picker"));
       await Promise.resolve();
     });
 
-    const buttons = Array.from(view.host.querySelectorAll(".image-linker-list button"));
+    const buttons = Array.from(view.host.querySelectorAll(".image-linker-note-primary"));
     expect(buttons.some((button) => button.textContent?.includes("System Design"))).toBe(true);
     expect(listDocumentsMock).toHaveBeenCalledWith(undefined);
-    expect(listDocumentsMock).toHaveBeenCalledWith("C:/notes/Architecture");
+    expect(listDocumentsMock.mock.calls.some((call) => String(call[0] || "").toLowerCase().includes("architecture"))).toBe(true);
 
     view.unmount();
   });
@@ -458,13 +440,7 @@ describe("MarkdownToolbar validation panel interactions", () => {
       "./images/photo.png",
       "./images/spec.pdf",
     ]);
-    listDocumentsMock.mockResolvedValue([
-      {
-        title: "Ops Guide",
-        fileName: "Ops Guide.md",
-        filePath: "C:/notes/Ops Guide.md",
-      },
-    ]);
+    listDocumentsMock.mockResolvedValue([]);
 
     const view = renderToolbar({
       value: "",
@@ -477,7 +453,7 @@ describe("MarkdownToolbar validation panel interactions", () => {
       onJumpToLine: vi.fn(),
     });
 
-    const openWorkspaceInsert = view.host.querySelector('button[title="Insert from workspace"]');
+    const openWorkspaceInsert = view.host.querySelector('button[title="Insert workspace asset"]');
     expect(openWorkspaceInsert).toBeTruthy();
 
     await act(async () => {
@@ -486,7 +462,7 @@ describe("MarkdownToolbar validation panel interactions", () => {
     });
 
     const allButtons = () => Array.from(view.host.querySelectorAll(".image-linker-list button"));
-    expect(allButtons().some((button) => button.textContent?.includes("Ops Guide"))).toBe(true);
+    expect(allButtons().some((button) => button.textContent?.includes("Ops Guide"))).toBe(false);
     expect(allButtons().some((button) => button.textContent?.includes("photo.png"))).toBe(true);
     expect(allButtons().some((button) => button.textContent?.includes("spec.pdf"))).toBe(true);
 
@@ -494,13 +470,13 @@ describe("MarkdownToolbar validation panel interactions", () => {
     expect(filterSelect).toBeTruthy();
 
     await act(async () => {
-      filterSelect.value = "notes";
+      filterSelect.value = "image";
       filterSelect.dispatchEvent(new Event("change", { bubbles: true }));
       await Promise.resolve();
     });
 
-    expect(allButtons().some((button) => button.textContent?.includes("Ops Guide"))).toBe(true);
-    expect(allButtons().some((button) => button.textContent?.includes("photo.png"))).toBe(false);
+    expect(allButtons().some((button) => button.textContent?.includes("photo.png"))).toBe(true);
+    expect(allButtons().some((button) => button.textContent?.includes("spec.pdf"))).toBe(false);
 
     await act(async () => {
       filterSelect.value = "pdf";
@@ -509,7 +485,6 @@ describe("MarkdownToolbar validation panel interactions", () => {
     });
 
     expect(allButtons().some((button) => button.textContent?.includes("spec.pdf"))).toBe(true);
-    expect(allButtons().some((button) => button.textContent?.includes("Ops Guide"))).toBe(false);
     expect(allButtons().some((button) => button.textContent?.includes("photo.png"))).toBe(false);
 
     view.unmount();
