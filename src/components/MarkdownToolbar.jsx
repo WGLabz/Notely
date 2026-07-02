@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import {
   Heading2,
   Bold,
@@ -12,13 +12,14 @@ import {
   Link,
   Link2,
   Table2,
+  FileText,
   ImagePlus,
   Zap,
   Scan,
 } from "lucide-react";
 import { applySnippet, createMediaMarkdown, insertTextAtCursor, normalizeImagePathForMarkdown } from "../utils/markdownUtils";
 import { insertMediaFromFile } from "../services/imageService";
-import { captureCurrentDisplay, listDocuments, listImages, saveImage } from "../services/electronService";
+import { captureCurrentDisplay, listDocuments, listImages, openReferenceNoteWindow, saveImage } from "../services/electronService";
 import { applyMarkdownQuickFix, applyValidationSuggestion, getIssueFixType } from "../utils/markdownQuickFix";
 import { MEDIA_FILE_INPUT_ACCEPT } from "../utils/mediaTypeUtils";
 import { getMediaTypeFromExtension } from "../utils/mediaUtils";
@@ -92,8 +93,54 @@ function getIssueLabel(issue) {
 }
 
 function getAssetMediaType(pathValue) {
-  const extension = String(pathValue || "").split(/[?#]/)[0].split(".").pop()?.toLowerCase();
+  const normalized = String(pathValue || "").trim().replace(/\\/g, "/");
+  if (!normalized) return "document";
+
+  const withoutSuffix = normalized.split(/[?#]/)[0];
+  const fileName = withoutSuffix.split("/").pop() || "";
+  let decodedFileName = fileName;
+  try {
+    decodedFileName = decodeURIComponent(fileName);
+  } catch {
+    decodedFileName = fileName;
+  }
+
+  const extension = decodedFileName.split(".").pop()?.trim().toLowerCase();
   return getMediaTypeFromExtension(extension) || "document";
+}
+
+function decodePathForDisplay(pathValue) {
+  const normalized = String(pathValue || "").replace(/\\/g, "/").trim();
+  if (!normalized) return "";
+  return normalized
+    .split("/")
+    .filter(Boolean)
+    .map((segment) => {
+      try {
+        return decodeURIComponent(segment);
+      } catch {
+        return segment;
+      }
+    })
+    .join("/");
+}
+
+function cleanRelativePathForDisplay(relativePath) {
+  const normalized = String(relativePath || "").replace(/^\.\//, "");
+  const withoutParents = normalized.replace(/^(\.\.\/)+/, "");
+  return decodePathForDisplay(withoutParents);
+}
+
+function getAssetPathDisplayLabel(pathValue) {
+  const normalized = String(pathValue || "").replace(/\\/g, "/").trim();
+  if (!normalized) return "";
+
+  const withoutPrefix = normalized
+    .replace(/^\.\/images\//i, "")
+    .replace(/^\/images\//i, "")
+    .replace(/^images\//i, "");
+
+  return decodePathForDisplay(withoutPrefix);
 }
 
 export function MarkdownToolbar({
@@ -118,20 +165,28 @@ export function MarkdownToolbar({
   const imageInputRef = useRef(null);
   const mermaidPopoverRef = useRef(null);
   const assetLinkPopoverRef = useRef(null);
+  const referenceLinkPopoverRef = useRef(null);
   const webLinkPopoverRef = useRef(null);
   const tablePopoverRef = useRef(null);
   const validationPopoverRef = useRef(null);
   const [showMermaidBuilder, setShowMermaidBuilder] = useState(false);
   const [showAssetLinker, setShowAssetLinker] = useState(false);
+  const [showReferenceLinker, setShowReferenceLinker] = useState(false);
+  const [referencePickerMode, setReferencePickerMode] = useState("preview");
   const [showWebLinker, setShowWebLinker] = useState(false);
   const [showTableBuilder, setShowTableBuilder] = useState(false);
   const [showValidationPanel, setShowValidationPanel] = useState(false);
   const [availableAssets, setAvailableAssets] = useState([]);
+  const [availableReferenceNotes, setAvailableReferenceNotes] = useState([]);
   const [assetsLoading, setAssetsLoading] = useState(false);
+  const [referenceLoading, setReferenceLoading] = useState(false);
   const [assetsError, setAssetsError] = useState("");
+  const [referenceError, setReferenceError] = useState("");
   const [assetSearch, setAssetSearch] = useState("");
   const [assetFilter, setAssetFilter] = useState("all");
+  const [referenceSearch, setReferenceSearch] = useState("");
   const [linkText, setLinkText] = useState("");
+  const [referenceLinkText, setReferenceLinkText] = useState("");
   const [assetUrl, setAssetUrl] = useState("");
   const [webLinkText, setWebLinkText] = useState("");
   const [webLinkUrl, setWebLinkUrl] = useState("");
@@ -156,6 +211,7 @@ export function MarkdownToolbar({
   const closeToolbarPanels = () => {
     setShowMermaidBuilder(false);
     setShowAssetLinker(false);
+    setShowReferenceLinker(false);
     setShowWebLinker(false);
     setShowTableBuilder(false);
     setShowValidationPanel(false);
@@ -165,6 +221,7 @@ export function MarkdownToolbar({
   const isPanelOpen = (panel) => {
     if (panel === "mermaid") return showMermaidBuilder;
     if (panel === "asset") return showAssetLinker;
+    if (panel === "reference") return showReferenceLinker;
     if (panel === "web") return showWebLinker;
     if (panel === "table") return showTableBuilder;
     if (panel === "validation") return showValidationPanel;
@@ -174,6 +231,7 @@ export function MarkdownToolbar({
   const openPanel = (panel) => {
     if (panel === "mermaid") setShowMermaidBuilder(true);
     if (panel === "asset") setShowAssetLinker(true);
+    if (panel === "reference") setShowReferenceLinker(true);
     if (panel === "web") setShowWebLinker(true);
     if (panel === "table") setShowTableBuilder(true);
     if (panel === "validation") setShowValidationPanel(true);
@@ -191,6 +249,7 @@ export function MarkdownToolbar({
   const anyPopoverOpen =
     showMermaidBuilder ||
     showAssetLinker ||
+    showReferenceLinker ||
     showWebLinker ||
     showTableBuilder ||
     showValidationPanel;
@@ -203,12 +262,14 @@ export function MarkdownToolbar({
     const handleGlobalClick = (event) => {
       const insideMermaid = mermaidPopoverRef.current?.contains(event.target);
       const insideAssetLinker = assetLinkPopoverRef.current?.contains(event.target);
+      const insideReferenceLinker = referenceLinkPopoverRef.current?.contains(event.target);
       const insideWebLinker = webLinkPopoverRef.current?.contains(event.target);
       const insideTableBuilder = tablePopoverRef.current?.contains(event.target);
       const insideValidation = validationPopoverRef.current?.contains(event.target);
       if (
         !insideMermaid &&
         !insideAssetLinker &&
+        !insideReferenceLinker &&
         !insideWebLinker &&
         !insideTableBuilder &&
         !insideValidation
@@ -259,20 +320,14 @@ export function MarkdownToolbar({
   ];
 
   const filteredAssets = availableAssets.filter((asset) => {
-    if (assetFilter === "notes" && asset.type !== "note") return false;
-    if (assetFilter !== "all" && assetFilter !== "notes" && asset.type === "media") {
-      const mediaType = getAssetMediaType(asset.path);
+    if (assetFilter !== "all") {
+      const mediaType = asset.mediaType || getAssetMediaType(asset.path);
       if (mediaType !== assetFilter) return false;
-    }
-    if (assetFilter !== "all" && assetFilter !== "notes" && asset.type !== "media") {
-      return false;
     }
 
     const search = assetSearch.trim().toLowerCase();
     if (!search) return true;
-    const label = asset.type === "note"
-      ? (asset.title || asset.fileName || "")
-      : asset.path || "";
+    const label = `${asset.path || ""} ${getAssetPathDisplayLabel(asset.path)}`;
     return label.toLowerCase().includes(search);
   });
   const normalizedTableRows = Math.min(Math.max(Number(tableRows) || 1, 1), 20);
@@ -290,6 +345,84 @@ export function MarkdownToolbar({
 
   function openTableBuilder() {
     toggleToolbarPanel("table");
+  }
+
+  const listAllDocumentEntries = async () => {
+    const visited = new Set();
+    const seenFiles = new Set();
+    const files = [];
+    const queue = ["ROOT"];
+
+    while (queue.length > 0) {
+      const nextFolder = queue.shift();
+      const folderArg = nextFolder === "ROOT" ? undefined : nextFolder;
+      const entries = await listDocuments(folderArg);
+
+      for (const entry of entries || []) {
+        const key = canonicalPathKey(entry?.filePath);
+        if (!key) continue;
+        if (entry?.entryType === "folder") {
+          if (visited.has(key)) continue;
+          visited.add(key);
+          queue.push(entry.filePath);
+          continue;
+        }
+        if (seenFiles.has(key)) continue;
+        seenFiles.add(key);
+        files.push(entry);
+      }
+    }
+
+    return files;
+  };
+
+  async function openReferenceLinker(mode = "preview") {
+    const shouldOpen = toggleToolbarPanel("reference");
+    setReferencePickerMode(mode === "insert" ? "insert" : "preview");
+    setReferenceError("");
+
+    if (!shouldOpen) return;
+
+    if (!basePath) {
+      setAvailableReferenceNotes([]);
+      setReferenceError("Save or open a note file before referencing workspace notes.");
+      return;
+    }
+
+    setReferenceLoading(true);
+    try {
+      const docs = await listAllDocumentEntries();
+      const currentPathKey = canonicalPathKey(basePath);
+      const noteAssets = (docs || [])
+        .filter((entry) => {
+          if (canonicalPathKey(entry.filePath) === currentPathKey) return false;
+          if (hasMarkdownExtension(entry?.filePath)) return true;
+          return hasMarkdownExtension(entry?.fileName);
+        })
+        .map((entry) => {
+          const fallbackName = String(entry.fileName || entry.title || "Untitled note").trim() || "Untitled note";
+          const relativePath = normalizeImagePathForMarkdown(toRelativeDocPath(basePath, entry.filePath));
+          const compactPath = cleanRelativePathForDisplay(relativePath);
+          const displayTitle = String(entry.title || entry.fileName || fallbackName).trim() || fallbackName;
+          const showPath = compactPath.includes("/");
+          const displayPath = showPath ? compactPath : "";
+
+          return {
+            filePath: entry.filePath,
+            fileName: entry.fileName,
+            title: entry.title,
+            displayTitle,
+            displayPath,
+          };
+        });
+
+      setAvailableReferenceNotes(noteAssets);
+    } catch (error) {
+      setAvailableReferenceNotes([]);
+      setReferenceError(error?.message || "Unable to load workspace notes.");
+    } finally {
+      setReferenceLoading(false);
+    }
   }
 
   function openDiagramBuilder() {
@@ -388,60 +521,15 @@ export function MarkdownToolbar({
 
     setAssetsLoading(true);
     try {
-      const listAllDocumentEntries = async () => {
-        const visited = new Set();
-        const seenFiles = new Set();
-        const files = [];
-        const queue = ["ROOT"];
-
-        while (queue.length > 0) {
-          const nextFolder = queue.shift();
-          const folderArg = nextFolder === "ROOT" ? undefined : nextFolder;
-          const entries = await listDocuments(folderArg);
-
-          for (const entry of entries || []) {
-            const key = canonicalPathKey(entry?.filePath);
-            if (!key) continue;
-            if (entry?.entryType === "folder") {
-              if (visited.has(key)) continue;
-              visited.add(key);
-              queue.push(entry.filePath);
-              continue;
-            }
-            if (seenFiles.has(key)) continue;
-            seenFiles.add(key);
-            files.push(entry);
-          }
-        }
-
-        return files;
-      };
-
-      const [paths, docs] = await Promise.all([
-        listImages(basePath),
-        listAllDocumentEntries(),
-      ]);
+      const paths = await listImages(basePath);
 
       const mediaAssets = (paths || []).map((pathValue) => ({
         type: "media",
         path: pathValue,
         mediaType: getAssetMediaType(pathValue),
       }));
-      const currentPathKey = canonicalPathKey(basePath);
-      const noteAssets = (docs || [])
-        .filter((entry) => {
-          if (canonicalPathKey(entry.filePath) === currentPathKey) return false;
-          if (hasMarkdownExtension(entry?.filePath)) return true;
-          return hasMarkdownExtension(entry?.fileName);
-        })
-        .map((entry) => ({
-          type: "note",
-          filePath: entry.filePath,
-          fileName: entry.fileName,
-          title: entry.title,
-        }));
 
-      setAvailableAssets([...noteAssets, ...mediaAssets]);
+      setAvailableAssets(mediaAssets);
       setAssetFilter("all");
     } catch (error) {
       setAvailableAssets([]);
@@ -456,11 +544,11 @@ export function MarkdownToolbar({
     setWebLinkError("");
   }
 
-  function insertDocLink(targetDoc) {
+  function insertReferenceDocLink(targetDoc) {
     const filePath = targetDoc?.filePath;
-    const text = (linkText || "").trim() || targetDoc?.title || targetDoc?.fileName || "Linked note";
+    const text = (referenceLinkText || "").trim() || targetDoc?.title || targetDoc?.fileName || "Linked note";
     if (!hasMarkdownExtension(filePath)) {
-      setAssetsError("Only markdown notes can be linked. Choose a .md file.");
+      setReferenceError("Only markdown notes can be linked. Choose a .md file.");
       return;
     }
 
@@ -470,15 +558,30 @@ export function MarkdownToolbar({
     }
     const normalizedPath = normalizeImagePathForMarkdown(relativePath);
     if (!normalizedPath || normalizedPath === "./" || normalizedPath === ".") {
-      setAssetsError("Choose a different note. Linking the current note is not supported.");
+      setReferenceError("Choose a different note. Linking the current note is not supported.");
       return;
     }
 
     insertTextAtCursor(value, onChange, `[${text}](${normalizedPath})`, textareaRef);
-    setShowAssetLinker(false);
-    setLinkText("");
-    setAssetSearch("");
+    setShowReferenceLinker(false);
+    setReferenceLinkText("");
+    setReferenceSearch("");
     onNotify?.("Document link inserted.", "success");
+  }
+
+  async function previewReferenceDocLink(targetDoc) {
+    const filePath = targetDoc?.filePath;
+    if (!hasMarkdownExtension(filePath)) {
+      setReferenceError("Only markdown notes can be previewed. Choose a .md file.");
+      return;
+    }
+
+    try {
+      await openReferenceNoteWindow(filePath);
+      onNotify?.("Reference note opened in a new window.", "success");
+    } catch (error) {
+      setReferenceError(error?.message || "Unable to open reference note preview.");
+    }
   }
 
   function linkExistingAsset(pathValue) {
@@ -676,19 +779,68 @@ export function MarkdownToolbar({
     }
   };
 
+  const handleScreenCaptureShortcut = useEffectEvent(() => {
+    void openScreenCapture();
+  });
+
+  const handleReferenceNoteShortcut = useEffectEvent(() => {
+    void openReferenceLinker("preview");
+  });
+
+  const handleInsertReferenceLinkShortcut = useEffectEvent(() => {
+    void openReferenceLinker("insert");
+  });
+
+  const handleOpenReferencePickerEvent = useEffectEvent(() => {
+    void openReferenceLinker("preview");
+  });
+
+  const handleInsertReferenceLinkPickerEvent = useEffectEvent(() => {
+    void openReferenceLinker("insert");
+  });
+
   useEffect(() => {
     const onShortcut = (event) => {
       if (!(event.ctrlKey || event.metaKey) || !event.shiftKey) return;
-      if (String(event.key || "").toLowerCase() !== "s") return;
+      const key = String(event.key || "").toLowerCase();
+      if (key === "k") {
+        event.preventDefault();
+        handleReferenceNoteShortcut();
+        return;
+      }
+      if (key === "l") {
+        event.preventDefault();
+        handleInsertReferenceLinkShortcut();
+        return;
+      }
+      if (key !== "s") return;
       event.preventDefault();
-      void openScreenCapture();
+      handleScreenCaptureShortcut();
+    };
+
+    const onOpenReferencePicker = () => {
+      handleOpenReferencePickerEvent();
+    };
+
+    const onInsertReferenceLinkPicker = () => {
+      handleInsertReferenceLinkPickerEvent();
     };
 
     document.addEventListener("keydown", onShortcut);
+    window.addEventListener("notely:open-reference-note-picker", onOpenReferencePicker);
+    window.addEventListener("notely:insert-reference-link-picker", onInsertReferenceLinkPicker);
     return () => {
       document.removeEventListener("keydown", onShortcut);
+      window.removeEventListener("notely:open-reference-note-picker", onOpenReferencePicker);
+      window.removeEventListener("notely:insert-reference-link-picker", onInsertReferenceLinkPicker);
     };
-  }, [screenCaptureBusy, screenCaptureSaving, screenCaptureMode, value, basePath]);
+  }, [
+    handleScreenCaptureShortcut,
+    handleReferenceNoteShortcut,
+    handleInsertReferenceLinkShortcut,
+    handleOpenReferencePickerEvent,
+    handleInsertReferenceLinkPickerEvent,
+  ]);
 
   return (
     <>
@@ -716,6 +868,9 @@ export function MarkdownToolbar({
       <button onClick={openWebLinker} title="Insert web link">
         <Link2 size={18} />
       </button>
+      <button onClick={() => void openReferenceLinker("preview")} title="Open reference note (Ctrl/Cmd+Shift+K)">
+        <FileText size={18} />
+      </button>
       <button onClick={() => imageInputRef.current?.click()} title="Insert media from file">
         <ImagePlus size={18} />
       </button>
@@ -732,7 +887,7 @@ export function MarkdownToolbar({
           {screenCaptureMode === "review" ? "R" : "A"}
         </span>
       </button>
-      <button onClick={openAssetLinker} title="Insert from workspace">
+      <button onClick={openAssetLinker} title="Insert workspace asset">
         <Link size={18} />
       </button>
       <button onClick={openDiagramBuilder} title="Insert diagram">
@@ -885,7 +1040,7 @@ export function MarkdownToolbar({
       {showAssetLinker && (
         <div className="image-linker" ref={assetLinkPopoverRef} role="dialog" aria-label="Workspace asset linker">
           <div className="mermaid-builder-header">
-            <strong>Insert From Workspace</strong>
+            <strong>Insert Media From Workspace</strong>
             <button className="mermaid-close" onClick={() => setShowAssetLinker(false)} title="Close">
               x
             </button>
@@ -897,7 +1052,7 @@ export function MarkdownToolbar({
               <input
                 value={assetSearch}
                 onChange={(event) => setAssetSearch(event.target.value)}
-                placeholder="Type note title or file name"
+                placeholder="Type media path"
               />
             </label>
             <label>
@@ -907,7 +1062,6 @@ export function MarkdownToolbar({
                 onChange={(event) => setAssetFilter(event.target.value)}
               >
                 <option value="all">All</option>
-                <option value="notes">Notes</option>
                 <option value="image">Images</option>
                 <option value="video">Videos</option>
                 <option value="audio">Audio</option>
@@ -952,20 +1106,111 @@ export function MarkdownToolbar({
           ) : (
             <div className="image-linker-list">
               {filteredAssets.map((asset) => (
-                asset.type === "note" ? (
-                  <button
-                    key={asset.filePath}
-                    onClick={() => insertDocLink(asset)}
-                    title={asset.fileName || asset.title}
-                  >
-                    {(asset.title || asset.fileName || "Untitled note").trim()}
-                  </button>
-                ) : (
-                  <button key={asset.path} onClick={() => linkExistingAsset(asset.path)} title={asset.path}>
-                    {asset.path}
-                  </button>
-                )
+                <button key={asset.path} onClick={() => linkExistingAsset(asset.path)} title={asset.path}>
+                  {getAssetPathDisplayLabel(asset.path) || asset.path}
+                </button>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {showReferenceLinker && (
+        <div className="image-linker" ref={referenceLinkPopoverRef} role="dialog" aria-label="Reference note picker">
+          <div className="mermaid-builder-header">
+            <strong>{referencePickerMode === "insert" ? "Insert Reference Link" : "Open Reference Note"}</strong>
+            <button className="mermaid-close" onClick={() => setShowReferenceLinker(false)} title="Close">
+              x
+            </button>
+          </div>
+
+          <div className="mermaid-fields">
+            <label>
+              Search notes
+              <input
+                value={referenceSearch}
+                onChange={(event) => setReferenceSearch(event.target.value)}
+                placeholder="Type note title or file name"
+              />
+            </label>
+            {referencePickerMode === "insert" ? (
+              <label>
+                Link text (optional)
+                <input
+                  value={referenceLinkText}
+                  onChange={(event) => setReferenceLinkText(event.target.value)}
+                  placeholder="Defaults to note title"
+                />
+              </label>
+            ) : null}
+          </div>
+
+          {referenceError && <p className="toolbar-inline-error">{referenceError}</p>}
+          {referenceLoading ? <p className="toolbar-inline-note">Loading workspace notes...</p> : null}
+
+          {!referenceLoading && !availableReferenceNotes.filter((asset) => {
+            const search = referenceSearch.trim().toLowerCase();
+            if (!search) return true;
+            const label = [asset.displayTitle, asset.displayPath, asset.fileName]
+              .filter(Boolean)
+              .join(" ")
+              .toLowerCase();
+            return label.includes(search);
+          }).length ? (
+            <p className="toolbar-inline-note">No matching notes found.</p>
+          ) : (
+            <div className="image-linker-list">
+              {availableReferenceNotes
+                .filter((asset) => {
+                  const search = referenceSearch.trim().toLowerCase();
+                  if (!search) return true;
+                  const label = [asset.displayTitle, asset.displayPath, asset.fileName]
+                    .filter(Boolean)
+                    .join(" ")
+                    .toLowerCase();
+                  return label.includes(search);
+                })
+                .map((asset) => (
+                  <div className="image-linker-note-row" key={asset.filePath}>
+                    <button
+                      className="image-linker-note-primary"
+                      onClick={() => {
+                        if (referencePickerMode === "insert") {
+                          insertReferenceDocLink(asset);
+                          return;
+                        }
+                        void previewReferenceDocLink(asset);
+                      }}
+                      title={asset.displayPath || asset.fileName || asset.title}
+                    >
+                      <span className="image-linker-note-title">{(asset.displayTitle || asset.fileName || "Untitled note").trim()}</span>
+                      {asset.displayPath ? (
+                        <span className="image-linker-note-path">{asset.displayPath}</span>
+                      ) : null}
+                    </button>
+                    <button
+                      className={referencePickerMode === "insert"
+                        ? "image-linker-note-secondary"
+                        : "image-linker-note-secondary image-linker-note-secondary-icon"}
+                      onClick={() => {
+                        if (referencePickerMode === "insert") {
+                          void previewReferenceDocLink(asset);
+                          return;
+                        }
+                        insertReferenceDocLink(asset);
+                      }}
+                      title={referencePickerMode === "insert"
+                        ? `Preview ${asset.displayTitle || asset.fileName || asset.title || "note"}`
+                        : `Insert link to ${asset.displayTitle || asset.fileName || asset.title || "note"}`}
+                      aria-label={referencePickerMode === "insert"
+                        ? `Preview ${asset.displayTitle || asset.fileName || asset.title || "note"}`
+                        : `Insert link to ${asset.displayTitle || asset.fileName || asset.title || "note"}`}
+                      type="button"
+                    >
+                      {referencePickerMode === "insert" ? "Open Preview" : <Link2 size={14} aria-hidden="true" />}
+                    </button>
+                  </div>
+                ))}
             </div>
           )}
         </div>

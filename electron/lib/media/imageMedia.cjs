@@ -10,6 +10,7 @@ function createImageMedia(deps) {
     nativeImage,
     pathToFileURL,
     MarkdownIt,
+    getMarkdownIt,
     buildPdfStyles,
     escapeHtml,
     safeDecode,
@@ -129,7 +130,12 @@ function emitImageSyncFromDisk(filePath, options = {}) {
 }
 
 function buildPdfExportHtml({ title, markdownContent, baseHref, sourceDir, downsampleImages = false, pdfQualityPreset = "full" }) {
-  const markdown = new MarkdownIt({
+  const MarkdownItCtor = MarkdownIt || (typeof getMarkdownIt === "function" ? getMarkdownIt() : null);
+  if (!MarkdownItCtor) {
+    throw new Error("Markdown renderer is unavailable.");
+  }
+
+  const markdown = new MarkdownItCtor({
     html: false,
     linkify: true,
     typographer: true
@@ -147,18 +153,21 @@ function buildPdfExportHtml({ title, markdownContent, baseHref, sourceDir, downs
         const pathPart = rawSrc.split(/[?#]/)[0];
         annotation = getImageAnnotationForMarkdownAsset(path.join(sourceDir || getNotesRoot(), "__notely_export__.md"), pathPart);
 
-        if (downsampleImages && !/^file:/i.test(rawSrc)) {
-          const normalizedSrc = safeDecode(pathPart.replace(/\\/g, "/"));
-          const resolvedImagePath = path.isAbsolute(normalizedSrc)
-            ? path.resolve(getNotesRoot(), normalizedSrc.replace(/^[/\\]+/, ""))
-            : path.resolve(sourceDir || getNotesRoot(), normalizedSrc);
+        const normalizedSrc = safeDecode(pathPart.replace(/\\/g, "/"));
+        const resolvedImagePath = resolveImageAssetPath(
+          path.join(sourceDir || getNotesRoot(), "__notely_export__.md"),
+          normalizedSrc
+        );
 
-          if (filePathWithin(getNotesRoot(), resolvedImagePath) && fs.existsSync(resolvedImagePath) && isRasterImagePath(resolvedImagePath)) {
-            const thumbnailPath = ensureImageThumbnail(resolvedImagePath);
+        if (resolvedImagePath && fs.existsSync(resolvedImagePath)) {
+          tokens[idx].attrs[srcIndex][1] = pathToFileURL(resolvedImagePath).href;
+        }
+
+        if (downsampleImages && resolvedImagePath && filePathWithin(getNotesRoot(), resolvedImagePath) && fs.existsSync(resolvedImagePath) && isRasterImagePath(resolvedImagePath)) {
+          const thumbnailPath = ensureImageThumbnail(resolvedImagePath);
             if (thumbnailPath) {
               tokens[idx].attrs[srcIndex][1] = pathToFileURL(thumbnailPath).href;
             }
-          }
         }
       }
     }
@@ -567,13 +576,37 @@ registerTrustedHandler("images:list", (_event, payload) => {
 
   const readImagesIn = (dir) => {
     if (!fs.existsSync(dir)) return [];
-    try {
-      return fs.readdirSync(dir, { withFileTypes: true })
-        .filter((entry) => entry.isFile())
-        .map((entry) => entry.name);
-    } catch {
-      return [];
+
+    const files = [];
+    const queue = [""];
+
+    while (queue.length > 0) {
+      const relativeDir = queue.shift();
+      const absoluteDir = relativeDir ? path.join(dir, relativeDir) : dir;
+
+      let entries;
+      try {
+        entries = fs.readdirSync(absoluteDir, { withFileTypes: true });
+      } catch {
+        continue;
+      }
+
+      for (const entry of entries) {
+        const relativePath = relativeDir
+          ? path.posix.join(relativeDir.replace(/\\/g, "/"), entry.name)
+          : entry.name;
+
+        if (entry.isDirectory()) {
+          queue.push(relativePath);
+          continue;
+        }
+
+        if (!entry.isFile()) continue;
+        files.push(relativePath.replace(/\\/g, "/"));
+      }
     }
+
+    return files;
   };
 
   // Scan both the note's own sibling images/ folder and the workspace-level

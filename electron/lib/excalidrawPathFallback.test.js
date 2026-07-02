@@ -84,7 +84,7 @@ describe("Excalidraw legacy path fallbacks", () => {
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
-        .replace(/\"/g, "&quot;"),
+        .replace(/"/g, "&quot;"),
       encodePathForUrl,
       normalizeToPosix,
       safeDecode,
@@ -182,5 +182,67 @@ describe("Excalidraw legacy path fallbacks", () => {
     });
 
     expect(response.startsWith("data:image/jpeg;base64,")).toBe(true);
+  });
+
+  it("rewrites legacy slugged Excalidraw path to a local file URL in PDF export html", () => {
+    const notesRoot = makeTempDir();
+    dirsToCleanup.push(notesRoot);
+
+    const documentPath = path.join(notesRoot, "meeting.md");
+    const diagramId = "cafef00d";
+    const legacyAsset = `excali-diagrams/meeting/${diagramId}/diagram.png`;
+    const sluglessFile = path.join(notesRoot, ".notes-app", "excali-diagrams", diagramId, "diagram.png");
+
+    fs.writeFileSync(documentPath, "# Meeting", "utf8");
+    fs.mkdirSync(path.dirname(sluglessFile), { recursive: true });
+    fs.writeFileSync(sluglessFile, Buffer.from("png-data"));
+
+    const imageMedia = createImageMedia({
+      BrowserWindow: {
+        fromWebContents() {
+          return { isDestroyed: () => false };
+        },
+      },
+      shell: { openPath: async () => "" },
+      fs,
+      path,
+      crypto,
+      nativeImage: {
+        createFromPath() {
+          return {
+            isEmpty: () => false,
+            getSize: () => ({ width: 128, height: 64 }),
+            resize: () => ({ toJPEG: () => Buffer.from("thumb-jpg") }),
+          };
+        },
+      },
+      pathToFileURL,
+      MarkdownIt,
+      buildPdfStyles: () => "",
+      escapeHtml: (value) => String(value || ""),
+      safeDecode,
+      filePathWithin,
+      normalizeToPosix,
+      ensureDir: (dir) => fs.mkdirSync(dir, { recursive: true }),
+      getActiveProject: () => null,
+      walkFiles: () => [],
+      WALK_EXCLUDE_DIRS: new Set(),
+      moveFileToRemoved: () => null,
+      getUniquePath: (value) => value,
+      getNotesRoot: () => notesRoot,
+      getAppDataDir: () => notesRoot,
+    });
+
+    const html = imageMedia.buildPdfExportHtml({
+      title: "meeting",
+      markdownContent: `![Excalidraw Diagram](${legacyAsset})`,
+      baseHref: pathToFileURL(`${notesRoot}${path.sep}`).href,
+      sourceDir: notesRoot,
+      downsampleImages: false,
+      pdfQualityPreset: "full",
+    });
+
+    expect(html).toContain(pathToFileURL(sluglessFile).href);
+    expect(html).not.toContain(`src="${legacyAsset}"`);
   });
 });

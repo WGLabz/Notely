@@ -1144,7 +1144,7 @@ export function DocumentDetail({
       if (renamed === false) {
         lastSubmittedTitleRef.current = "";
       }
-    } catch (_error) {
+    } catch {
       lastSubmittedTitleRef.current = "";
     } finally {
       titleRenameInFlightRef.current = false;

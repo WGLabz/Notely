@@ -1,16 +1,10 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { FolderOpen, NotebookPen, Terminal, X } from "lucide-react";
+import { NotebookPen, Terminal, X } from "lucide-react";
 import { DocumentList } from "./components/DocumentList";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import { CommandPalette } from "./components/CommandPalette";
-import { GlobalSearchOverlay } from "./components/GlobalSearchOverlay";
-import { KeyboardShortcutsModal } from "./components/KeyboardShortcutsModal";
 import { DashboardPanels } from "./components/DashboardPanels";
 import { LandingListControls } from "./components/LandingListControls";
 import { applyDocumentListQuery } from "./utils/documentListQuery";
-import { EmbeddedTerminal } from "./components/EmbeddedTerminal";
-import { HelpCenterModal } from "./components/HelpCenterModal";
-import { AboutModal } from "./components/AboutModal";
 
 // Heavy / rarely-used surfaces are code-split so they don't bloat startup.
 const MediaTab = lazy(() =>
@@ -32,6 +26,24 @@ const AIChatPanel = lazy(() => import("./components/AIChatPanel"));
 const AISettings = lazy(() => import("./components/AISettings"));
 const WorkspaceGraphPanel = lazy(() =>
   import("./components/WorkspaceGraphPanel").then((m) => ({ default: m.WorkspaceGraphPanel }))
+);
+const EmbeddedTerminal = lazy(() =>
+  import("./components/EmbeddedTerminal").then((m) => ({ default: m.EmbeddedTerminal }))
+);
+const CommandPalette = lazy(() =>
+  import("./components/CommandPalette").then((m) => ({ default: m.CommandPalette }))
+);
+const GlobalSearchOverlay = lazy(() =>
+  import("./components/GlobalSearchOverlay").then((m) => ({ default: m.GlobalSearchOverlay }))
+);
+const KeyboardShortcutsModal = lazy(() =>
+  import("./components/KeyboardShortcutsModal").then((m) => ({ default: m.KeyboardShortcutsModal }))
+);
+const HelpCenterModal = lazy(() =>
+  import("./components/HelpCenterModal").then((m) => ({ default: m.HelpCenterModal }))
+);
+const AboutModal = lazy(() =>
+  import("./components/AboutModal").then((m) => ({ default: m.AboutModal }))
 );
 import {
   onMenuAction,
@@ -135,6 +147,39 @@ function normalizeTypoCheckEnabled(rawValue) {
   return rawValue !== false;
 }
 
+function normalizePathLikeValue(value) {
+  if (typeof value === "string") {
+    return value.trim();
+  }
+
+  if (value && typeof value === "object") {
+    for (const key of ["filePath", "rootPath", "path", "label", "name", "title"]) {
+      if (typeof value[key] === "string" && value[key].trim()) {
+        return value[key].trim();
+      }
+    }
+  }
+
+  return "";
+}
+
+function normalizePathLikeList(entries) {
+  if (!Array.isArray(entries)) return [];
+  const seen = new Set();
+  const normalized = [];
+
+  for (const entry of entries) {
+    const value = normalizePathLikeValue(entry);
+    if (!value) continue;
+    const key = value.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    normalized.push(value);
+  }
+
+  return normalized;
+}
+
 function parseTagField(value) {
   return String(value || "")
     .split(/[,#]/)
@@ -155,8 +200,8 @@ export default function App() {
   const [workspaceGraphOpen, setWorkspaceGraphOpen] = useState(false);
   const [helpCenterOpen, setHelpCenterOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
-  const [appInfoLoading, setAppInfoLoading] = useState(true);
-  const [helpDocsLoading, setHelpDocsLoading] = useState(true);
+  const [_appInfoLoading, setAppInfoLoading] = useState(true);
+  const [_helpDocsLoading, setHelpDocsLoading] = useState(false);
   const bootReadyNotifiedRef = useRef(false);
   const [appInfo, setAppInfo] = useState({
     appName: "Notely",
@@ -196,10 +241,10 @@ export default function App() {
     setNoteDialogOpen,
     folderDialogOpen,
     setFolderDialogOpen,
-    notesFolderDialogOpen,
-    setNotesFolderDialogOpen,
+    recentWorkspacesDialogOpen,
+    setRecentWorkspacesDialogOpen,
     notesFolderPath,
-    setNotesFolderPath,
+    recentWorkspacePaths,
     savingNotesFolder,
     documentMenuAction,
     setDocumentMenuAction,
@@ -216,8 +261,8 @@ export default function App() {
     handleRemoveListEntry,
     handleCreateNote,
     handleCreateFolder,
-    handlePickNotesFolder,
-    handleSaveNotesFolder,
+    handleOpenWorkspacePicker,
+    handleOpenRecentWorkspace,
     handleGoHome,
     handleOpenCurrentInEditor,
     handleOpenWebsiteFromLanding,
@@ -446,7 +491,7 @@ export default function App() {
         autoIgnoreMetadataInGit: meta?.autoIgnoreMetadataInGit !== false,
         gitignoreHasNotesApp: meta?.gitignoreHasNotesApp === true,
       });
-    } catch (_error) {
+    } catch {
       setGitWorkspaceMeta((currentValue) => ({
         ...currentValue,
         isGitRoot: false,
@@ -529,7 +574,13 @@ export default function App() {
       .finally(() => {
         setAppInfoLoading(false);
       });
+  }, []);
 
+  useEffect(() => {
+    if (!helpCenterOpen) return;
+    if (helpDocuments.length > 0) return;
+
+    setHelpDocsLoading(true);
     void getHelpDocuments()
       .then((docs) => {
         setHelpDocuments(Array.isArray(docs) ? docs : []);
@@ -540,22 +591,15 @@ export default function App() {
       .finally(() => {
         setHelpDocsLoading(false);
       });
-  }, []);
+  }, [helpCenterOpen, helpDocuments.length]);
 
   const bootProgress = useMemo(() => {
-    const workspacePart = loading ? 0 : 34;
-    const appInfoPart = appInfoLoading ? 0 : 33;
-    const docsPart = helpDocsLoading ? 0 : 33;
-    return Math.min(100, workspacePart + appInfoPart + docsPart);
-  }, [loading, appInfoLoading, helpDocsLoading]);
+    return loading ? 25 : 100;
+  }, [loading]);
 
   const bootPhase = loading
     ? "Loading workspace"
-    : appInfoLoading
-      ? "Loading app metadata"
-      : helpDocsLoading
-        ? "Loading help documentation"
-        : "Launching application";
+    : "Launching application";
 
   useEffect(() => {
     notifyBootProgress({ phase: bootPhase, percent: bootProgress });
@@ -570,8 +614,8 @@ export default function App() {
   }, [bootProgress]);
 
   useEffect(() => {
-    const rootPath = String(activeProject?.rootPath || notesFolderPath || "").replace(/[\\/]+$/, "");
-    const currentPath = String(landingFolderPath || rootPath).replace(/[\\/]+$/, "");
+    const rootPath = normalizePathLikeValue(activeProject?.rootPath || notesFolderPath).replace(/[\\/]+$/, "");
+    const currentPath = normalizePathLikeValue(landingFolderPath || rootPath).replace(/[\\/]+$/, "");
     const canRemoveFolder = Boolean(rootPath && currentPath && rootPath.toLowerCase() !== currentPath.toLowerCase());
 
     updateMenuContext({
@@ -588,8 +632,9 @@ export default function App() {
       focusModeEnabled: current ? focusModeEnabled : false,
       canRemoveFolder,
       currentFolderLabel: currentPath ? currentPath.replace(/^.*[\\/]/, "") : "",
+      recentWorkspacePaths: normalizePathLikeList(recentWorkspacePaths),
     });
-  }, [current, notesViewMode, notesDensityMode, typoCheckEnabled, screenCaptureMode, dirty, activeProject, notesFolderPath, landingFolderPath, showTerminal, terminalShellPreference, outlineEnabled, mode, focusModeEnabled]);
+  }, [current, notesViewMode, notesDensityMode, typoCheckEnabled, screenCaptureMode, dirty, activeProject, notesFolderPath, landingFolderPath, showTerminal, terminalShellPreference, outlineEnabled, mode, focusModeEnabled, recentWorkspacePaths]);
 
   useEffect(() => {
     return onMenuAction((action) => {
@@ -603,8 +648,20 @@ export default function App() {
         return;
       }
 
-      if (action === "open-notes-folder-settings") {
-        setNotesFolderDialogOpen(true);
+      if (action === "open-workspace") {
+        void handleOpenWorkspacePicker();
+        return;
+      }
+
+      if (action === "open-recent-workspaces") {
+        setRecentWorkspacesDialogOpen(true);
+        return;
+      }
+
+      if (action.startsWith("open-recent-workspace:")) {
+        const encodedPath = String(action).slice("open-recent-workspace:".length);
+        const workspacePath = decodeURIComponent(encodedPath || "");
+        void handleOpenRecentWorkspace(workspacePath);
         return;
       }
 
@@ -901,7 +958,14 @@ export default function App() {
     { id: "new-folder", label: "Create New Folder", group: "Notes", aliases: "add folder create directory" },
     { id: "open-global-search", label: "Open Global Search", group: "Search", shortcut: "Ctrl/Cmd+Shift+F", aliases: "find everywhere search all notes" },
     { id: "open-shortcuts", label: "Open Keyboard Shortcuts", group: "Help", shortcut: "Ctrl/Cmd+/", aliases: "hotkeys keymap shortcuts" },
-    { id: "open-notes-folder", label: "Open Notes Folder Settings", group: "Workspace", aliases: "notes root path workspace folder" },
+    { id: "open-workspace", label: "Open Workspace", group: "Workspace", shortcut: "Ctrl/Cmd+Shift+N", aliases: "open workspace folder notes root path" },
+    {
+      id: "open-recent-workspaces",
+      label: "Open Recent Workspace",
+      group: "Workspace",
+      disabled: recentWorkspacePaths.length === 0,
+      aliases: "recent workspaces recently opened folders",
+    },
     { id: "open-assets", label: "Open Assets Library", group: "Workspace", aliases: "media images assets" },
     { id: "open-workspace-activity", label: "Open Workspace Activity", group: "Sync", aliases: "activity timeline sync events" },
     { id: "open-p2p-status", label: "Open P2P Status", group: "Sync", aliases: "peer status p2p" },
@@ -948,6 +1012,22 @@ export default function App() {
       shortcut: "Ctrl/Cmd+F",
       disabled: !current,
       aliases: "search in note replace",
+    },
+    {
+      id: "open-reference-note",
+      label: "Open Reference Note",
+      group: "Editor",
+      shortcut: "Ctrl/Cmd+Shift+K",
+      disabled: !current,
+      aliases: "reference note preview linked note",
+    },
+    {
+      id: "insert-reference-link",
+      label: "Insert Reference Link",
+      group: "Editor",
+      shortcut: "Ctrl/Cmd+Shift+L",
+      disabled: !current,
+      aliases: "insert markdown link note reference",
     },
     {
       id: "open-current-note-parent-folder",
@@ -1135,6 +1215,24 @@ export default function App() {
       return;
     }
 
+    if (resolvedCommandId === "open-reference-note") {
+      if (!current) {
+        notify("Open a note first to reference another note.", "info");
+        return;
+      }
+      window.dispatchEvent(new CustomEvent("notely:open-reference-note-picker"));
+      return;
+    }
+
+    if (resolvedCommandId === "insert-reference-link") {
+      if (!current) {
+        notify("Open a note first to insert a reference link.", "info");
+        return;
+      }
+      window.dispatchEvent(new CustomEvent("notely:insert-reference-link-picker"));
+      return;
+    }
+
     if (resolvedCommandId === "open-about") {
       setAboutOpen(true);
       return;
@@ -1145,8 +1243,13 @@ export default function App() {
       return;
     }
 
-    if (resolvedCommandId === "open-notes-folder") {
-      setNotesFolderDialogOpen(true);
+    if (resolvedCommandId === "open-workspace") {
+      await handleOpenWorkspacePicker();
+      return;
+    }
+
+    if (resolvedCommandId === "open-recent-workspaces") {
+      setRecentWorkspacesDialogOpen(true);
       return;
     }
 
@@ -1656,12 +1759,14 @@ export default function App() {
       {showTerminal ? (
         <div className="terminal-dock open">
           <ErrorBoundary label="Terminal">
-            <EmbeddedTerminal
-              cwd={terminalCwd}
-              shellPreference={terminalShellPreference}
-              onShellPreferenceChange={setTerminalShellPreference}
-              onClose={() => setShowTerminal(false)}
-            />
+            <Suspense fallback={<div className="lazy-loading">Loading terminal…</div>}>
+              <EmbeddedTerminal
+                cwd={terminalCwd}
+                shellPreference={terminalShellPreference}
+                onShellPreferenceChange={setTerminalShellPreference}
+                onClose={() => setShowTerminal(false)}
+              />
+            </Suspense>
           </ErrorBoundary>
         </div>
       ) : null}
@@ -1733,43 +1838,41 @@ export default function App() {
         </div>
       ) : null}
 
-      {notesFolderDialogOpen ? (
-        <div className="overlay-dialog" role="dialog" aria-modal="true" aria-label="Configure notes folder">
+      {recentWorkspacesDialogOpen ? (
+        <div className="overlay-dialog" role="dialog" aria-modal="true" aria-label="Open recent workspace">
           <div className="overlay-dialog-card">
             <div className="overlay-dialog-header">
-              <h2>Notes Folder</h2>
+              <h2>Open Recent Workspace</h2>
               <button
                 className="icon-button"
-                onClick={() => setNotesFolderDialogOpen(false)}
+                onClick={() => setRecentWorkspacesDialogOpen(false)}
                 type="button"
-                aria-label="Close notes folder dialog"
+                aria-label="Close recent workspaces dialog"
               >
                 <X size={16} />
               </button>
             </div>
-            <label className="overlay-dialog-field">
-              <span>Location</span>
-              <input
-                type="text"
-                value={notesFolderPath}
-                onChange={(event) => setNotesFolderPath(event.target.value)}
-                placeholder="Select notes folder path"
-              />
-            </label>
-            <div className="overlay-dialog-actions split">
-              <button className="small-button" onClick={handlePickNotesFolder} type="button">
-                <FolderOpen size={14} />
-                Browse
-              </button>
-              <button
-                className="primary-button"
-                onClick={handleSaveNotesFolder}
-                disabled={savingNotesFolder}
-                type="button"
-              >
-                {savingNotesFolder ? "Saving..." : "Save"}
-              </button>
-            </div>
+            {recentWorkspacePaths.length ? (
+              <div className="overlay-dialog-recents" aria-label="Recent workspaces">
+                <span>Recent Workspaces</span>
+                <div className="overlay-dialog-recent-list">
+                  {recentWorkspacePaths.map((workspacePath) => (
+                    <button
+                      key={workspacePath}
+                      className="overlay-dialog-recent-button"
+                      onClick={() => handleOpenRecentWorkspace(workspacePath)}
+                      disabled={savingNotesFolder}
+                      title={workspacePath}
+                      type="button"
+                    >
+                      {workspacePath}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="overlay-dialog-empty">No recent workspaces yet.</p>
+            )}
           </div>
         </div>
       ) : null}
@@ -2033,28 +2136,40 @@ export default function App() {
         </div>
       ) : null}
 
-      <CommandPalette
-        isOpen={commandPaletteOpen}
-        commands={paletteCommands.filter((command) => !command.disabled)}
-        pinnedCommandKeys={palettePinnedCommandKeys}
-        onClose={() => setCommandPaletteOpen(false)}
-        onRun={handleRunPaletteCommand}
-        onTogglePinCommand={handleTogglePinnedPaletteCommand}
-      />
+      {commandPaletteOpen ? (
+        <Suspense fallback={<div className="lazy-loading">Loading commands…</div>}>
+          <CommandPalette
+            isOpen={commandPaletteOpen}
+            commands={paletteCommands.filter((command) => !command.disabled)}
+            pinnedCommandKeys={palettePinnedCommandKeys}
+            onClose={() => setCommandPaletteOpen(false)}
+            onRun={handleRunPaletteCommand}
+            onTogglePinCommand={handleTogglePinnedPaletteCommand}
+          />
+        </Suspense>
+      ) : null}
 
-      <GlobalSearchOverlay
-        isOpen={globalSearchOpen}
-        documents={documents}
-        currentDocument={current}
-        onClose={() => setGlobalSearchOpen(false)}
-        workspaceStorageScope={workspaceStorageScope}
-        onOpenResult={handleOpenGlobalSearchResult}
-      />
+      {globalSearchOpen ? (
+        <Suspense fallback={<div className="lazy-loading">Loading search…</div>}>
+          <GlobalSearchOverlay
+            isOpen={globalSearchOpen}
+            documents={documents}
+            currentDocument={current}
+            onClose={() => setGlobalSearchOpen(false)}
+            workspaceStorageScope={workspaceStorageScope}
+            onOpenResult={handleOpenGlobalSearchResult}
+          />
+        </Suspense>
+      ) : null}
 
-      <KeyboardShortcutsModal
-        isOpen={shortcutsModalOpen}
-        onClose={() => setShortcutsModalOpen(false)}
-      />
+      {shortcutsModalOpen ? (
+        <Suspense fallback={<div className="lazy-loading">Loading shortcuts…</div>}>
+          <KeyboardShortcutsModal
+            isOpen={shortcutsModalOpen}
+            onClose={() => setShortcutsModalOpen(false)}
+          />
+        </Suspense>
+      ) : null}
 
       {workspaceGraphOpen && (
         <Suspense fallback={null}>
@@ -2069,18 +2184,26 @@ export default function App() {
         </Suspense>
       )}
 
-      <HelpCenterModal
-        open={helpCenterOpen}
-        onClose={() => setHelpCenterOpen(false)}
-        appInfo={appInfo}
-        documents={helpDocuments}
-      />
+      {helpCenterOpen ? (
+        <Suspense fallback={<div className="lazy-loading">Loading help center…</div>}>
+          <HelpCenterModal
+            open={helpCenterOpen}
+            onClose={() => setHelpCenterOpen(false)}
+            appInfo={appInfo}
+            documents={helpDocuments}
+          />
+        </Suspense>
+      ) : null}
 
-      <AboutModal
-        open={aboutOpen}
-        onClose={() => setAboutOpen(false)}
-        appInfo={appInfo}
-      />
+      {aboutOpen ? (
+        <Suspense fallback={<div className="lazy-loading">Loading about…</div>}>
+          <AboutModal
+            open={aboutOpen}
+            onClose={() => setAboutOpen(false)}
+            appInfo={appInfo}
+          />
+        </Suspense>
+      ) : null}
 
     </div>
   );

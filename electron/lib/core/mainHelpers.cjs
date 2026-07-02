@@ -28,6 +28,24 @@ function createMainHelpers(deps) {
     }
   }
 
+  function normalizeStoredWorkspacePath(rawPath) {
+    if (typeof rawPath !== "string") return "";
+    const trimmed = rawPath.trim();
+    if (!trimmed) return "";
+
+    const cleaned = trimmed
+      .split(/[\\/]+/)
+      .filter((segment) => segment && segment !== "[object Object]")
+      .join(path.sep);
+    if (!cleaned) return "";
+
+    try {
+      return path.resolve(cleaned);
+    } catch {
+      return "";
+    }
+  }
+
   function writeUserSettings(nextSettings) {
     ensureDir(path.dirname(userConfigPath));
     fs.writeFileSync(userConfigPath, JSON.stringify(nextSettings, null, 2), "utf8");
@@ -35,15 +53,18 @@ function createMainHelpers(deps) {
 
   function getLastPdfExportPath() {
     const settings = readUserSettings();
-    const lastPath = typeof settings?.lastPdfExportPath === "string"
+    const rawLastPath = typeof settings?.lastPdfExportPath === "string"
       ? settings.lastPdfExportPath.trim()
       : "";
-    if (!lastPath) return "";
+    if (!rawLastPath) return "";
 
     try {
-      const resolvedLastPath = path.resolve(lastPath);
-      if (fs.existsSync(path.dirname(resolvedLastPath))) {
-        return resolvedLastPath;
+      const resolvedLastPath = path.resolve(rawLastPath);
+      const lastExportDir = path.extname(resolvedLastPath).toLowerCase() === ".pdf"
+        ? path.dirname(resolvedLastPath)
+        : resolvedLastPath;
+      if (fs.existsSync(lastExportDir)) {
+        return lastExportDir;
       }
     } catch {
       return "";
@@ -55,19 +76,44 @@ function createMainHelpers(deps) {
   function rememberPdfExportPath(filePath) {
     if (!filePath || typeof filePath !== "string") return;
     const settings = readUserSettings();
-    settings.lastPdfExportPath = path.resolve(filePath);
+    settings.lastPdfExportPath = path.dirname(path.resolve(filePath));
     writeUserSettings(settings);
   }
 
   function resolveInitialNotesRoot() {
     const envNotesRoot = process.env.NOTES_ROOT;
     if (envNotesRoot && envNotesRoot.trim()) {
-      return path.resolve(envNotesRoot.trim());
+      const sanitizedEnvPath = normalizeStoredWorkspacePath(envNotesRoot);
+      if (sanitizedEnvPath) {
+        return sanitizedEnvPath;
+      }
     }
 
     const settings = readUserSettings();
     if (settings?.notesRoot && typeof settings.notesRoot === "string") {
-      return path.resolve(settings.notesRoot);
+      const sanitizedNotesRoot = normalizeStoredWorkspacePath(settings.notesRoot);
+      const sanitizedRecentWorkspaces = Array.isArray(settings?.recentWorkspaces)
+        ? settings.recentWorkspaces.map((entry) => normalizeStoredWorkspacePath(entry)).filter(Boolean)
+        : [];
+
+      if (sanitizedNotesRoot || sanitizedRecentWorkspaces.length > 0) {
+        const nextSettings = { ...settings };
+        if (sanitizedNotesRoot) {
+          nextSettings.notesRoot = sanitizedNotesRoot;
+        }
+        if (sanitizedRecentWorkspaces.length > 0) {
+          nextSettings.recentWorkspaces = sanitizedRecentWorkspaces;
+        } else {
+          delete nextSettings.recentWorkspaces;
+        }
+        if (nextSettings.notesRoot !== settings.notesRoot || JSON.stringify(nextSettings.recentWorkspaces || []) !== JSON.stringify(settings.recentWorkspaces || [])) {
+          writeUserSettings(nextSettings);
+        }
+      }
+
+      if (sanitizedNotesRoot) {
+        return sanitizedNotesRoot;
+      }
     }
 
     return path.join(app.getPath("documents"), "Notely Notes");

@@ -1,5 +1,17 @@
 const path = require("node:path");
 
+function sanitizePdfMarkdown(markdown) {
+  const source = String(markdown || "");
+
+  // Excalidraw image references store edit metadata as an attribute block:
+  // ![Excalidraw Diagram](...){data-diagram-id="..." data-diagram-type="excalidraw"}
+  // markdown-it does not parse this extension, so it shows as literal `{...}` in PDF.
+  return source.replace(
+    /(!\[Excalidraw Diagram\]\((?:<[^>]+>|[^)]+)\))\{[^}\r\n]*\}/gi,
+    "$1"
+  );
+}
+
 function buildPdfExportMarkdown(document, options = {}) {
   const includeRawNotes = Boolean(options.includeRawNotes);
   const includeCleansed = Boolean(options.includeCleansed);
@@ -9,14 +21,14 @@ function buildPdfExportMarkdown(document, options = {}) {
   if (includeRawNotes) {
     sections.push([
       "## Raw Notes",
-      (document?.rawNotes || "").trim() || "_No raw notes captured yet._"
+      sanitizePdfMarkdown(document?.rawNotes || "").trim() || "_No raw notes captured yet._"
     ].join("\n\n"));
   }
 
   if (includeCleansed) {
     sections.push([
       "## Formal Notes",
-      (document?.cleansed || "").trim() || "_No formal notes captured yet._"
+      sanitizePdfMarkdown(document?.cleansed || "").trim() || "_No formal notes captured yet._"
     ].join("\n\n"));
   }
 

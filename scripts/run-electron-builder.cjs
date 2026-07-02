@@ -23,9 +23,11 @@ try {
     const generated = JSON.parse(String(fs.readFileSync(generatedVersionPath, "utf8") || "{}"));
     const fullVersion = String(generated.version || "").trim();
     const coreVersion = String(generated.versionCore || "").trim();
-    if (fullVersion) {
-      nextArgs.push(`--config.extraMetadata.version=${fullVersion}`);
-      nextArgs.push(`--config.buildVersion=${coreVersion || fullVersion}`);
+    const packagingVersion = coreVersion || fullVersion;
+    if (packagingVersion) {
+      // Use pure semver for packaging so Windows artifact names don't include git hash.
+      nextArgs.push(`--config.extraMetadata.version=${packagingVersion}`);
+      nextArgs.push(`--config.buildVersion=${packagingVersion}`);
     }
   }
 } catch (error) {

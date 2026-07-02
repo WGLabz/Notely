@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import {
   renderMarkdown,
-  parseMermaidBlocks,
   parseDiagramBlocks,
   normalizeMarkdownImagePaths,
 } from "../utils/renderUtils";

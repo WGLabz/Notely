@@ -100,11 +100,8 @@ export function isDiagramReference(imagePath) {
  * @param {object} diagramData - Excalidraw diagram data
  * @returns {Promise<string>} Data URL of PNG image
  */
-export async function generateDiagramPNG(diagramData) {
+export async function generateDiagramPNG(_diagramData) {
   try {
-    // Import Excalidraw utilities for rendering
-    const { Excalidraw } = await import('@excalidraw/excalidraw');
-    
     // Create a temporary canvas
     const canvas = document.createElement('canvas');
     canvas.width = 1024;
@@ -128,7 +125,7 @@ export async function generateDiagramPNG(diagramData) {
  * @param {object} diagramData - Excalidraw diagram data
  * @returns {string} Markdown with embedded data
  */
-export function createDiagramMarkdown(docSlug, diagramId, diagramData) {
+export function createDiagramMarkdown(docSlug, diagramId, _diagramData) {
   const imagePath = getDiagramImagePath(docSlug, diagramId);
   
   // Create markdown that references the image

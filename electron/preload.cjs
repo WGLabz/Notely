@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld("notesApi", {
   setAutoIgnoreGitMetadata: (payload) => ipcRenderer.invoke("settings:set-auto-ignore-git-metadata", payload),
   captureCurrentDisplay: () => ipcRenderer.invoke("screen:capture-current-display"),
   pickFolder: () => ipcRenderer.invoke("settings:pick-folder"),
+  openReferenceNoteWindow: (payload) => ipcRenderer.invoke("window:open-reference-note", payload),
   listProjects: () => ipcRenderer.invoke("projects:list"),
   setActiveProject: (payload) => ipcRenderer.invoke("projects:set-active", payload),
   getP2PStatus: () => ipcRenderer.invoke("p2p:get-status"),

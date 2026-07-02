@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import path from "node:path";
 
 export default defineConfig({
   base: "./",
@@ -13,9 +14,21 @@ export default defineConfig({
     emptyOutDir: true,
     chunkSizeWarningLimit: 2500,
     rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, "index.html"),
+        reference: path.resolve(__dirname, "reference.html"),
+      },
       output: {
-        manualChunks: {
-          mermaid: ["mermaid"]
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+
+          if (id.includes("node_modules/mermaid")) return "vendor-mermaid";
+          if (id.includes("node_modules/@xyflow") || id.includes("node_modules/cytoscape")) return "vendor-graph";
+          if (id.includes("node_modules/pdfjs-dist")) return "vendor-pdf";
+          if (id.includes("node_modules/@xterm") || id.includes("node_modules/xterm")) return "vendor-terminal";
+          if (id.includes("node_modules/@uiw/react-codemirror") || id.includes("node_modules/@codemirror")) return "vendor-editor";
+          if (id.includes("node_modules/katex")) return "vendor-katex";
+          if (id.includes("node_modules/remark") || id.includes("node_modules/unist") || id.includes("node_modules/mdast")) return "vendor-markdown-tools";
         }
       }
     }

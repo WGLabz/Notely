@@ -138,7 +138,7 @@ export async function aiDetectPatterns() {
 export async function getNotesRootSetting() {
   const api = getNotesApi();
   if (typeof api.getNotesRootSetting !== "function") {
-    throw new Error("Notes folder settings are unavailable. Please restart the app.");
+    throw new Error("Workspace settings are unavailable. Please restart the app.");
   }
   return api.getNotesRootSetting();
 }
@@ -168,7 +168,7 @@ export async function getHelpDocuments() {
 export async function setNotesRootSetting(notesRoot) {
   const api = getNotesApi();
   if (typeof api.setNotesRootSetting !== "function") {
-    throw new Error("Notes folder settings are unavailable. Please restart the app.");
+    throw new Error("Workspace settings are unavailable. Please restart the app.");
   }
   return api.setNotesRootSetting({ notesRoot });
 }
@@ -505,6 +505,14 @@ export async function openWebView(filePath, content) {
   }
 
   return api.openWebView({ filePath, content });
+}
+
+export async function openReferenceNoteWindow(filePath) {
+  const api = getNotesApi();
+  if (typeof api.openReferenceNoteWindow !== "function") {
+    throw new Error("Reference note window unavailable. Please restart the app to load the latest desktop API.");
+  }
+  return api.openReferenceNoteWindow({ filePath });
 }
 
 export async function downloadPdf(payload) {

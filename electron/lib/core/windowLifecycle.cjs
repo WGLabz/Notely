@@ -16,7 +16,6 @@ function createWindowLifecycle(deps) {
 
   let mainWindow = null;
   let splashWindow = null;
-  let bootReadyReceived = false;
   let mainLoadReady = false;
   let splashReady = false;
   let pendingSplashPayload = null;
@@ -34,21 +33,8 @@ function createWindowLifecycle(deps) {
   }
 
   function resolveSplashBrandDataUri() {
-    const splashCandidates = [
-      path.join(process.resourcesPath || "", "icon.png"),
-      path.join(process.cwd(), "build", "icon.png"),
-      path.join(projectRoot, "build", "icon.png")
-    ];
-    const splashPath = splashCandidates.find((candidate) => candidate && fs.existsSync(candidate));
-    if (!splashPath) return "";
-
-    try {
-      const bytes = fs.readFileSync(splashPath);
-      const base64 = Buffer.from(bytes).toString("base64");
-      return `data:image/png;base64,${base64}`;
-    } catch (_error) {
-      return "";
-    }
+    // Keep splash rendering path I/O-free to maximize click-to-splash responsiveness.
+    return "";
   }
 
   function closeSplashWindow() {
@@ -94,6 +80,28 @@ function createWindowLifecycle(deps) {
     closeSplashWindow();
   }
 
+  function normalizeMenuText(value, fallback = "") {
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      return trimmed || fallback;
+    }
+
+    if (value && typeof value === "object") {
+      for (const key of ["path", "label", "name", "title"]) {
+        if (typeof value[key] === "string" && value[key].trim()) {
+          return value[key].trim();
+        }
+      }
+    }
+
+    return fallback;
+  }
+
+  function normalizeRecentWorkspacePaths(entries) {
+    if (!Array.isArray(entries)) return [];
+    return entries.map((entry) => normalizeMenuText(entry, "")).filter(Boolean);
+  }
+
   function createSplashWindow(windowIconPath) {
     splashWindow = new BrowserWindow({
       width: 560,
@@ -105,7 +113,7 @@ function createWindowLifecycle(deps) {
       maximizable: false,
       fullscreenable: false,
       autoHideMenuBar: true,
-      show: false,
+      show: true,
       backgroundColor: "#dcece7",
       ...(windowIconPath ? { icon: windowIconPath } : {}),
       webPreferences: {
@@ -201,25 +209,18 @@ function createWindowLifecycle(deps) {
     </div>
   </body>
 </html>`;
+
+    // Show immediately on app start so users get instant feedback after clicking .exe.
+    splashWindow.center();
+    splashWindow.show();
     splashWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(splashHtml)}`);
-    splashWindow.once("ready-to-show", () => {
-      if (!splashWindow || splashWindow.isDestroyed()) return;
+    splashWindow.webContents.once("did-finish-load", () => {
       splashReady = true;
-      splashWindow.center();
-      splashWindow.show();
       if (pendingSplashPayload) {
         applySplashProgress(pendingSplashPayload);
         pendingSplashPayload = null;
       }
     });
-
-    // Fail-safe in case ready-to-show is delayed by the environment.
-    setTimeout(() => {
-      if (!splashWindow || splashWindow.isDestroyed()) return;
-      if (splashWindow.isVisible()) return;
-      splashWindow.center();
-      splashWindow.show();
-    }, 1200);
 
     splashWindow.on("closed", () => {
       splashReady = false;
@@ -307,7 +308,6 @@ function createWindowLifecycle(deps) {
     const isDevMode = Boolean(rendererUrl) || !app.isPackaged;
     const windowIconPath = resolveWindowIconPath();
 
-    bootReadyReceived = false;
     mainLoadReady = false;
     splashReady = false;
     pendingSplashPayload = null;
@@ -336,9 +336,7 @@ function createWindowLifecycle(deps) {
 
     win.once("ready-to-show", () => {
       mainLoadReady = true;
-      if (bootReadyReceived) {
-        showMainWindow();
-      }
+      showMainWindow();
     });
 
     // Fail-safe: ensure app can still open if renderer boot handshake never arrives.
@@ -387,6 +385,53 @@ function createWindowLifecycle(deps) {
     });
   }
 
+  function createReferenceWindow(filePath) {
+    const windowIconPath = resolveWindowIconPath();
+    const query = new URLSearchParams({ filePath: String(filePath || "") }).toString();
+    const win = new BrowserWindow({
+      width: 980,
+      height: 760,
+      minWidth: 720,
+      minHeight: 520,
+      show: false,
+      autoHideMenuBar: true,
+      backgroundColor: "#f5f3ef",
+      title: "Reference Note",
+      ...(windowIconPath ? { icon: windowIconPath } : {}),
+      webPreferences: {
+        preload: path.join(__dirname, "..", "..", "preload.cjs"),
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+        webviewTag: false,
+      }
+    });
+
+    hardenWebContents(win.webContents);
+
+    win.once("ready-to-show", () => {
+      win.show();
+      win.focus();
+    });
+
+    win.webContents.on("did-fail-load", (_event, code, desc, url) => {
+      console.error("Reference window failed to load:", { code, desc, url });
+      win.show();
+    });
+
+    if (rendererUrl) {
+      const referenceUrl = new URL("reference.html", rendererUrl.endsWith("/") ? rendererUrl : `${rendererUrl}/`);
+      referenceUrl.search = query;
+      win.loadURL(referenceUrl.toString());
+    } else {
+      win.loadFile(path.join(projectRoot, "dist", "reference.html"), {
+        search: `?${query}`,
+      });
+    }
+
+    return win;
+  }
+
   function focusOrCreateWindow() {
     if (!mainWindow || mainWindow.isDestroyed()) {
       createWindow();
@@ -409,7 +454,6 @@ function createWindowLifecycle(deps) {
   function markRendererBootReady(webContents) {
     if (!mainWindow || mainWindow.isDestroyed()) return;
     if (!webContents || webContents.id !== mainWindow.webContents.id) return;
-    bootReadyReceived = true;
     if (mainLoadReady) {
       showMainWindow();
     }
@@ -437,6 +481,7 @@ function createWindowLifecycle(deps) {
       dirty: false,
       canRemoveFolder: false,
       currentFolderLabel: "",
+      recentWorkspacePaths: [],
     };
     Menu.setApplicationMenu(buildAppMenu(win, context));
   }
@@ -461,7 +506,8 @@ function createWindowLifecycle(deps) {
       isDevMode: Boolean(rendererUrl) || !app.isPackaged,
       dirty: Boolean(context?.dirty),
       canRemoveFolder: Boolean(context?.canRemoveFolder),
-      currentFolderLabel: String(context?.currentFolderLabel || "").trim(),
+      currentFolderLabel: normalizeMenuText(context?.currentFolderLabel, ""),
+      recentWorkspacePaths: normalizeRecentWorkspacePaths(context?.recentWorkspacePaths),
     };
 
     Menu.setApplicationMenu(buildAppMenu(win, win.__menuContext));
@@ -491,6 +537,7 @@ function createWindowLifecycle(deps) {
   return {
     applyContentSecurityPolicy,
     createWindow,
+    createReferenceWindow,
     focusOrCreateWindow,
     registerAppWindowEvents,
     handleMenuContextUpdate,

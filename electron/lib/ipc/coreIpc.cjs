@@ -10,6 +10,7 @@ function registerCoreIpcHandlers(ipcMain, deps) {
     process,
     path,
     shell,
+    filePathWithin,
     projectRoot,
     ensureDir,
     readUserSettings,
@@ -22,7 +23,49 @@ function registerCoreIpcHandlers(ipcMain, deps) {
     listProjectsState,
     getActiveProjectSlug,
     setActiveProjectSlug,
+    createReferenceWindow,
   } = deps;
+
+  const RECENT_WORKSPACES_LIMIT = 8;
+
+  function normalizeWorkspacePathValue(rawPath) {
+    if (typeof rawPath !== "string") return "";
+    const trimmed = rawPath.trim();
+    if (!trimmed) return "";
+
+    const cleaned = trimmed
+      .split(/[\\/]+/)
+      .filter((segment) => segment && segment !== "[object Object]")
+      .join(path.sep);
+    if (!cleaned) return "";
+
+    try {
+      return path.resolve(cleaned);
+    } catch {
+      return "";
+    }
+  }
+
+  function normalizeRecentWorkspaces(settings) {
+    const rawEntries = Array.isArray(settings?.recentWorkspaces)
+      ? settings.recentWorkspaces
+      : [];
+    const seen = new Set();
+    const normalized = [];
+
+    for (const entry of rawEntries) {
+      const resolved = normalizeWorkspacePathValue(entry);
+      if (!resolved) continue;
+
+      const key = resolved.toLowerCase();
+      if (seen.has(key) || !fs.existsSync(resolved)) continue;
+      seen.add(key);
+      normalized.push(resolved);
+      if (normalized.length >= RECENT_WORKSPACES_LIMIT) break;
+    }
+
+    return normalized;
+  }
 
   function registerTrustedHandler(channel, handler) {
     ipcMain.handle(channel, (event, payload) => {
@@ -33,7 +76,14 @@ function registerCoreIpcHandlers(ipcMain, deps) {
 
   registerTrustedHandler("settings:get-notes-root", () => ({
     notesRoot: getNotesRoot(),
-    notesRootSource: process.env.NOTES_ROOT ? "env" : "config"
+    notesRootSource: process.env.NOTES_ROOT ? "env" : "config",
+    recentWorkspaces: [
+      getNotesRoot(),
+      ...normalizeRecentWorkspaces(readUserSettings()),
+    ].filter((entry, index, list) => {
+      const normalized = String(entry || "").trim().toLowerCase();
+      return normalized && list.findIndex((candidate) => String(candidate || "").trim().toLowerCase() === normalized) === index;
+    }).slice(0, RECENT_WORKSPACES_LIMIT)
   }));
 
   registerTrustedHandler("help:get-documents", () => {
@@ -151,7 +201,7 @@ function registerCoreIpcHandlers(ipcMain, deps) {
     const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
     const result = await dialog.showOpenDialog(win, {
       properties: ["openDirectory", "createDirectory"],
-      title: "Select notes folder"
+      title: "Select workspace"
     });
 
     if (result.canceled || !result.filePaths?.length) {
@@ -161,17 +211,39 @@ function registerCoreIpcHandlers(ipcMain, deps) {
     return result.filePaths[0];
   });
 
-  registerTrustedHandler("settings:set-notes-root", (_event, payload) => {
-    const nextPath = String(payload?.notesRoot || "").trim();
-    if (!nextPath) {
-      throw new Error("Notes folder path is required.");
+  registerTrustedHandler("window:open-reference-note", (_event, payload) => {
+    const nextFilePath = String(payload?.filePath || "").trim();
+    if (!nextFilePath) {
+      throw new Error("Reference note path is required.");
     }
 
-    const resolved = path.resolve(nextPath);
+    const resolved = path.resolve(nextFilePath);
+    if (!filePathWithin(getNotesRoot(), resolved) || path.extname(resolved).toLowerCase() !== ".md") {
+      throw new Error("Invalid reference note path.");
+    }
+    if (!fs.existsSync(resolved)) {
+      throw new Error("Reference note does not exist.");
+    }
+
+    createReferenceWindow(resolved);
+    return { opened: true, filePath: resolved };
+  });
+
+  registerTrustedHandler("settings:set-notes-root", (_event, payload) => {
+    const nextPath = normalizeWorkspacePathValue(payload?.notesRoot);
+    if (!nextPath) {
+      throw new Error("Workspace path is required.");
+    }
+
+    const resolved = nextPath;
     ensureDir(resolved);
 
     const settings = readUserSettings();
     settings.notesRoot = resolved;
+    settings.recentWorkspaces = [
+      resolved,
+      ...normalizeRecentWorkspaces(settings).filter((entry) => entry.toLowerCase() !== resolved.toLowerCase()),
+    ].slice(0, RECENT_WORKSPACES_LIMIT);
     writeUserSettings(settings);
 
     if (!process.env.NOTES_ROOT) {
@@ -180,6 +252,7 @@ function registerCoreIpcHandlers(ipcMain, deps) {
 
     return {
       notesRoot: resolved,
+      recentWorkspaces: settings.recentWorkspaces,
       restartRequired: Boolean(process.env.NOTES_ROOT),
       ignoredByEnv: Boolean(process.env.NOTES_ROOT)
     };

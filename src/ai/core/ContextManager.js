@@ -15,25 +15,36 @@ class ContextManager {
    */
   async initializeWorkspace(workspaceRoot) {
     try {
-      console.log('[ContextManager] Initializing workspace context...');
+      console.log('[ContextManager] Initializing workspace context (lazy mode)...');
 
-      // Index all documents
-      const documentCount = await this.documentService.indexWorkspace();
-
-      // Cache workspace metadata
-      this.workspaceMetadata = this.documentService.getWorkspaceStructure();
-
-      // Restore cached context
+      // Restore cached context first (fast)
       await this._loadCachedContext(workspaceRoot);
+
+      // Schedule full workspace indexing for next event loop (non-blocking)
+      // This allows the app UI to load while indexing happens in the background
+      setImmediate(() => {
+        console.log('[ContextManager] Starting background workspace indexing...');
+        this.documentService.indexWorkspace((progress) => {
+          console.log(`[ContextManager] Indexing progress: ${progress.indexed}/${progress.total} files`);
+        })
+          .then((documentCount) => {
+            this.workspaceMetadata = this.documentService.getWorkspaceStructure();
+            console.log(`[ContextManager] Background indexing complete: ${documentCount} files`);
+          })
+          .catch((error) => {
+            console.error('[ContextManager] Background indexing failed:', error.message);
+          });
+      });
 
       return {
         success: true,
         workspaceRoot,
-        documentsIndexed: documentCount,
-        metadata: this.workspaceMetadata
+        documentsIndexed: 0,
+        metadata: null, // Will be available after background indexing completes
+        note: 'Full indexing scheduled for background; cached data available immediately'
       };
     } catch (error) {
-      console.error('[ContextManager] Workspace initialization failed:', error.message);
+      console.error('[ContextManager] Initialization failed:', error.message);
       throw error;
     }
   }

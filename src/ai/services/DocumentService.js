@@ -15,14 +15,27 @@ class DocumentService {
   }
 
   /**
-   * Index all markdown files in workspace
+   * Index all markdown files in workspace with optional progress callback
+   * @param {Function} onProgress - Optional callback(progress) with { indexed, total } properties
    */
-  async indexWorkspace() {
+  async indexWorkspace(onProgress) {
     console.log('[DocumentService] Indexing workspace...');
     const files = this._collectMarkdownFiles(this.workspaceRoot);
+    const BATCH_SIZE = 50; // Process files in batches to prevent event loop blocking
     
-    for (const filePath of files) {
-      await this.indexFile(filePath);
+    for (let i = 0; i < files.length; i += BATCH_SIZE) {
+      const batch = files.slice(i, i + BATCH_SIZE);
+      
+      // Process batch in parallel
+      await Promise.all(batch.map((filePath) => this.indexFile(filePath)));
+      
+      // Report progress
+      if (onProgress) {
+        onProgress({ indexed: i + batch.length, total: files.length });
+      }
+      
+      // Yield to event loop to prevent main thread blocking
+      await new Promise((resolve) => setImmediate(resolve));
     }
 
     console.log(`[DocumentService] Indexed ${files.length} files`);

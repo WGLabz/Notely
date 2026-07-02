@@ -45,10 +45,14 @@ function resolveDocSlugFromHref(href, docs) {
   return String(match?.slug || "");
 }
 
-export function HelpCenterModal({ open, onClose, appInfo, documents = [] }) {
-  if (!open) return null;
-
-  const normalizedDocs = Array.isArray(documents) ? documents : [];
+export function HelpCenterModal({ open, onClose, _appInfo, documents = [] }) {
+  // Memoize normalized docs to ensure stable reference for dependency arrays
+  const normalizedDocs = useMemo(
+    () => (Array.isArray(documents) ? documents : []),
+    [documents]
+  );
+  
+  // Call all hooks unconditionally at the top (before any conditional returns)
   const [activeSlug, setActiveSlug] = useState(() => String(normalizedDocs?.[0]?.slug || ""));
   const [expandedGroups, setExpandedGroups] = useState(() => ({
     start: true,
@@ -104,6 +108,9 @@ export function HelpCenterModal({ open, onClose, appInfo, documents = [] }) {
 
     return groups;
   }, [normalizedDocs]);
+
+  // Now we can return early if not open (after all hooks are called)
+  if (!open) return null;
 
   function toggleGroup(groupId) {
     setExpandedGroups((current) => ({

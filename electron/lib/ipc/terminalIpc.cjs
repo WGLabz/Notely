@@ -7,6 +7,7 @@ function createTerminalIpc(deps) {
   const {
     BrowserWindow,
     pty,
+    getPty,
     filePathWithin,
     ensureDir,
     getNotesRoot,
@@ -169,7 +170,12 @@ function createTerminalIpc(deps) {
       const cwd = resolveTerminalCwd(payload?.cwd);
       const sessionId = String(nextTerminalSessionId++);
       const shellConfig = resolveTerminalShell(payload?.shell);
-      const child = pty.spawn(shellConfig.command, shellConfig.args, {
+      const ptyModule = pty || (typeof getPty === "function" ? getPty() : null);
+      if (!ptyModule || typeof ptyModule.spawn !== "function") {
+        throw new Error("Terminal backend is unavailable.");
+      }
+
+      const child = ptyModule.spawn(shellConfig.command, shellConfig.args, {
         cwd,
         env: { ...process.env, TERM: "xterm-256color" },
         name: "xterm-256color",

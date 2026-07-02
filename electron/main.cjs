@@ -6,11 +6,6 @@ const { pathToFileURL } = require("node:url");
 const crypto = require("node:crypto");
 const http = require("node:http");
 const { spawn } = require("node:child_process");
-const pty = require("node-pty");
-const MarkdownIt = require("markdown-it");
-const { P2PLiveService } = require("./p2p/p2pLive.cjs");
-const { initializeAIHandlers } = require("./ai/aiHandlers.cjs");
-const { initializeAISystem, shutdownAISystem } = require("../src/ai/index.js");
 const {
   slugify,
   nowStamp,
@@ -42,12 +37,15 @@ const { createMetadataStore } = require("./lib/core/metadataStore.cjs");
 const { createDocumentFileOps } = require("./lib/documents/documentFileOps.cjs");
 const { createMainHelpers } = require("./lib/core/mainHelpers.cjs");
 const { setupDiagramHandlers } = require("./diagram-handlers.cjs");
+const { initializeAIHandlers } = require("./ai/aiHandlers.cjs");
 
 const rendererUrl = process.env.ELECTRON_RENDERER_URL;
 const projectRoot = app.getAppPath();
 const generatedVersionPath = path.join(projectRoot, "electron", "app-version.generated.json");
 const sessionDataPath = path.join(app.getPath("userData"), "session-data");
 const chromiumCachePath = path.join(sessionDataPath, "Cache");
+const getMarkdownIt = () => require("markdown-it");
+const getP2PLiveService = () => require("./p2p/p2pLive.cjs").P2PLiveService;
 
 if (process.platform === "win32") {
   app.setAppUserModelId("app.notely.desktop");
@@ -72,9 +70,29 @@ let p2pService = null;
 let aiAgent = null;
 let p2pSyncEngine = null;
 let mainHelpers;
+let shutdownAISystemRef = () => {};
+let aiInitTriggered = false;
 const FULL_SYNC_BATCH_SIZE = 25;
 const FULL_SYNC_MAX_FILES = 1000;
 const VERSION_HISTORY_LIMIT = 50;
+
+function triggerDeferredAIInit() {
+  if (aiInitTriggered) return;
+  aiInitTriggered = true;
+
+  // Initialize AI in background without awaiting to avoid blocking UI responsiveness.
+  const AI_INIT_TIMEOUT_MS = 8000;
+  const initTimeout = setTimeout(() => {
+    console.warn("[startup] AI initialization taking longer than expected (>8s), continuing anyway...");
+  }, AI_INIT_TIMEOUT_MS);
+  initializeAIForWorkspace()
+    .catch((err) => {
+      console.error("[AI] Background initialization failed:", err?.message || err);
+    })
+    .finally(() => {
+      clearTimeout(initTimeout);
+    });
+}
 
 function readGeneratedVersionInfo() {
   const fallbackVersion = String(app.getVersion() || "0.0.0");
@@ -112,9 +130,12 @@ function readGeneratedVersionInfo() {
 
 async function initializeAIForWorkspace() {
   try {
+    const { initializeAISystem, shutdownAISystem } = require("../src/ai/index.js");
     const AIConfig = require("../src/ai/utils/AIConfig");
     const { PROVIDER_REGISTRY } = require("../src/ai/llm/providerRegistry");
     const config = new AIConfig();
+
+    shutdownAISystemRef = shutdownAISystem;
 
     // Pick the first text provider that has a configured API key.
     let llmProvider = null;
@@ -361,6 +382,7 @@ function applyNotesRoot(nextRootPath) {
   if (p2pService) {
     p2pService.shutdown();
   }
+  const P2PLiveService = getP2PLiveService();
   p2pService = new P2PLiveService({
     storageDir: appDataDir,
     onSyncEvent: (payload) => p2pSyncEngine.handleIncomingP2PSyncEvent(payload),
@@ -412,7 +434,7 @@ function moveDirectoryContents(sourceDir, targetDir) {
       moveDirectoryContents(sourcePath, targetPath);
       try {
         fs.rmdirSync(sourcePath);
-      } catch (_error) {
+      } catch {
         // Leave non-empty directories in place if any nested move failed.
       }
       continue;
@@ -434,7 +456,7 @@ function migrateLegacyRemovedDirectory() {
   moveDirectoryContents(legacyRemovedDir, managedRemovedDir);
   try {
     fs.rmSync(legacyRemovedDir, { recursive: true, force: false });
-  } catch (_error) {
+  } catch {
     // Best-effort cleanup: leaving an empty legacy folder is harmless.
   }
 }
@@ -522,7 +544,7 @@ const imageMedia = createImageMedia({
   crypto,
   nativeImage,
   pathToFileURL,
-  MarkdownIt,
+  getMarkdownIt,
   buildPdfStyles,
   escapeHtml,
   safeDecode,
@@ -548,7 +570,7 @@ const {
 
 const terminalIpc = createTerminalIpc({
   BrowserWindow,
-  pty,
+  getPty: () => require("node-pty"),
   filePathWithin,
   ensureDir,
   getNotesRoot: () => notesRoot,
@@ -577,7 +599,7 @@ const webPreview = createWebPreview({
 websiteRenderers = createWebsiteRenderer({
   path,
   fs,
-  MarkdownIt,
+  getMarkdownIt,
   escapeHtml,
   encodePathForUrl,
   normalizeToPosix,
@@ -659,10 +681,20 @@ const canRunApp = windowLifecycle.registerAppWindowEvents();
 
 if (canRunApp) {
   app.whenReady().then(async () => {
+    // Register AI IPC handlers in the ready phase so renderer calls never race missing handlers.
+    initializeAIHandlers(app, aiAgent);
     windowLifecycle.applyContentSecurityPolicy();
-    applyNotesRoot(resolveInitialNotesRoot());
-    await initializeAIForWorkspace();
     windowLifecycle.focusOrCreateWindow();
+
+    // Defer workspace and AI initialization so splash/main window can appear quickly.
+    setImmediate(() => {
+      applyNotesRoot(resolveInitialNotesRoot());
+    });
+
+    // Fallback: ensure AI eventually initializes even if renderer boot-ready IPC is missed.
+    setTimeout(() => {
+      triggerDeferredAIInit();
+    }, 15000);
   });
 }
 
@@ -671,7 +703,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
-  shutdownAISystem();
+  shutdownAISystemRef();
 
   webPreview.dispose();
 
@@ -691,6 +723,7 @@ ipcMain.on("app-menu:update-context", (event, context) => {
 ipcMain.on("app:boot-ready", (event) => {
   assertTrustedIpcSender(BrowserWindow, event, "app:boot-ready");
   windowLifecycle.markRendererBootReady(event.sender);
+  triggerDeferredAIInit();
 });
 
 ipcMain.on("app:boot-progress", (event, payload) => {
@@ -707,6 +740,7 @@ registerCoreIpcHandlers(ipcMain, {
   process,
   path,
   shell,
+  filePathWithin,
   projectRoot,
   ensureDir,
   readUserSettings,
@@ -721,6 +755,7 @@ registerCoreIpcHandlers(ipcMain, {
   setActiveProjectSlug: (slug) => {
     activeProjectSlug = slug;
   },
+  createReferenceWindow: (filePath) => windowLifecycle.createReferenceWindow(filePath),
 });
 
 terminalIpc.registerHandlers(ipcMain);

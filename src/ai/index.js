@@ -37,12 +37,18 @@ async function initializeAISystem(appDataDir, workspaceRoot, llmProvider, embedd
         const hfProvider = new HuggingFaceEmbeddingProvider(embeddingConfig.token, {
           model: embeddingConfig.model,
         });
-        await hfProvider.initialize();
+        // Add timeout to prevent HF network requests from stalling startup
+        await Promise.race([
+          hfProvider.initialize(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('HuggingFace initialization timeout (5s)')), 5000)
+          )
+        ]);
         aiAgent.setEmbeddingProvider(hfProvider);
         console.log('[AI System] HuggingFace embedding provider ready');
       } catch (embErr) {
         // Non-fatal — text generation and other features still work.
-        console.warn('[AI System] HuggingFace embedding provider failed to initialize:', embErr.message);
+        console.warn('[AI System] HuggingFace embedding provider skipped:', embErr.message);
       }
     }
 

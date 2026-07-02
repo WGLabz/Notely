@@ -8,6 +8,10 @@ vi.mock("./MermaidBlock", () => ({
   MermaidBlock: () => null,
 }));
 
+vi.mock("./ExcalidrawEditor", () => ({
+  default: () => null,
+}));
+
 const readImageMock = vi.fn();
 const replaceImageMock = vi.fn();
 const deleteImageMock = vi.fn();

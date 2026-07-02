@@ -3,7 +3,7 @@
  * Handles reading, writing, and managing diagram files on disk
  */
 
-import { getDiagramSourcePath, getDiagramImagePath, getDiagramPath } from '../utils/diagramFileUtils';
+import { getDiagramImagePath } from '../utils/diagramFileUtils';
 
 function invokeDiagram(method, payload) {
   const apiMethod = window.notesApi?.[method];

@@ -162,7 +162,7 @@ class SemanticClusteringService {
   /**
    * Get similarity score between two nodes
    */
-  getSimilarity(nodeId1, nodeId2) {
+  getSimilarity(_nodeId1, _nodeId2) {
     // This would be populated from analyzeDocuments results
     return 0;
   }

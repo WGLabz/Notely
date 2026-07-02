@@ -5,6 +5,7 @@ function createWebsiteRenderer(deps) {
     path,
     fs,
     MarkdownIt,
+    getMarkdownIt,
     escapeHtml,
     encodePathForUrl,
     normalizeToPosix,
@@ -29,7 +30,12 @@ function listMarkdownRelativePaths() {
 }
 
 function buildWebsiteMarkdownRenderer() {
-  const markdown = new MarkdownIt({
+  const MarkdownItCtor = MarkdownIt || (typeof getMarkdownIt === "function" ? getMarkdownIt() : null);
+  if (!MarkdownItCtor) {
+    throw new Error("Markdown renderer is unavailable.");
+  }
+
+  const markdown = new MarkdownItCtor({
     html: false,
     linkify: true,
     typographer: true

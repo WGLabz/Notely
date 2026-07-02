@@ -4,6 +4,10 @@ import { createRoot } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { DocumentDetail } from "./DocumentDetail";
 
+vi.mock("./ExcalidrawEditor", () => ({
+  default: () => null,
+}));
+
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 let originalRangeGetClientRects;

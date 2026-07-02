@@ -6,6 +6,23 @@ function sendMenuAction(win, action) {
   win.webContents.send("app-menu:action", action);
 }
 
+function normalizeMenuText(value, fallback = "") {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed || fallback;
+  }
+
+  if (value && typeof value === "object") {
+    for (const key of ["path", "label", "name", "title"]) {
+      if (typeof value[key] === "string" && value[key].trim()) {
+        return value[key].trim();
+      }
+    }
+  }
+
+  return fallback;
+}
+
 // Builds the application menu template based on the current screen/view context.
 function buildAppMenu(win, context = {}) {
   const screen = context?.screen === "document" ? "document" : "landing";
@@ -23,7 +40,23 @@ function buildAppMenu(win, context = {}) {
   const isDevMode = Boolean(context?.isDevMode);
   const dirty = Boolean(context?.dirty);
   const canRemoveFolder = Boolean(context?.canRemoveFolder);
-  const currentFolderLabel = String(context?.currentFolderLabel || "Current Folder").trim() || "Current Folder";
+  const currentFolderLabel = normalizeMenuText(context?.currentFolderLabel, "Current Folder");
+  const recentWorkspacePaths = Array.isArray(context?.recentWorkspacePaths)
+    ? context.recentWorkspacePaths
+        .map((entry) => normalizeMenuText(entry, ""))
+        .filter(Boolean)
+    : [];
+  const openRecentSubmenu = recentWorkspacePaths.length
+    ? recentWorkspacePaths.map((workspacePath) => ({
+        label: workspacePath,
+        click: () => sendMenuAction(win, `open-recent-workspace:${encodeURIComponent(workspacePath)}`)
+      }))
+    : [
+        {
+          label: "No Recent Workspaces",
+          enabled: false
+        }
+      ];
 
   const fileSubmenu = screen === "document"
     ? [
@@ -33,9 +66,13 @@ function buildAppMenu(win, context = {}) {
           click: () => sendMenuAction(win, "new-note")
         },
         {
-          label: "Notes Folder",
+          label: "Open Workspace",
           accelerator: "CmdOrCtrl+Shift+N",
-          click: () => sendMenuAction(win, "open-notes-folder-settings")
+          click: () => sendMenuAction(win, "open-workspace")
+        },
+        {
+          label: "Open Recent",
+          submenu: openRecentSubmenu
         },
         { type: "separator" },
         {
@@ -102,9 +139,13 @@ function buildAppMenu(win, context = {}) {
           click: () => sendMenuAction(win, "new-note")
         },
         {
-          label: "Notes Folder",
+          label: "Open Workspace",
           accelerator: "CmdOrCtrl+Shift+N",
-          click: () => sendMenuAction(win, "open-notes-folder-settings")
+          click: () => sendMenuAction(win, "open-workspace")
+        },
+        {
+          label: "Open Recent",
+          submenu: openRecentSubmenu
         },
         { type: "separator" },
         {

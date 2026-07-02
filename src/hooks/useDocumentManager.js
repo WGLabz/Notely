@@ -17,6 +17,39 @@ import {
   getHistory,
 } from "../services/electronService";
 
+function normalizePathValue(value) {
+  if (typeof value === "string") {
+    return value.trim();
+  }
+
+  if (value && typeof value === "object") {
+    for (const key of ["filePath", "rootPath", "path", "label", "name"]) {
+      if (typeof value[key] === "string" && value[key].trim()) {
+        return value[key].trim();
+      }
+    }
+  }
+
+  return "";
+}
+
+function normalizeWorkspacePathList(entries) {
+  if (!Array.isArray(entries)) return [];
+  const seen = new Set();
+  const normalized = [];
+
+  for (const entry of entries) {
+    const value = normalizePathValue(entry);
+    if (!value) continue;
+    const key = value.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    normalized.push(value);
+  }
+
+  return normalized;
+}
+
 export function useDocumentManager({ notify }) {
   const [documents, setDocuments] = useState([]);
   const [current, setCurrent] = useState(null);
@@ -34,8 +67,9 @@ export function useDocumentManager({ notify }) {
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [noteDialogOpen, setNoteDialogOpen] = useState(false);
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
-  const [notesFolderDialogOpen, setNotesFolderDialogOpen] = useState(false);
+  const [recentWorkspacesDialogOpen, setRecentWorkspacesDialogOpen] = useState(false);
   const [notesFolderPath, setNotesFolderPath] = useState("");
+  const [recentWorkspacePaths, setRecentWorkspacePaths] = useState([]);
   const [savingNotesFolder, setSavingNotesFolder] = useState(false);
   const [documentMenuAction, setDocumentMenuAction] = useState(null);
   const [landingFolderPath, setLandingFolderPath] = useState("");
@@ -54,10 +88,10 @@ export function useDocumentManager({ notify }) {
         })
       : false;
 
-  const normalizedProjectRoot = String(activeProject?.rootPath || "")
+  const normalizedProjectRoot = normalizePathValue(activeProject?.rootPath)
     .replace(/[\\/]+$/, "")
     .toLowerCase();
-  const normalizedLandingFolder = String(landingFolderPath || activeProject?.rootPath || "")
+  const normalizedLandingFolder = normalizePathValue(landingFolderPath || activeProject?.rootPath)
     .replace(/[\\/]+$/, "")
     .toLowerCase();
   const canNavigateUp = Boolean(
@@ -68,7 +102,14 @@ export function useDocumentManager({ notify }) {
 
   function applyProjectState(result) {
     setProjects(result?.projects || []);
-    setActiveProjectState(result?.activeProject || null);
+    if (result?.activeProject && typeof result.activeProject === "object") {
+      setActiveProjectState({
+        ...result.activeProject,
+        rootPath: normalizePathValue(result.activeProject.rootPath),
+      });
+      return;
+    }
+    setActiveProjectState(null);
   }
 
   function pushLastSavedDocument(savedDocument) {
@@ -99,14 +140,15 @@ export function useDocumentManager({ notify }) {
       const projectState = await listProjects();
       if (loadDocumentsRequestRef.current !== requestId) return;
       applyProjectState(projectState);
-      const baseFolder = projectState?.activeProject?.rootPath || "";
+      const baseFolder = normalizePathValue(projectState?.activeProject?.rootPath);
       setLandingFolderPath(baseFolder);
       const docs = await listDocuments(baseFolder);
       if (loadDocumentsRequestRef.current !== requestId) return;
       setDocuments(docs);
       const notesSetting = await getNotesRootSetting();
       if (loadDocumentsRequestRef.current !== requestId) return;
-      setNotesFolderPath(notesSetting?.notesRoot || "");
+      setNotesFolderPath(normalizePathValue(notesSetting?.notesRoot));
+      setRecentWorkspacePaths(normalizeWorkspacePathList(notesSetting?.recentWorkspaces));
     } catch (err) {
       if (loadDocumentsRequestRef.current !== requestId) return;
       setError(err?.message || "Unable to load documents.");
@@ -252,8 +294,8 @@ export function useDocumentManager({ notify }) {
   }
 
   async function handleDeleteCurrentFolder() {
-    const projectRoot = String(activeProject?.rootPath || "").replace(/[\\/]+$/, "");
-    const currentFolder = String(landingFolderPath || projectRoot).replace(/[\\/]+$/, "");
+    const projectRoot = normalizePathValue(activeProject?.rootPath).replace(/[\\/]+$/, "");
+    const currentFolder = normalizePathValue(landingFolderPath || projectRoot).replace(/[\\/]+$/, "");
     if (!projectRoot || !currentFolder) return false;
     if (projectRoot.toLowerCase() === currentFolder.toLowerCase()) {
       notify("Project root folder cannot be removed.", "info");
@@ -267,7 +309,7 @@ export function useDocumentManager({ notify }) {
     const parentPath = currentFolder.replace(/[\\/][^\\/]+$/, "") || projectRoot;
     try {
       const result = await deleteFolderApi(currentFolder);
-      const nextParentPath = String(result?.parentPath || parentPath || projectRoot).trim();
+      const nextParentPath = normalizePathValue(result?.parentPath || parentPath || projectRoot);
       setCurrent(null);
       setHistory([]);
       setError("");
@@ -290,8 +332,8 @@ export function useDocumentManager({ notify }) {
     const basePath = landingFolderPath || activeProject?.rootPath;
 
     if (entry.entryType === "folder") {
-      const projectRoot = String(activeProject?.rootPath || "").replace(/[\\/]+$/, "").toLowerCase();
-      const folderPath = String(entry.filePath || "").replace(/[\\/]+$/, "").toLowerCase();
+      const projectRoot = normalizePathValue(activeProject?.rootPath).replace(/[\\/]+$/, "").toLowerCase();
+      const folderPath = normalizePathValue(entry.filePath).replace(/[\\/]+$/, "").toLowerCase();
       if (projectRoot && folderPath && projectRoot === folderPath) {
         notify("Project root folder cannot be removed.", "info");
         return false;
@@ -404,40 +446,50 @@ export function useDocumentManager({ notify }) {
     }
   }
 
-  async function handlePickNotesFolder() {
+  async function handleOpenWorkspacePicker() {
     try {
       const selectedPath = await pickFolder();
       if (!selectedPath) return;
-      setNotesFolderPath(selectedPath);
+      const normalizedSelectedPath = normalizePathValue(selectedPath);
+      setNotesFolderPath(normalizedSelectedPath);
+      await handleSaveNotesFolder(normalizedSelectedPath);
     } catch (err) {
       notify(err?.message || "Unable to open folder picker.", "error");
     }
   }
 
-  async function handleSaveNotesFolder() {
-    const nextPath = notesFolderPath.trim();
+  async function handleSaveNotesFolder(nextPathOverride) {
+    const nextPath = normalizePathValue(nextPathOverride ?? notesFolderPath);
     if (!nextPath) {
-      notify("Please provide a notes folder path.", "warning");
+      notify("Please provide a workspace path.", "warning");
       return;
     }
 
     setSavingNotesFolder(true);
     try {
       const result = await setNotesRootSetting(nextPath);
+      setNotesFolderPath(normalizePathValue(result?.notesRoot || nextPath));
+      setRecentWorkspacePaths(normalizeWorkspacePathList(result?.recentWorkspaces));
       if (result?.ignoredByEnv) {
         notify("Path saved, but NOTES_ROOT env override is active. Remove it to use this path.", "warning");
       } else {
         await loadDocumentsData();
         setCurrent(null);
         setHistory([]);
-        notify("Notes folder saved and loaded.", "success");
+        notify("Workspace opened successfully.", "success");
       }
-      setNotesFolderDialogOpen(false);
+      setRecentWorkspacesDialogOpen(false);
     } catch (err) {
-      notify(err?.message || "Unable to save notes folder.", "error");
+      notify(err?.message || "Unable to open workspace.", "error");
     } finally {
       setSavingNotesFolder(false);
     }
+  }
+
+  async function handleOpenRecentWorkspace(workspacePath) {
+    const nextPath = normalizePathValue(workspacePath);
+    if (!nextPath) return;
+    await handleSaveNotesFolder(nextPath);
   }
 
   function handleGoHome() {
@@ -512,8 +564,9 @@ export function useDocumentManager({ notify }) {
       try {
         setError("");
         setLoading(true);
-        setLandingFolderPath(item.filePath);
-        setDocuments(await listDocuments(item.filePath));
+        const folderPath = normalizePathValue(item.filePath);
+        setLandingFolderPath(folderPath);
+        setDocuments(await listDocuments(folderPath));
       } catch (err) {
         setError(err?.message || "Unable to open folder.");
         notify(err?.message || "Unable to open folder.", "error");
@@ -560,7 +613,7 @@ export function useDocumentManager({ notify }) {
     const nextPath = String(targetPath || "").trim();
     if (!nextPath) return;
 
-    const activeRoot = String(activeProject?.rootPath || "").trim();
+    const activeRoot = normalizePathValue(activeProject?.rootPath);
     const normalizedTarget = nextPath.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
     const normalizedRoot = activeRoot.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
 
@@ -611,10 +664,11 @@ export function useDocumentManager({ notify }) {
     setNoteDialogOpen,
     folderDialogOpen,
     setFolderDialogOpen,
-    notesFolderDialogOpen,
-    setNotesFolderDialogOpen,
+    recentWorkspacesDialogOpen,
+    setRecentWorkspacesDialogOpen,
     notesFolderPath,
     setNotesFolderPath,
+    recentWorkspacePaths,
     savingNotesFolder,
     documentMenuAction,
     setDocumentMenuAction,
@@ -634,8 +688,9 @@ export function useDocumentManager({ notify }) {
     handleRemoveListEntry,
     handleCreateNote,
     handleCreateFolder,
-    handlePickNotesFolder,
+    handleOpenWorkspacePicker,
     handleSaveNotesFolder,
+    handleOpenRecentWorkspace,
     handleGoHome,
     handleOpenCurrentInEditor,
     handleOpenWebsiteFromLanding,
