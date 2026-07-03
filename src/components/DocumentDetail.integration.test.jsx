@@ -89,9 +89,11 @@ function renderDetail(props) {
 }
 
 function setTextInputValue(input, value) {
-  const valueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
-  valueSetter?.call(input, value);
-  input.dispatchEvent(new Event("input", { bubbles: true }));
+  act(() => {
+    const valueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
+    valueSetter?.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
 }
 
 afterEach(() => {
@@ -207,6 +209,211 @@ describe("DocumentDetail popup and panel toggles", () => {
     view.unmount();
   });
 
+  it("opens find-only panel from find action", () => {
+    const view = renderDetail({
+      ...baseProps,
+      menuAction: { action: "find-in-note", nonce: Date.now() },
+    });
+
+    expect(view.host.querySelector('[aria-label="Find in note"]')).toBeTruthy();
+    expect(view.host.querySelector('input[placeholder="Replace"]')).toBeFalsy();
+    expect(Array.from(view.host.querySelectorAll("button")).some((button) => button.textContent === "Replace")).toBe(false);
+
+    view.unmount();
+  });
+
+  it("switches preview mode back to edit when opening find", () => {
+    const setMode = vi.fn();
+    const view = renderDetail({
+      ...baseProps,
+      mode: "preview",
+      setMode,
+      menuAction: { action: "find-replace", nonce: Date.now() },
+    });
+
+    expect(setMode).toHaveBeenCalledWith("edit");
+    expect(view.host.querySelector('[aria-label="Find and replace"]')).toBeTruthy();
+
+    view.unmount();
+  });
+
+  it("shows active find count when query matches note content", () => {
+    const view = renderDetail({
+      ...baseProps,
+      document: {
+        ...baseProps.document,
+        rawNotes: "alpha beta\nalpha gamma",
+      },
+      menuAction: { action: "find-replace", nonce: Date.now() },
+    });
+
+    const input = view.host.querySelector('input[placeholder="Find"]');
+    expect(input).toBeTruthy();
+    setTextInputValue(input, "alpha");
+
+    expect(view.host.querySelector('.find-count')?.textContent).toBe("1/2");
+    expect(view.host.querySelectorAll('.cm-find-match').length + view.host.querySelectorAll('.cm-find-match-active').length).toBe(2);
+    expect(view.host.querySelectorAll('.cm-find-match-active').length).toBe(1);
+
+    view.unmount();
+  });
+
+  it("supports regex matching in the find panel", () => {
+    const view = renderDetail({
+      ...baseProps,
+      document: {
+        ...baseProps.document,
+        rawNotes: "alpha1 beta\nalpha2 gamma",
+      },
+      menuAction: { action: "find-replace", nonce: Date.now() },
+    });
+
+    const findInput = view.host.querySelector('input[placeholder="Find"]');
+    expect(findInput).toBeTruthy();
+    setTextInputValue(findInput, "alpha\\d");
+
+    const regexButton = Array.from(view.host.querySelectorAll("button")).find((button) => button.textContent === "Regex");
+    expect(regexButton).toBeTruthy();
+
+    act(() => {
+      regexButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(view.host.querySelector('.find-count')?.textContent).toBe("1/2");
+
+    view.unmount();
+  });
+
+  it("replaces all regex matches in replace mode", () => {
+    const onChange = vi.fn();
+    const view = renderDetail({
+      ...baseProps,
+      onChange,
+      document: {
+        ...baseProps.document,
+        rawNotes: "alpha1 beta alpha2",
+      },
+      menuAction: { action: "find-replace", nonce: Date.now() },
+    });
+
+    const findInput = view.host.querySelector('input[placeholder="Find"]');
+    const replaceInput = view.host.querySelector('input[placeholder="Replace"]');
+    setTextInputValue(findInput, "alpha\\d");
+    setTextInputValue(replaceInput, "omega");
+
+    const regexButton = Array.from(view.host.querySelectorAll("button")).find((button) => button.textContent === "Regex");
+    act(() => {
+      regexButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const replaceAllButton = Array.from(view.host.querySelectorAll("button")).find((button) => button.textContent === "Replace All");
+    expect(replaceAllButton).toBeTruthy();
+
+    act(() => {
+      replaceAllButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ rawNotes: "omega beta omega" }));
+
+    view.unmount();
+  });
+
+  it("shows an invalid regex state in the find panel", () => {
+    const view = renderDetail({
+      ...baseProps,
+      menuAction: { action: "find-replace", nonce: Date.now() },
+    });
+
+    const findInput = view.host.querySelector('input[placeholder="Find"]');
+    setTextInputValue(findInput, "[");
+
+    const regexButton = Array.from(view.host.querySelectorAll("button")).find((button) => button.textContent === "Regex");
+    act(() => {
+      regexButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(view.host.querySelector('.find-error')?.textContent).toBe("Invalid regex");
+
+    view.unmount();
+  });
+
+  it("closes the find panel from the close button", () => {
+    const view = renderDetail({
+      ...baseProps,
+      menuAction: { action: "find-replace", nonce: Date.now() },
+    });
+
+    const closeButton = view.host.querySelector('[aria-label="Close find and replace"]');
+    expect(closeButton).toBeTruthy();
+
+    act(() => {
+      closeButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(view.host.querySelector('[aria-label="Find and replace"]')).toBeFalsy();
+
+    view.unmount();
+  });
+
+  it("uses a distinct close label for find-only mode", () => {
+    const view = renderDetail({
+      ...baseProps,
+      menuAction: { action: "find-in-note", nonce: Date.now() },
+    });
+
+    const closeButton = view.host.querySelector('[aria-label="Close find"]');
+    expect(closeButton).toBeTruthy();
+
+    view.unmount();
+  });
+
+  it("closes the find panel on Escape from panel actions", () => {
+    const view = renderDetail({
+      ...baseProps,
+      menuAction: { action: "find-replace", nonce: Date.now() },
+    });
+
+    const nextButton = Array.from(view.host.querySelectorAll("button")).find((button) => button.textContent === "Next");
+    expect(nextButton).toBeTruthy();
+
+    act(() => {
+      nextButton.focus();
+      nextButton.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    });
+
+    expect(view.host.querySelector('[aria-label="Find and replace"]')).toBeFalsy();
+
+    view.unmount();
+  });
+
+  it("replaces the first active match without requiring manual navigation", () => {
+    const onChange = vi.fn();
+    const view = renderDetail({
+      ...baseProps,
+      onChange,
+      document: {
+        ...baseProps.document,
+        rawNotes: "alpha beta alpha",
+      },
+      menuAction: { action: "find-replace", nonce: Date.now() },
+    });
+
+    const inputs = view.host.querySelectorAll("input");
+    setTextInputValue(inputs[0], "alpha");
+    setTextInputValue(inputs[1], "omega");
+
+    const replaceButton = Array.from(view.host.querySelectorAll("button")).find((button) => button.textContent === "Replace");
+    expect(replaceButton).toBeTruthy();
+
+    act(() => {
+      replaceButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ rawNotes: "omega beta alpha" }));
+
+    view.unmount();
+  });
+
   it("toggles split mode from menu action", () => {
     const setMode = vi.fn();
     const view = renderDetail({
@@ -216,6 +423,30 @@ describe("DocumentDetail popup and panel toggles", () => {
     });
 
     expect(setMode).toHaveBeenCalled();
+
+    view.unmount();
+  });
+
+  it("supports keyboard resize on the split pane separator", () => {
+    const view = renderDetail({
+      ...baseProps,
+      mode: "split",
+    });
+
+    const separator = view.host.querySelector('.split-resizer');
+    expect(separator?.getAttribute("aria-valuenow")).toBe("50");
+
+    act(() => {
+      separator.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    });
+
+    expect(separator?.getAttribute("aria-valuenow")).toBe("55");
+
+    act(() => {
+      separator.dispatchEvent(new KeyboardEvent("keydown", { key: "Home", bubbles: true }));
+    });
+
+    expect(separator?.getAttribute("aria-valuenow")).toBe("30");
 
     view.unmount();
   });

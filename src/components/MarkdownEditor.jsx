@@ -72,6 +72,24 @@ function buildDecorationSet(value, issues) {
   return builder.finish();
 }
 
+function buildFindMatchDecorations(matches, activeMatchIndex) {
+  const builder = new RangeSetBuilder();
+
+  (matches || []).forEach((match, index) => {
+    const from = Number(match?.start);
+    const to = Number(match?.end);
+    if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return;
+
+    builder.add(
+      from,
+      to,
+      Decoration.mark({ class: index === activeMatchIndex ? "cm-find-match-active" : "cm-find-match" })
+    );
+  });
+
+  return builder.finish();
+}
+
 const editorTheme = EditorView.theme({
   "&": {
     height: "100%",
@@ -156,6 +174,16 @@ const editorTheme = EditorView.theme({
     fontSize: "12px",
     lineHeight: "1.5",
     color: "#45666b",
+  },
+  ".cm-find-match": {
+    backgroundColor: "rgba(135, 182, 79, 0.08)",
+    boxShadow: "inset 0 0 0 1px rgba(99, 146, 44, 0.38)",
+    borderRadius: "4px",
+  },
+  ".cm-find-match-active": {
+    backgroundColor: "rgba(46, 125, 50, 0.18)",
+    boxShadow: "inset 0 0 0 2px rgba(35, 102, 39, 0.72)",
+    borderRadius: "4px",
   },
 });
 
@@ -321,6 +349,8 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
   ghostSuggestion,
   onAcceptInlineGhost,
   onRejectInlineGhost,
+  findMatches = [],
+  activeFindMatchIndex = -1,
   onEditorReady,
 }) {
   const viewRef = useRef(null);
@@ -343,12 +373,26 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
     },
     [decorationsSynced, ghostSuggestion, onAcceptInlineGhost, onRejectInlineGhost, valueLength]
   );
+  const findMatchDecorations = useMemo(
+    () => {
+      if (!decorationsSynced) return Decoration.none;
+      return buildFindMatchDecorations(findMatches, activeFindMatchIndex);
+    },
+    [activeFindMatchIndex, decorationsSynced, findMatches]
+  );
 
   useEffect(() => {
     if (Number.isFinite(focusedLine) && focusedLine > 0) {
       setActiveLine(focusedLine);
     }
   }, [focusedLine]);
+
+  useEffect(() => () => {
+    viewRef.current = null;
+    if (textareaRef) {
+      textareaRef.current = null;
+    }
+  }, [textareaRef]);
 
   useEffect(() => {
     if (!contextMenu) return undefined;
@@ -430,6 +474,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
   const editorExtensions = useMemo(() => [
     markdown(),
     editorTheme,
+    EditorView.decorations.of(findMatchDecorations),
     EditorView.decorations.of(validationDecorations),
     EditorView.decorations.of(ghostSuggestionDecorations),
     EditorView.lineWrapping,
@@ -539,7 +584,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
         },
       },
     ]),
-  ], [ghostSuggestionDecorations, onChange, onNotify, onOpenFind, onRedo, onUndo, validationDecorations, validationIssues]);
+  ], [findMatchDecorations, ghostSuggestionDecorations, onChange, onNotify, onOpenFind, onRedo, onUndo, validationDecorations, validationIssues]);
 
   return (
     <div className="markdown-editor">

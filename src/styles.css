@@ -4896,31 +4896,106 @@ button {
   padding: 6px 8px;
   border-bottom: 1px solid #d9dedb;
   background: #f7f8f7;
+  flex-wrap: wrap;
 }
 
-.find-replace-panel input {
+.find-input-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.find-replace-panel input,
+.find-panel-input {
   min-height: 28px;
   border: 1px solid #d4ddda;
   border-radius: 6px;
   padding: 0 10px;
   min-width: 120px;
+  width: auto;
 }
 
-.find-toggle {
+.find-panel-input-query {
+  width: 200px;
+}
+
+.find-panel-input-replace {
+  width: 180px;
+}
+
+.find-input-error {
+  border-color: #b95555;
+  background: #fff6f6;
+}
+
+.find-toggle-group {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.find-toggle-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid #c8d3cf;
+  border-radius: 999px;
+  background: #ffffff;
   color: #56666b;
   font-size: 12px;
-  padding: 0 4px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.find-toggle-button.active {
+  border-color: #31535a;
+  background: #e7efec;
+  color: #17343a;
+}
+
+.find-toggle-button.error {
+  border-color: #b95555;
+  background: #fff1f1;
+  color: #8a2f2f;
+}
+
+.find-error {
+  color: #8a2f2f;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.find-action-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .find-count {
   margin-left: auto;
-  color: #56666b;
+  padding: 0 10px;
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #ccd7d3;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #17343a;
   font-size: 12px;
-  min-width: 46px;
+  font-weight: 700;
+  min-width: 56px;
   text-align: right;
+}
+
+.find-close {
+  flex: 0 0 auto;
 }
 
 .tabs,
@@ -5873,6 +5948,12 @@ button {
 
 .split-resizer:hover,
 .split-resizer:active {
+  background: linear-gradient(180deg, #e4ece9 0%, #d8e2de 100%);
+}
+
+.split-resizer:focus-visible {
+  outline: 2px solid #31535a;
+  outline-offset: -2px;
   background: linear-gradient(180deg, #e4ece9 0%, #d8e2de 100%);
 }
 

@@ -1008,7 +1008,7 @@ export default function App() {
 
       if (action === "find-in-note" || action === "find-replace") {
         if (current) {
-          setDocumentMenuAction({ action: "find-replace", nonce: Date.now() });
+          setDocumentMenuAction({ action, nonce: Date.now() });
         }
         return;
       }
@@ -1307,7 +1307,15 @@ export default function App() {
       group: "Editor",
       shortcut: "Ctrl/Cmd+F",
       disabled: !current,
-      aliases: "search in note replace",
+      aliases: "search in note find search",
+    },
+    {
+      id: "find-replace",
+      label: "Find and Replace in Current Note",
+      group: "Editor",
+      shortcut: "Ctrl/Cmd+H",
+      disabled: !current,
+      aliases: "search replace substitute in note",
     },
     {
       id: "open-reference-note",
@@ -1646,6 +1654,15 @@ export default function App() {
         notify("Open a note to search within it.", "info");
         return;
       }
+      setDocumentMenuAction({ action: "find-in-note", nonce: Date.now() });
+      return;
+    }
+
+    if (resolvedCommandId === "find-replace") {
+      if (!current) {
+        notify("Open a note to search within it.", "info");
+        return;
+      }
       setDocumentMenuAction({ action: "find-replace", nonce: Date.now() });
       return;
     }
@@ -1685,7 +1702,7 @@ export default function App() {
         notify("Open a note to search inside it.", "info");
         return;
       }
-      setDocumentMenuAction({ action: "find-replace", query, nonce: Date.now() });
+      setDocumentMenuAction({ action: "find-in-note", query, nonce: Date.now() });
       return;
     }
 

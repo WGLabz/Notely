@@ -43,6 +43,8 @@ export function EditorPane({
   ghostSuggestion,
   onAcceptInlineGhost,
   onRejectInlineGhost,
+  findMatches = [],
+  activeFindMatchIndex = -1,
   showOriginalImages = false,
   inlineLinkedMarkdown = false,
   workspaceStorageScope = "default",
@@ -71,6 +73,8 @@ export function EditorPane({
     debounceMs: isSplitMode ? 1200 : 500,
   });
   const previewContent = isSplitMode ? deferredValue : value;
+
+  const clampSplitRatio = (nextRatio) => Math.min(Math.max(Number(nextRatio) || 50, 30), 70);
 
   const jumpToLine = (line) => {
     const editor = textareaRef?.current;
@@ -280,7 +284,7 @@ export function EditorPane({
     const updateSplitRatio = (clientX) => {
       const bounds = pane.getBoundingClientRect();
       const nextRatio = ((clientX - bounds.left) / bounds.width) * 100;
-      setSplitRatio(Math.min(Math.max(nextRatio, 30), 70));
+      setSplitRatio(clampSplitRatio(nextRatio));
     };
 
     const handlePointerMove = (moveEvent) => {
@@ -295,6 +299,29 @@ export function EditorPane({
     updateSplitRatio(event.clientX);
     document.addEventListener("pointermove", handlePointerMove);
     document.addEventListener("pointerup", handlePointerUp);
+  };
+
+  const handleSplitResizerKeyDown = (event) => {
+    const STEP = event.shiftKey ? 10 : 5;
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      setSplitRatio((current) => clampSplitRatio(current - STEP));
+      return;
+    }
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      setSplitRatio((current) => clampSplitRatio(current + STEP));
+      return;
+    }
+    if (event.key === "Home") {
+      event.preventDefault();
+      setSplitRatio(30);
+      return;
+    }
+    if (event.key === "End") {
+      event.preventDefault();
+      setSplitRatio(70);
+    }
   };
 
   const markdownEditor = (
@@ -326,6 +353,8 @@ export function EditorPane({
       ghostSuggestion={ghostSuggestion}
       onAcceptInlineGhost={onAcceptInlineGhost}
       onRejectInlineGhost={onRejectInlineGhost}
+      findMatches={findMatches}
+      activeFindMatchIndex={activeFindMatchIndex}
       onEditorReady={() => setEditorReadyTick((value) => value + 1)}
     />
   );
@@ -445,7 +474,13 @@ export function EditorPane({
             role="separator"
             aria-orientation="vertical"
             aria-label="Resize editor and preview"
+            aria-valuemin={30}
+            aria-valuemax={70}
+            aria-valuenow={Math.round(splitRatio)}
+            aria-valuetext={`${Math.round(splitRatio)} percent editor width`}
+            tabIndex={0}
             onPointerDown={startSplitResize}
+            onKeyDown={handleSplitResizerKeyDown}
           />
           <section className="pane-block">
             <div className="pane-title">

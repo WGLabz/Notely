@@ -25,6 +25,7 @@ function normalizeMenuText(value, fallback = "") {
 
 // Builds the application menu template based on the current screen/view context.
 function buildAppMenu(win, context = {}) {
+  const isMac = process.platform === "darwin";
   const screen = context?.screen === "document" ? "document" : "landing";
   const viewMode = context?.viewMode === "table" ? "table" : "tile";
   const densityMode = context?.densityMode === "compact" ? "compact" : "comfortable";
@@ -189,8 +190,13 @@ function buildAppMenu(win, context = {}) {
       ? [
           { type: "separator" },
           {
-            label: "Find or Replace",
+            label: "Find",
             accelerator: "CmdOrCtrl+F",
+            click: () => sendMenuAction(win, "find-in-note")
+          },
+          {
+            label: "Find and Replace",
+            ...(isMac ? {} : { accelerator: "CmdOrCtrl+H" }),
             click: () => sendMenuAction(win, "find-replace")
           },
           {

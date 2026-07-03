@@ -2,6 +2,7 @@ import { memo, useRef, useState, useEffect, useMemo } from "react";
 import {
   Save,
   RotateCcw,
+  ChevronLeft,
   ChevronRight,
   FileText,
   FilePenLine,
@@ -26,6 +27,7 @@ import {
   Code2,
   CheckSquare,
   Square,
+  Type,
 } from "lucide-react";
 import AppButton from "./AppButton";
 import AppIconButton from "./AppIconButton";
@@ -182,10 +184,47 @@ function escapeRegExp(value) {
   return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function collectMatches(text, query, caseSensitive) {
+function tryBuildFindRegex(pattern, caseSensitive) {
+  const source = String(pattern || "");
+  if (!source) return null;
+  try {
+    return new RegExp(source, caseSensitive ? "gm" : "gim");
+  } catch {
+    return null;
+  }
+}
+
+function isValidFindRegex(pattern) {
+  if (!pattern) return true;
+  try {
+    void new RegExp(pattern);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function collectMatches(text, query, caseSensitive, useRegex = false) {
   const source = String(text || "");
   const needle = String(query || "");
   if (!needle) return [];
+
+  if (useRegex) {
+    const regex = tryBuildFindRegex(needle, caseSensitive);
+    if (!regex) return [];
+
+    const output = [];
+    let match;
+    while ((match = regex.exec(source)) !== null) {
+      const matchText = String(match[0] || "");
+      if (!matchText.length) {
+        regex.lastIndex += 1;
+        continue;
+      }
+      output.push({ start: match.index, end: match.index + matchText.length });
+    }
+    return output;
+  }
 
   const haystack = caseSensitive ? source : source.toLowerCase();
   const searchNeedle = caseSensitive ? needle : needle.toLowerCase();
@@ -200,6 +239,15 @@ function collectMatches(text, query, caseSensitive) {
   }
 
   return output;
+}
+
+function getSelectedMatchIndex(matches, selectionStart, selectionEnd) {
+  if (!matches.length) return -1;
+  const safeStart = Number.isFinite(selectionStart) ? selectionStart : -1;
+  const safeEnd = Number.isFinite(selectionEnd) ? selectionEnd : -1;
+  if (safeStart < 0 || safeEnd < safeStart) return -1;
+
+  return matches.findIndex((match) => match.start === safeStart && match.end === safeEnd);
 }
 
 function getHeaderField(header, fieldName) {
@@ -531,46 +579,116 @@ const MetadataPanel = memo(function MetadataPanel({
 
 const FindReplacePanel = memo(function FindReplacePanel({
   showFindReplace,
+  showReplaceControls,
   findQuery,
   setFindQuery,
   replaceValue,
   setReplaceValue,
   findCaseSensitive,
   setFindCaseSensitive,
+  findUseRegex,
+  setFindUseRegex,
+  regexValid,
   onFindPrevious,
   onFindNext,
   onReplace,
   onReplaceAll,
-  findMatchIndex,
-  findMatchTotal,
+  currentMatchLabel,
+  onClose,
 }) {
   if (!showFindReplace) return null;
+  const panelLabel = showReplaceControls ? "Find and replace" : "Find in note";
+  const closeLabel = showReplaceControls ? "Close find and replace" : "Close find";
+
+  const handleKeyDown = (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      onClose?.();
+      return;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      if (event.shiftKey) {
+        onFindPrevious?.();
+      } else {
+        onFindNext?.();
+      }
+    }
+  };
 
   return (
-    <div className="find-replace-panel" role="region" aria-label="Find and replace">
-      <AppInput
-        value={findQuery}
-        onChange={(event) => setFindQuery(event.target.value)}
-        placeholder="Find"
-      />
-      <AppInput
-        value={replaceValue}
-        onChange={(event) => setReplaceValue(event.target.value)}
-        placeholder="Replace"
-      />
-      <label className="find-toggle">
+    <div className="find-replace-panel" role="region" aria-label={panelLabel} onKeyDown={handleKeyDown}>
+      <div className="find-input-group">
         <AppInput
-          type="checkbox"
-          checked={findCaseSensitive}
-          onChange={(event) => setFindCaseSensitive(event.target.checked)}
+          value={findQuery}
+          onChange={(event) => setFindQuery(event.target.value)}
+          placeholder="Find"
+          autoFocus
+          aria-label="Find query"
+          className={`find-panel-input find-panel-input-query${findUseRegex && !regexValid ? " find-input-error" : ""}`}
         />
-        Case
-      </label>
-      <AppButton variant="small" onClick={onFindPrevious}>Prev</AppButton>
-      <AppButton variant="small" onClick={onFindNext}>Next</AppButton>
-      <AppButton variant="small" onClick={onReplace}>Replace</AppButton>
-      <AppButton variant="small" onClick={onReplaceAll}>Replace All</AppButton>
-      <span className="find-count">{findMatchTotal ? `${Math.max(findMatchIndex + 1, 1)}/${findMatchTotal}` : "0/0"}</span>
+        {showReplaceControls ? (
+          <AppInput
+            value={replaceValue}
+            onChange={(event) => setReplaceValue(event.target.value)}
+            placeholder="Replace"
+            aria-label="Replace with"
+            className="find-panel-input find-panel-input-replace"
+          />
+        ) : null}
+      </div>
+      <div className="find-toggle-group" aria-label="Find options">
+        <button
+          type="button"
+          className={`find-toggle-button ${findCaseSensitive ? "active" : ""}`}
+          onClick={() => setFindCaseSensitive((value) => !value)}
+          aria-pressed={findCaseSensitive}
+          aria-label="Toggle case sensitive search"
+          title="Match case"
+        >
+          <Type size={14} />
+          Case
+        </button>
+        <button
+          type="button"
+          className={`find-toggle-button ${findUseRegex ? "active" : ""}${findUseRegex && !regexValid ? " error" : ""}`}
+          onClick={() => setFindUseRegex((value) => !value)}
+          aria-pressed={findUseRegex}
+          aria-label="Toggle regular expression search"
+          title="Use regular expression"
+        >
+          <Code2 size={14} />
+          Regex
+        </button>
+      </div>
+      <AppButton variant="small" className="find-action-button" onClick={onFindPrevious} title="Previous match (Shift+Enter)">
+        <ChevronLeft size={14} />
+        Prev
+      </AppButton>
+      <AppButton variant="small" className="find-action-button" onClick={onFindNext} title="Next match (Enter)">
+        <ChevronRight size={14} />
+        Next
+      </AppButton>
+      {showReplaceControls ? (
+        <AppButton variant="small" className="find-action-button" onClick={onReplace} title="Replace current match">
+          <PenLine size={14} />
+          Replace
+        </AppButton>
+      ) : null}
+      {showReplaceControls ? (
+        <AppButton variant="small" className="find-action-button" onClick={onReplaceAll} title="Replace all matches">
+          <FilePenLine size={14} />
+          Replace All
+        </AppButton>
+      ) : null}
+      {findUseRegex && !regexValid ? <span className="find-error" role="alert">Invalid regex</span> : null}
+      <span className="find-count" aria-live="polite" aria-label={`Current match ${currentMatchLabel.replace("/", " of ")}`}>
+        {currentMatchLabel}
+      </span>
+      <AppIconButton className="find-close" onClick={onClose} aria-label={closeLabel}>
+        <X size={16} />
+      </AppIconButton>
     </div>
   );
 });
@@ -703,9 +821,11 @@ export function DocumentDetail({
   });
   const [lastAutoSaveAt, setLastAutoSaveAt] = useState(0);
   const [showFindReplace, setShowFindReplace] = useState(false);
+  const [showReplaceControls, setShowReplaceControls] = useState(false);
   const [findQuery, setFindQuery] = useState("");
   const [replaceValue, setReplaceValue] = useState("");
   const [findCaseSensitive, setFindCaseSensitive] = useState(false);
+  const [findUseRegex, setFindUseRegex] = useState(false);
   const [findMatchIndex, setFindMatchIndex] = useState(-1);
   const [findMatchTotal, setFindMatchTotal] = useState(0);
   const [isOutlineCollapsed, setIsOutlineCollapsed] = useState(false);
@@ -731,7 +851,12 @@ export function DocumentDetail({
   const lastSubmittedTitleRef = useRef("");
   const saveEditorSnapshotRef = useRef(null);
 
+  const findRegexValid = !findUseRegex || isValidFindRegex(findQuery);
   const content = activeTab === "raw" ? document.rawNotes : document.cleansed;
+  const findMatches = useMemo(
+    () => collectMatches(content, findQuery, findCaseSensitive, findUseRegex),
+    [content, findQuery, findCaseSensitive, findUseRegex],
+  );
   const mediaContent = `${document.rawNotes || ""}\n\n${document.cleansed || ""}`.trim();
   const nameText = getHeaderField(document.header, "Name");
   const locationText = getHeaderField(document.header, "Location");
@@ -754,6 +879,17 @@ export function DocumentDetail({
     ]);
     return merged.slice(0, 100);
   }, [workspaceTagSuggestions, cachedTagSuggestions, tagItems]);
+  const selectedFindMatchIndex = getSelectedMatchIndex(
+    findMatches,
+    textareaRef.current?.selectionStart,
+    textareaRef.current?.selectionEnd,
+  );
+  const activeFindMatchIndex = selectedFindMatchIndex !== -1
+    ? selectedFindMatchIndex
+    : (findMatchIndex >= 0 && findMatchIndex < findMatches.length ? findMatchIndex : (findMatches.length ? 0 : -1));
+  const currentFindMatchLabel = findMatches.length
+    ? `${activeFindMatchIndex + 1}/${findMatches.length}`
+    : "0/0";
 
   useEffect(() => {
     setTitleDraft(document.title || "");
@@ -961,14 +1097,14 @@ export function DocumentDetail({
   }, [autosaveEnabled, dirty, saving, showMediaManager, onSave, document.filePath, document.header, document.rawNotes, document.cleansed]);
 
   useEffect(() => {
-    const total = collectMatches(content, findQuery, findCaseSensitive).length;
+    const total = findMatches.length;
     setFindMatchTotal(total);
     if (!total) {
       setFindMatchIndex(-1);
     } else if (findMatchIndex >= total) {
       setFindMatchIndex(total - 1);
     }
-  }, [content, findQuery, findCaseSensitive, findMatchIndex]);
+  }, [findMatches, findMatchIndex]);
 
   const updateContent = (value) => {
     if (value === content) return;
@@ -1047,7 +1183,11 @@ export function DocumentDetail({
     editor.scrollTop = Math.max(0, Math.min(targetTop, maxScroll));
   };
 
-  const openFindReplacePanel = () => {
+  const openFindPanel = ({ showReplace = false } = {}) => {
+    if (mode !== "edit" && mode !== "split") {
+      setEditorMode("edit", { announce: false, force: true });
+    }
+    setShowReplaceControls(showReplace);
     setShowFindReplace(true);
     const selectedText = textareaRef.current
       ? textareaRef.current.value.slice(textareaRef.current.selectionStart, textareaRef.current.selectionEnd)
@@ -1056,6 +1196,20 @@ export function DocumentDetail({
       setFindQuery(selectedText);
     }
     onNotify?.("Find panel opened.", "info");
+  };
+
+  const openFindInNotePanel = () => {
+    openFindPanel({ showReplace: false });
+  };
+
+  const openFindReplacePanel = () => {
+    openFindPanel({ showReplace: true });
+  };
+
+  const closeFindReplacePanel = () => {
+    setShowFindReplace(false);
+    setFindMatchIndex(-1);
+    textareaRef.current?.focus?.();
   };
 
   const handleTagsChange = (event) => {
@@ -1246,14 +1400,13 @@ export function DocumentDetail({
     const editor = textareaRef.current;
     if (!editor) return;
 
-    const matches = collectMatches(content, findQuery, findCaseSensitive);
-    if (!matches.length) {
+    if (!findMatches.length) {
       setFindMatchIndex(-1);
       return;
     }
 
-    const safeIndex = ((nextIndex % matches.length) + matches.length) % matches.length;
-    const match = matches[safeIndex];
+    const safeIndex = ((nextIndex % findMatches.length) + findMatches.length) % findMatches.length;
+    const match = findMatches[safeIndex];
 
     if (mode !== "edit" && mode !== "split") {
       setEditorMode("edit", { announce: false, force: true });
@@ -1264,31 +1417,29 @@ export function DocumentDetail({
     editor.selectionEnd = match.end;
     editor.scrollTop = Math.max(0, editor.scrollTop - 1);
     setFindMatchIndex(safeIndex);
-    setFindMatchTotal(matches.length);
+    setFindMatchTotal(findMatches.length);
   };
 
   const handleFindNext = () => {
     const editor = textareaRef.current;
-    const matches = collectMatches(content, findQuery, findCaseSensitive);
-    if (!editor || !matches.length) return;
+    if (!editor || !findMatches.length) return;
 
     const cursor = editor.selectionEnd;
-    const next = matches.findIndex((entry) => entry.start > cursor);
+    const next = findMatches.findIndex((entry) => entry.start > cursor);
     goToMatch(next === -1 ? 0 : next);
   };
 
   const handleFindPrevious = () => {
     const editor = textareaRef.current;
-    const matches = collectMatches(content, findQuery, findCaseSensitive);
-    if (!editor || !matches.length) return;
+    if (!editor || !findMatches.length) return;
 
     const cursor = editor.selectionStart;
     let previous = -1;
-    for (let index = 0; index < matches.length; index += 1) {
-      if (matches[index].start < cursor) previous = index;
+    for (let index = 0; index < findMatches.length; index += 1) {
+      if (findMatches[index].start < cursor) previous = index;
       else break;
     }
-    goToMatch(previous === -1 ? matches.length - 1 : previous);
+    goToMatch(previous === -1 ? findMatches.length - 1 : previous);
   };
 
   const replaceCurrentMatch = () => {
@@ -1298,39 +1449,64 @@ export function DocumentDetail({
 
     const start = editor.selectionStart;
     const end = editor.selectionEnd;
-    const selected = content.slice(start, end);
-    const expected = findCaseSensitive ? findQuery : findQuery.toLowerCase();
-    const actual = findCaseSensitive ? selected : selected.toLowerCase();
-
-    if (actual !== expected) {
-      handleFindNext();
+    const selectedMatchIndex = getSelectedMatchIndex(findMatches, start, end);
+    const targetIndex = selectedMatchIndex !== -1 ? selectedMatchIndex : activeFindMatchIndex;
+    if (targetIndex === -1) {
       return;
     }
 
-    const nextValue = `${content.slice(0, start)}${replaceValue}${content.slice(end)}`;
+    const targetMatch = findMatches[targetIndex];
+    const nextValue = `${content.slice(0, targetMatch.start)}${replaceValue}${content.slice(targetMatch.end)}`;
+    const nextCursor = targetMatch.start + replaceValue.length;
     updateContent(nextValue);
 
     requestAnimationFrame(() => {
-      if (!textareaRef.current) return;
-      const nextCursor = start + replaceValue.length;
-      textareaRef.current.focus();
-      textareaRef.current.selectionStart = nextCursor;
-      textareaRef.current.selectionEnd = nextCursor;
-      handleFindNext();
+      const nextEditor = textareaRef.current;
+      if (!nextEditor) return;
+
+      const nextMatches = collectMatches(nextValue, findQuery, findCaseSensitive);
+      const nextRegexMatches = collectMatches(nextValue, findQuery, findCaseSensitive, findUseRegex);
+      if (!nextRegexMatches.length) {
+        nextEditor.focus();
+        nextEditor.selectionStart = nextCursor;
+        nextEditor.selectionEnd = nextCursor;
+        setFindMatchIndex(-1);
+        setFindMatchTotal(0);
+        return;
+      }
+
+      const nextIndex = nextRegexMatches.findIndex((entry) => entry.start >= nextCursor);
+      const safeIndex = nextIndex === -1 ? 0 : nextIndex;
+      const nextMatch = nextRegexMatches[safeIndex];
+
+      nextEditor.focus();
+      nextEditor.selectionStart = nextMatch.start;
+      nextEditor.selectionEnd = nextMatch.end;
+      setFindMatchIndex(safeIndex);
+      setFindMatchTotal(nextRegexMatches.length);
     });
   };
 
   const replaceAllMatches = () => {
     if (!findQuery) return;
-    const matches = collectMatches(content, findQuery, findCaseSensitive);
-    if (!matches.length) return;
+    if (!findMatches.length) return;
 
-    const nextValue = findCaseSensitive
-      ? content.split(findQuery).join(replaceValue)
-      : content.replace(new RegExp(escapeRegExp(findQuery), "gi"), replaceValue);
+    let nextValue = "";
+    if (findUseRegex) {
+      const regex = tryBuildFindRegex(findQuery, findCaseSensitive);
+      if (!regex) {
+        onNotify?.("Invalid regular expression.", "error");
+        return;
+      }
+      nextValue = content.replace(regex, replaceValue);
+    } else {
+      nextValue = findCaseSensitive
+        ? content.split(findQuery).join(replaceValue)
+        : content.replace(new RegExp(escapeRegExp(findQuery), "gi"), replaceValue);
+    }
 
     updateContent(nextValue);
-    onNotify?.(`Replaced ${matches.length} match${matches.length > 1 ? "es" : ""}.`, "success");
+    onNotify?.(`Replaced ${findMatches.length} match${findMatches.length > 1 ? "es" : ""}.`, "success");
   };
 
 
@@ -1375,6 +1551,7 @@ export function DocumentDetail({
     showMediaManager,
     textareaRef,
     setFindQuery,
+    openFindInNotePanel,
     openFindReplacePanel,
     toggleOutlineEnabled,
     toggleSplitPreview: () => {
@@ -1742,18 +1919,22 @@ export function DocumentDetail({
 
           <FindReplacePanel
             showFindReplace={showFindReplace}
+            showReplaceControls={showReplaceControls}
             findQuery={findQuery}
             setFindQuery={setFindQuery}
             replaceValue={replaceValue}
             setReplaceValue={setReplaceValue}
             findCaseSensitive={findCaseSensitive}
             setFindCaseSensitive={setFindCaseSensitive}
+            findUseRegex={findUseRegex}
+            setFindUseRegex={setFindUseRegex}
+            regexValid={findRegexValid}
             onFindPrevious={handleFindPrevious}
             onFindNext={handleFindNext}
             onReplace={replaceCurrentMatch}
             onReplaceAll={replaceAllMatches}
-            findMatchIndex={findMatchIndex}
-            findMatchTotal={findMatchTotal}
+            currentMatchLabel={currentFindMatchLabel}
+            onClose={closeFindReplacePanel}
           />
 
           <EditorPane
@@ -1771,7 +1952,7 @@ export function DocumentDetail({
             onRedo={handleRedo}
             canUndo={canUndo}
             canRedo={canRedo}
-            onOpenFind={openFindReplacePanel}
+            onOpenFind={openFindInNotePanel}
             aiEnabled={aiEnabled}
             onOpenAIRequest={onOpenAIRequest}
             onOpenAISettings={onOpenAISettings}
@@ -1785,6 +1966,8 @@ export function DocumentDetail({
             ghostSuggestion={inlineGhostSuggestion}
             onAcceptInlineGhost={onAcceptInlineGhost}
             onRejectInlineGhost={onRejectInlineGhost}
+            findMatches={findMatches}
+            activeFindMatchIndex={activeFindMatchIndex}
             showOriginalImages={showOriginalImages}
             inlineLinkedMarkdown={inlineLinkedMarkdown}
           />

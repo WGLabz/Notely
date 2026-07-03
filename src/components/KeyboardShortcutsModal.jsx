@@ -7,6 +7,7 @@ const DEFAULT_SHORTCUTS = [
   { keys: "Ctrl/Cmd+/", action: "Open Keyboard Shortcuts", group: "Global" },
   { keys: "Ctrl/Cmd+N", action: "Create New Note", group: "Notes" },
   { keys: "Ctrl/Cmd+F", action: "Find in Current Note", group: "Editor" },
+  { keys: "Ctrl/Cmd+H", action: "Find and Replace in Current Note", group: "Editor" },
   { keys: "Esc", action: "Close Active Overlay", group: "Global" },
 ];
 

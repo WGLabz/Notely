@@ -12,6 +12,7 @@ export function useDocumentEditorActions({
   showMediaManager,
   textareaRef,
   setFindQuery,
+  openFindInNotePanel,
   openFindReplacePanel,
   toggleOutlineEnabled,
   toggleSplitPreview,
@@ -37,7 +38,11 @@ export function useDocumentEditorActions({
       if (typeof menuAction.query === "string" && menuAction.query.trim()) {
         setFindQuery(menuAction.query.trim());
       }
-      openFindReplacePanel();
+      if (menuAction.action === "find-replace") {
+        openFindReplacePanel();
+      } else {
+        openFindInNotePanel();
+      }
       return;
     }
 
@@ -72,6 +77,7 @@ export function useDocumentEditorActions({
     menuAction,
     isFocusMode,
     setFindQuery,
+    openFindInNotePanel,
     openFindReplacePanel,
     toggleOutlineEnabled,
     toggleSplitPreview,
@@ -104,7 +110,7 @@ export function useDocumentEditorActions({
 
       if (key === "f") {
         event.preventDefault();
-        openFindReplacePanel();
+        openFindInNotePanel();
         return;
       }
 
@@ -150,7 +156,7 @@ export function useDocumentEditorActions({
   }, [
     showMediaManager,
     textareaRef,
-    openFindReplacePanel,
+    openFindInNotePanel,
     toggleSplitPreview,
     toggleFocusMode,
     setEditorMode,
