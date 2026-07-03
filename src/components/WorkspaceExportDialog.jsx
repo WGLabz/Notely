@@ -1,5 +1,6 @@
 import { Download, X } from "lucide-react";
 import { OverlayDialog } from "./OverlayDialog";
+import AppSelect from "./AppSelect";
 
 export function WorkspaceExportDialog({
   isOpen,
@@ -35,7 +36,7 @@ export function WorkspaceExportDialog({
 
       <label className="overlay-dialog-field" htmlFor="workspace-export-mode">
         <span>Export format</span>
-        <select
+        <AppSelect
           id="workspace-export-mode"
           value={values.mode}
           onChange={(event) => onChange({ mode: event.target.value })}
@@ -44,13 +45,13 @@ export function WorkspaceExportDialog({
           <option value="raw">Notes as-is (Markdown + assets)</option>
           <option value="pdf">PDF-only</option>
           <option value="web">Web format (static HTML package)</option>
-        </select>
+        </AppSelect>
       </label>
 
       {supportsSectionModes ? (
         <label className="overlay-dialog-field" htmlFor="workspace-export-content-mode">
           <span>Section export</span>
-          <select
+          <AppSelect
             id="workspace-export-content-mode"
             value={values.contentMode || "combined"}
             onChange={(event) => onChange({ contentMode: event.target.value })}
@@ -60,7 +61,7 @@ export function WorkspaceExportDialog({
             <option value="separate">Separate files (Raw and Cleansed split)</option>
             <option value="raw">Raw Notes only</option>
             <option value="cleansed">Cleansed only</option>
-          </select>
+          </AppSelect>
         </label>
       ) : null}
 

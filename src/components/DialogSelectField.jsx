@@ -1,3 +1,5 @@
+import AppSelect from "./AppSelect";
+
 export function DialogSelectField({
   label,
   value,
@@ -9,14 +11,14 @@ export function DialogSelectField({
   return (
     <label className={`overlay-dialog-field${className ? ` ${className}` : ""}`} htmlFor={id}>
       <span>{label}</span>
-      <select
+      <AppSelect
         id={id}
         value={value}
         onChange={onChange}
-        className="topbar-popover-select"
+        className="topbar-popover-select app-select"
       >
         {children}
-      </select>
+      </AppSelect>
     </label>
   );
 }

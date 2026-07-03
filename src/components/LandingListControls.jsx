@@ -1,4 +1,5 @@
 import { FilePlus2 } from "lucide-react";
+import AppSelect from "./AppSelect";
 
 export function LandingListControls({
   query,
@@ -26,7 +27,7 @@ export function LandingListControls({
 
       <label className="landing-list-select" htmlFor="landing-list-type-filter">
         <span>Type</span>
-        <select
+        <AppSelect
           id="landing-list-type-filter"
           value={typeFilter}
           onChange={(event) => onTypeFilterChange(event.target.value)}
@@ -34,12 +35,12 @@ export function LandingListControls({
           <option value="all">All</option>
           <option value="notes">Notes</option>
           <option value="folders">Folders</option>
-        </select>
+        </AppSelect>
       </label>
 
       <label className="landing-list-select" htmlFor="landing-list-sort">
         <span>Sort</span>
-        <select
+        <AppSelect
           id="landing-list-sort"
           value={sortBy}
           onChange={(event) => onSortByChange(event.target.value)}
@@ -48,7 +49,7 @@ export function LandingListControls({
           <option value="updated-asc">Updated (Oldest)</option>
           <option value="title-asc">Title (A-Z)</option>
           <option value="title-desc">Title (Z-A)</option>
-        </select>
+        </AppSelect>
       </label>
 
       <div className="landing-list-count" aria-live="polite">

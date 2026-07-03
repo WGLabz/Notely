@@ -17,6 +17,7 @@ import {
   Zap,
   Scan,
 } from "lucide-react";
+import AppSelect from "./AppSelect";
 import { applySnippet, createMediaMarkdown, insertTextAtCursor, normalizeImagePathForMarkdown } from "../utils/markdownUtils";
 import { insertMediaFromFile } from "../services/imageService";
 import { captureCurrentDisplay, listDocuments, listImages, openReferenceNoteWindow, saveImage } from "../services/electronService";
@@ -1102,7 +1103,7 @@ export function MarkdownToolbar({
             </label>
             <label>
               Filter
-              <select
+              <AppSelect
                 value={assetFilter}
                 onChange={(event) => setAssetFilter(event.target.value)}
               >
@@ -1112,7 +1113,7 @@ export function MarkdownToolbar({
                 <option value="audio">Audio</option>
                 <option value="pdf">PDFs</option>
                 <option value="document">Documents</option>
-              </select>
+              </AppSelect>
             </label>
             <label>
               Link text (optional)
@@ -1350,12 +1351,12 @@ export function MarkdownToolbar({
                 <div className="mermaid-fields">
                   <label>
                     Direction
-                    <select value={flowDirection} onChange={(event) => setFlowDirection(event.target.value)}>
+                    <AppSelect value={flowDirection} onChange={(event) => setFlowDirection(event.target.value)}>
                       <option value="LR">Left to Right</option>
                       <option value="TD">Top to Down</option>
                       <option value="RL">Right to Left</option>
                       <option value="BT">Bottom to Top</option>
-                    </select>
+                    </AppSelect>
                   </label>
                   <label>
                     Step 1

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, X } from "lucide-react";
 import { rotateImage } from "../utils/imageProcessingUtils";
 import AppButton from "./AppButton";
+import AppSelect from "./AppSelect";
 import OverlayDialog from "./OverlayDialog";
 import "./ImageCropModal.css";
 
@@ -553,7 +554,7 @@ export function ImageCropModal({
             {!annotationOnly ? (
               <>
                 <label className="image-crop-aspect-label" htmlFor="crop-aspect-preset">Aspect</label>
-                <select
+                <AppSelect
                   id="crop-aspect-preset"
                   className="image-crop-aspect-select"
                   value={aspectPreset}
@@ -563,7 +564,7 @@ export function ImageCropModal({
                   {ASPECT_PRESETS.map((preset) => (
                     <option key={preset.value} value={preset.value}>{preset.label}</option>
                   ))}
-                </select>
+                </AppSelect>
                 <label className="image-crop-aspect-label" htmlFor="image-rotation-angle">Rotate</label>
                 <input
                   id="image-rotation-angle"
