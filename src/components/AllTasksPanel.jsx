@@ -69,6 +69,7 @@ export function AllTasksPanel({ isOpen, documents = [], onClose, onOpenNote }) {
             className={`tasks-status-chip${statusFilter === "all" ? " active" : ""}`}
             onClick={() => setStatusFilter("all")}
           >
+            <ListChecks size={12} aria-hidden="true" />
             All
           </button>
           <button
@@ -76,6 +77,7 @@ export function AllTasksPanel({ isOpen, documents = [], onClose, onOpenNote }) {
             className={`tasks-status-chip${statusFilter === "open" ? " active" : ""}`}
             onClick={() => setStatusFilter("open")}
           >
+            <CheckSquare size={12} aria-hidden="true" />
             Open
           </button>
           <button
@@ -83,6 +85,7 @@ export function AllTasksPanel({ isOpen, documents = [], onClose, onOpenNote }) {
             className={`tasks-status-chip${statusFilter === "closed" ? " active" : ""}`}
             onClick={() => setStatusFilter("closed")}
           >
+            <Square size={12} aria-hidden="true" />
             Closed
           </button>
         </div>

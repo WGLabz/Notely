@@ -76,6 +76,7 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
     return (
       <button type="button" className="dashboard-inline-action" onClick={onOpenPanel}>
         View all
+        <ArrowRight size={12} aria-hidden="true" />
       </button>
     );
   }

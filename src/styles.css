@@ -2744,7 +2744,7 @@ button {
   gap: 3px;
   padding: 1px 5px;
   border: 1px solid #d5e0dc;
-  border-radius: 999px;
+  border-radius: var(--radius-md);
   background: #ffffff;
   width: fit-content;
   max-width: 100%;
@@ -2766,15 +2766,17 @@ button {
 }
 
 .dashboard-inline-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   border: 1px solid #d5e0dc;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   background: #ffffff;
   color: #3f5c63;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  padding: 4px 8px;
+  padding: 0 8px;
+  min-height: 24px;
   white-space: nowrap;
 }
 
@@ -2792,7 +2794,7 @@ button {
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   font-size: 10px;
   font-weight: 600;
 }
@@ -7385,6 +7387,8 @@ button {
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-5);
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .tasks-panel-header {
@@ -7412,7 +7416,7 @@ button {
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   background: var(--surface-accent);
   border: 1px solid var(--border-soft);
   font-size: var(--font-size-caption);
@@ -7424,14 +7428,25 @@ button {
   align-items: center;
   gap: var(--space-3);
   padding: 0 10px;
+  height: 30px;
   border: 1px solid var(--border-ui);
   border-radius: var(--radius-lg);
   background: var(--surface-bg);
+  width: 100%;
+  min-width: 0;
+}
+
+.tasks-panel-controls .tasks-panel-search {
+  flex: 1 1 280px;
+  min-width: 220px;
 }
 
 .tasks-panel-filter-input {
   flex: 1;
-  min-height: 36px;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  line-height: 1.2;
   border: none;
   background: transparent;
   font-size: var(--font-size-body-sm);
@@ -7440,39 +7455,68 @@ button {
 }
 
 .tasks-panel-controls {
-  display: grid;
+  display: flex;
+  align-items: center;
   gap: var(--space-3);
+  flex-wrap: wrap;
 }
 
 .tasks-panel-filter-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  min-height: 30px;
+  border: 1px solid var(--border-ui);
+  border-radius: var(--radius-md);
+  background: var(--surface-bg);
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
 .tasks-status-chip {
-  border: 1px solid var(--border-ui);
-  border-radius: var(--radius-pill);
-  background: var(--surface-bg);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-right: 1px solid var(--border-ui);
+  border-radius: 0;
+  background: transparent;
   color: var(--text-secondary);
   font-size: var(--font-size-caption);
   font-weight: 600;
-  padding: 6px 10px;
+}
+
+.tasks-status-chip:last-child {
+  border-right: 0;
 }
 
 .tasks-status-chip.active {
   background: var(--surface-accent);
   color: var(--text-strong);
-  border-color: var(--border-soft);
+}
+
+.tasks-status-chip:hover {
+  background: color-mix(in srgb, var(--surface-accent) 55%, var(--surface-bg));
 }
 
 .tasks-panel-body {
   flex: 1;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   max-height: min(55vh, 480px);
+}
+
+.tasks-panel-body::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 .tasks-panel-empty {
@@ -7497,6 +7541,9 @@ button {
   border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--surface-bg);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .tasks-group-header {
@@ -7513,9 +7560,9 @@ button {
   font-size: var(--font-size-body-sm);
   font-weight: 600;
   color: var(--text-strong);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
   flex: 1;
 }
 
@@ -7525,7 +7572,7 @@ button {
   gap: 4px;
   padding: 2px 8px;
   border: 1px solid var(--border-soft);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   background: var(--surface-bg);
   font-size: var(--font-size-caption);
   color: var(--text-secondary);
@@ -7542,6 +7589,17 @@ button {
   list-style: none;
   margin: 0;
   padding: 0;
+  max-height: min(34vh, 320px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.tasks-list::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 .task-item.closed .task-text {
@@ -7549,12 +7607,13 @@ button {
 }
 
 .task-status-label {
-  margin-left: auto;
+  margin-left: var(--space-2);
   font-size: var(--font-size-caption);
   color: var(--text-secondary);
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-pill);
   padding: 2px 8px;
+  white-space: nowrap;
 }
 
 .task-status-label.open {
@@ -7568,10 +7627,12 @@ button {
 .task-item {
   display: flex;
   align-items: flex-start;
+  flex-wrap: wrap;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border-subtle);
   font-size: var(--font-size-body-sm);
+  min-width: 0;
 }
 
 .task-item:last-child { border-bottom: none; }
@@ -7586,6 +7647,11 @@ button {
 .task-text {
   color: var(--text-strong);
   line-height: 1.5;
+  flex: 1 1 220px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
 }
 
 .note-list-panel-list {
