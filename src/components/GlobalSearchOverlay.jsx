@@ -5,6 +5,41 @@ import { useWorkspaceScopedStorage } from "../hooks/useWorkspaceScopedStorage";
 const RECENT_SEARCHES_KEY = "notely:recent-searches";
 const RECENT_SEARCHES_LIMIT = 6;
 
+function extractCodeBlocks(text) {
+  const source = String(text || "");
+  const parts = [];
+  const blockRegex = /```[\w]*\n?([\s\S]*?)```/g;
+  const inlineRegex = /`([^`\n]+)`/g;
+  let match;
+  while ((match = blockRegex.exec(source)) !== null) {
+    parts.push(match[1]);
+  }
+  while ((match = inlineRegex.exec(source)) !== null) {
+    parts.push(match[1]);
+  }
+  return parts.join("\n");
+}
+
+function tryBuildRegex(pattern) {
+  if (!pattern) return null;
+  try {
+    return new RegExp(pattern, "im");
+  } catch {
+    return null;
+  }
+}
+
+function isValidRegex(pattern) {
+  if (!pattern) return true;
+  try {
+    // This intentionally creates a RegExp to test syntax validity
+    void new RegExp(pattern);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function normalizeRecentSearches(rawValue) {
   if (!Array.isArray(rawValue)) return [];
   return rawValue
@@ -29,9 +64,41 @@ function buildMatchPreview(text, needle, contextLength = 36) {
   return `${leading}${rawSnippet}${trailing}`;
 }
 
-function buildResultMatch(entry, query) {
+function buildMatchPreviewRegex(text, regex, contextLength = 36) {
+  const source = String(text || "");
+  if (!source || !regex) return "";
+  try {
+    const match = regex.exec(source);
+    if (!match) return "";
+    const at = match.index;
+    const start = Math.max(0, at - contextLength);
+    const end = Math.min(source.length, at + match[0].length + contextLength);
+    const rawSnippet = source.slice(start, end).replace(/\s+/g, " ").trim();
+    const leading = start > 0 ? "..." : "";
+    const trailing = end < source.length ? "..." : "";
+    return `${leading}${rawSnippet}${trailing}`;
+  } catch {
+    return "";
+  }
+}
+
+function buildResultMatch(entry, query, useRegex) {
   const needle = String(query || "").trim();
   if (!needle) return { where: "", preview: "" };
+
+  const regex = useRegex ? tryBuildRegex(needle) : null;
+
+  const matchesText = (value) => {
+    if (!value) return false;
+    if (regex) return regex.test(value);
+    return String(value).toLowerCase().includes(needle.toLowerCase());
+  };
+
+  const previewText = (value) => {
+    if (!value) return "";
+    if (regex) return buildMatchPreviewRegex(value, regex);
+    return buildMatchPreview(value, needle);
+  };
 
   const candidates = [
     { where: "title", value: entry?.title },
@@ -41,23 +108,36 @@ function buildResultMatch(entry, query) {
   ];
 
   for (const candidate of candidates) {
-    const preview = buildMatchPreview(candidate.value, needle);
-    if (preview) {
-      return { where: candidate.where, preview };
+    if (matchesText(candidate.value)) {
+      return { where: candidate.where, preview: previewText(candidate.value) };
     }
   }
 
   return { where: "", preview: "" };
 }
 
-function buildSearchResults({ documents, currentDocument, query, typeFilter }) {
-  const needle = String(query || "").trim().toLowerCase();
+function buildSearchResults({ documents, currentDocument, query, typeFilter, useRegex }) {
+  const needle = String(query || "").trim();
+  const lowerNeedle = needle.toLowerCase();
+  const regex = useRegex && needle ? tryBuildRegex(needle) : null;
+
+  const matchesHaystack = (haystack) => {
+    if (!needle) return true;
+    if (regex) return regex.test(haystack);
+    return haystack.toLowerCase().includes(lowerNeedle);
+  };
+
+  const codeOnly = typeFilter === "code";
 
   const docResults = documents
     .filter((entry) => {
-      if (typeFilter === "notes" && entry.entryType !== "file") return false;
+      if ((typeFilter === "notes" || codeOnly) && entry.entryType !== "file") return false;
       if (typeFilter === "folders" && entry.entryType !== "folder") return false;
       if (!needle) return true;
+
+      if (codeOnly) {
+        return matchesHaystack(extractCodeBlocks(entry.searchText));
+      }
 
       const haystack = [
         entry.title,
@@ -65,34 +145,47 @@ function buildSearchResults({ documents, currentDocument, query, typeFilter }) {
         entry.metadata?.time,
         entry.metadata?.location,
         entry.searchText,
-      ].filter(Boolean).join(" ").toLowerCase();
-      return haystack.includes(needle);
+      ].filter(Boolean).join(" ");
+      return matchesHaystack(haystack);
     })
     .map((entry) => {
-      const match = buildResultMatch(entry, query);
+      const match = buildResultMatch(entry, query, useRegex);
+      // For code-only, override preview with code block context
+      let matchWhere = match.where;
+      let matchPreview = match.preview;
+      if (codeOnly && needle) {
+        const codeText = extractCodeBlocks(entry.searchText);
+        matchWhere = "code";
+        matchPreview = regex
+          ? buildMatchPreviewRegex(codeText, regex)
+          : buildMatchPreview(codeText, needle);
+      }
       return {
         id: `doc:${entry.filePath}`,
         kind: "document",
         entry,
         label: entry.title,
         subtitle: entry.entryType === "folder" ? "Folder" : "Note",
-        matchWhere: match.where,
-        matchPreview: match.preview,
+        matchWhere,
+        matchPreview,
       };
     });
 
   const contentResults = [];
   if (currentDocument && needle && (typeFilter === "all" || typeFilter === "current")) {
-    const source = `${currentDocument.rawNotes || ""}\n${currentDocument.cleansed || ""}`.toLowerCase();
-    if (source.includes(needle)) {
-      const sourceText = `${currentDocument.rawNotes || ""}\n${currentDocument.cleansed || ""}`;
+    const sourceText = `${currentDocument.rawNotes || ""}\n${currentDocument.cleansed || ""}`;
+    const matchesCurrent = regex ? regex.test(sourceText) : sourceText.toLowerCase().includes(lowerNeedle);
+    if (matchesCurrent) {
+      const preview = regex
+        ? buildMatchPreviewRegex(sourceText, regex)
+        : buildMatchPreview(sourceText, query);
       contentResults.push({
         id: `current:${currentDocument.filePath}`,
         kind: "current-note-match",
         label: `Find "${query}" in ${currentDocument.title}`,
         subtitle: "Current note content",
         matchWhere: "content",
-        matchPreview: buildMatchPreview(sourceText, query),
+        matchPreview: preview,
       });
     }
   }
@@ -115,6 +208,8 @@ export function GlobalSearchOverlay({
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const [typeFilter, setTypeFilter] = useState("all");
+  const [useRegex, setUseRegex] = useState(false);
+  const regexValid = !useRegex || isValidRegex(query.trim());
   const [recentSearches, setRecentSearches] = useWorkspaceScopedStorage({
     workspaceScope: workspaceStorageScope,
     key: "notes:recent-searches",
@@ -129,7 +224,8 @@ export function GlobalSearchOverlay({
     currentDocument,
     query,
     typeFilter,
-  }), [documents, currentDocument, query, typeFilter]);
+    useRegex: useRegex && regexValid,
+  }), [documents, currentDocument, query, typeFilter, useRegex, regexValid]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -162,7 +258,7 @@ export function GlobalSearchOverlay({
         <div className="global-search-header">
           <input
             ref={inputRef}
-            className="global-search-input"
+            className={`global-search-input${useRegex && !regexValid ? " regex-error" : ""}`}
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -193,7 +289,7 @@ export function GlobalSearchOverlay({
                 onOpenResult(selected, query);
               }
             }}
-            placeholder="Search notes, folders, and current note content"
+            placeholder={useRegex ? "Regex pattern…" : "Search notes, folders, and current note content"}
             aria-label="Search"
           />
         </div>
@@ -228,7 +324,31 @@ export function GlobalSearchOverlay({
           >
             Current Note
           </button>
+          <button
+            type="button"
+            className={typeFilter === "code" ? "active" : ""}
+            onClick={() => setTypeFilter("code")}
+            title="Search only inside code blocks and inline code"
+          >
+            Code Blocks
+          </button>
+          <span className="global-search-filter-divider" aria-hidden="true" />
+          <button
+            type="button"
+            className={`global-search-regex-toggle${useRegex ? " active" : ""}${useRegex && !regexValid ? " error" : ""}`}
+            onClick={() => setUseRegex((v) => !v)}
+            title="Toggle regular expression search"
+            aria-pressed={useRegex}
+          >
+            .*
+          </button>
         </div>
+
+        {useRegex && !regexValid && query.trim() ? (
+          <div className="global-search-regex-error" role="alert">
+            Invalid regular expression pattern.
+          </div>
+        ) : null}
 
         {!query.trim() && recentSearches.length ? (
           <div className="global-search-recents">
