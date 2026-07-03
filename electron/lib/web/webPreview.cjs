@@ -36,6 +36,15 @@ function createWebPreview(deps) {
     return activeProject.isRoot ? "Root" : activeProject.name;
   }
 
+  function syncScopeToActiveProject(options = {}) {
+    const clearOverrides = options.clearOverrides !== false;
+    webPreviewScopeRoot = getWebPreviewScopeRoot();
+    webPreviewScopeLabel = getWebPreviewScopeLabel();
+    if (clearOverrides) {
+      webPreviewContentOverrides.clear();
+    }
+  }
+
   function resolveRelativeToNotesRoot(relPath, options = {}) {
     const allowExcludedDirs = options.allowExcludedDirs === true;
     const scopeRoot = webPreviewScopeRoot || getWebPreviewScopeRoot();
@@ -289,6 +298,7 @@ function createWebPreview(deps) {
     prepareDocumentPreview,
     tryOpenInChrome,
     dispose,
+    syncScopeToActiveProject,
     getScopeRoot: () => webPreviewScopeRoot || getWebPreviewScopeRoot(),
     getScopeLabel: () => webPreviewScopeLabel,
   };

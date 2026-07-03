@@ -865,6 +865,7 @@ registerDocumentIpcHandlers(ipcMain, {
   ensureDir,
   ensureWebPreviewServer: webPreview.ensureWebPreviewServer,
   prepareDocumentPreview: webPreview.prepareDocumentPreview,
+  syncWebPreviewScope: webPreview.syncScopeToActiveProject,
   tryOpenInChrome: webPreview.tryOpenInChrome,
   getLastPdfExportPath,
   rememberPdfExportPath,

@@ -38,6 +38,7 @@ function registerDocumentIpcHandlers(ipcMain, deps) {
     ensureDir,
     ensureWebPreviewServer,
     prepareDocumentPreview,
+    syncWebPreviewScope,
     tryOpenInChrome,
     getLastPdfExportPath,
     rememberPdfExportPath,
@@ -343,6 +344,10 @@ function registerDocumentIpcHandlers(ipcMain, deps) {
   });
 
   registerTrustedHandler("documents:open-web-view", async (_event, payload) => {
+    if (!payload?.filePath && typeof syncWebPreviewScope === "function") {
+      syncWebPreviewScope();
+    }
+
     let previewUrl = `${await ensureWebPreviewServer()}/`;
     if (payload?.filePath) {
       const prepared = await prepareDocumentPreview(payload.filePath, payload.content);
