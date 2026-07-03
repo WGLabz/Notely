@@ -7611,7 +7611,7 @@ button {
   font-size: var(--font-size-caption);
   color: var(--text-secondary);
   border: 1px solid var(--border-soft);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   padding: 2px 8px;
   white-space: nowrap;
 }
