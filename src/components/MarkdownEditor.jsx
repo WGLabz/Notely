@@ -365,6 +365,33 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
   const valueLength = String(value || "").length;
   const decorationsSynced = docLength === valueLength;
 
+  const positionSuggestionFlyout = (containerElement) => {
+    if (!containerElement) return;
+
+    const submenu = containerElement.querySelector(".editor-fix-submenu-list");
+    const trigger = containerElement.querySelector(".editor-fix-submenu-trigger");
+    if (!submenu || !trigger) return;
+
+    const previousDisplay = submenu.style.display;
+    const previousVisibility = submenu.style.visibility;
+    submenu.style.display = "grid";
+    submenu.style.visibility = "hidden";
+
+    const submenuBounds = submenu.getBoundingClientRect();
+    const triggerBounds = trigger.getBoundingClientRect();
+
+    submenu.style.display = previousDisplay;
+    submenu.style.visibility = previousVisibility;
+
+    const viewportPadding = 8;
+    const flyoutGap = 6;
+    const wouldOverflowRight = triggerBounds.right + flyoutGap + submenuBounds.width > window.innerWidth - viewportPadding;
+    const wouldOverflowBottom = triggerBounds.top - 4 + submenuBounds.height > window.innerHeight - viewportPadding;
+
+    containerElement.classList.toggle("open-left", wouldOverflowRight);
+    containerElement.classList.toggle("open-up", wouldOverflowBottom);
+  };
+
   const validationDecorations = useMemo(() => {
     if (!decorationsSynced) return Decoration.none;
     return buildDecorationSet(value, validationIssues);
@@ -452,9 +479,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
     }
   }, [contextMenu]);
 
-  const applyIssueAction = (issue) => {
-    if (!issue) return;
-
+  const withViewportRestore = (applyChange) => {
     const previousView = viewRef.current;
     const previousScrollTop = viewRef.current?.scrollDOM?.scrollTop;
     const previousScrollLeft = viewRef.current?.scrollDOM?.scrollLeft;
@@ -483,25 +508,48 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
       window.setTimeout(restoreViewport, 220);
     };
 
-    const quickFixResult = applyMarkdownQuickFix(value, issue);
-    if (quickFixResult.changed) {
-      onChange(quickFixResult.nextValue);
-      scheduleViewportRestore();
-      onNotify?.(quickFixResult.message, "success");
-      setContextMenu(null);
-      return;
-    }
+    applyChange(scheduleViewportRestore);
+  };
 
-    const suggestionResult = applyValidationSuggestion(value, issue);
-    if (suggestionResult.changed) {
+  const applyIssueSuggestion = (issue, selectedSuggestion = null) => {
+    withViewportRestore((scheduleViewportRestore) => {
+      const suggestionResult = applyValidationSuggestion(value, issue, selectedSuggestion);
+      if (!suggestionResult.changed) {
+        onNotify?.(suggestionResult.message, "warning");
+        return;
+      }
+
       onChange(suggestionResult.nextValue);
       scheduleViewportRestore();
       onNotify?.(suggestionResult.message, "success");
       setContextMenu(null);
-      return;
-    }
+    });
+  };
 
-    onNotify?.("No automatic fix available for this issue.", "warning");
+  const applyIssueAction = (issue) => {
+    if (!issue) return;
+
+    withViewportRestore((scheduleViewportRestore) => {
+      const quickFixResult = applyMarkdownQuickFix(value, issue);
+      if (quickFixResult.changed) {
+        onChange(quickFixResult.nextValue);
+        scheduleViewportRestore();
+        onNotify?.(quickFixResult.message, "success");
+        setContextMenu(null);
+        return;
+      }
+
+      const suggestionResult = applyValidationSuggestion(value, issue);
+      if (suggestionResult.changed) {
+        onChange(suggestionResult.nextValue);
+        scheduleViewportRestore();
+        onNotify?.(suggestionResult.message, "success");
+        setContextMenu(null);
+        return;
+      }
+
+      onNotify?.("No automatic fix available for this issue.", "warning");
+    });
   };
 
   const editorExtensions = useMemo(() => [
@@ -820,15 +868,52 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
                   : issue.suggestion
                     ? `Apply suggestion${issue.suggestion ? `: ${issue.suggestion}` : ""}`
                     : "Review issue";
+                const alternatives = Array.isArray(issue?.suggestions)
+                  ? issue.suggestions.filter((entry) => String(entry || "").trim())
+                  : [];
+                const hasSuggestionFlyout = alternatives.length > 1;
                 return (
                   <div key={`${issue.line}-${issue.column}-${index}`}>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => applyIssueAction(issue)}
-                    >
-                      {label}
-                    </button>
+                    {hasSuggestionFlyout ? (
+                      <div
+                        className="editor-fix-submenu-flyout"
+                        role="none"
+                        onMouseEnter={(event) => positionSuggestionFlyout(event.currentTarget)}
+                        onFocusCapture={(event) => positionSuggestionFlyout(event.currentTarget)}
+                      >
+                        <button
+                          type="button"
+                          role="menuitem"
+                          aria-haspopup="menu"
+                          className="editor-fix-submenu-trigger"
+                          onClick={(event) => {
+                            event.preventDefault();
+                          }}
+                        >
+                          Apply suggestion
+                        </button>
+                        <div className="editor-fix-submenu-list" role="menu">
+                          {alternatives.map((entry) => (
+                            <button
+                              key={`${issue.line}-${issue.column}-${index}-${entry}`}
+                              type="button"
+                              role="menuitem"
+                              onClick={() => applyIssueSuggestion(issue, entry)}
+                            >
+                              {entry}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => applyIssueAction(issue)}
+                      >
+                        {label}
+                      </button>
+                    )}
                     {issue.ruleId === "spelling" && issue.word ? (
                       <button
                         type="button"

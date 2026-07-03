@@ -493,9 +493,9 @@ export function MarkdownToolbar({
     onNotify?.(result.message, "success");
   }
 
-  function applyValidationSuggestionFix(issue) {
+  function applyValidationSuggestionFix(issue, selectedSuggestion = null) {
     if (!issue) return;
-    const result = applyValidationSuggestion(value, issue);
+    const result = applyValidationSuggestion(value, issue, selectedSuggestion);
     if (!result.changed) {
       onNotify?.(result.message, "warning");
       return;
@@ -983,6 +983,22 @@ export function MarkdownToolbar({
                     {issue.ruleId ? ` (${issue.ruleId})` : ""}
                     {issue.suggestion ? ` Suggestion: ${issue.suggestion}` : ""}
                   </p>
+                  {Array.isArray(issue.suggestions) && issue.suggestions.length > 1 ? (
+                    <details className="validation-fix-submenu">
+                      <summary>Available fixes ({issue.suggestions.length})</summary>
+                      <div className="validation-fix-submenu-list">
+                        {issue.suggestions.map((suggestion) => (
+                          <button
+                            key={`${issue.line}-${issue.column || 1}-${suggestion}`}
+                            type="button"
+                            onClick={() => applyValidationSuggestionFix(issue, suggestion)}
+                          >
+                            {suggestion}
+                          </button>
+                        ))}
+                      </div>
+                    </details>
+                  ) : null}
                   <div className="validation-item-actions">
                     {Number.isFinite(issue.line) ? (
                       <button type="button" onClick={() => onJumpToLine?.(issue.line)}>

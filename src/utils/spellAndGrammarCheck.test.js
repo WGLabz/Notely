@@ -109,6 +109,15 @@ But this sentance has an eror.`;
     expect(messages.some(m => m.includes("API"))).toBe(false);
   });
 
+  it("includes likely transposition corrections in suggestions", async () => {
+    const issues = await checkSpelling("This is liek this");
+    const typoIssue = issues.find((issue) => String(issue.word || "").toLowerCase() === "liek");
+
+    expect(typoIssue).toBeTruthy();
+    expect(typoIssue.suggestions || []).toContain("like");
+    expect((typoIssue.suggestions || [])[0]).toBe("like");
+  });
+
   it("does not flag common metadata words like Date", async () => {
     const issues = await checkSpelling("Date: June 28");
     const messages = issues.map((issue) => issue.message).join(" ");

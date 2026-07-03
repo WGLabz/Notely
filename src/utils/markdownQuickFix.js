@@ -20,6 +20,60 @@ function getTextIndexAtLineColumn(value, line, column) {
   return Math.min(startIndex + safeColumn - 1, (value || "").length);
 }
 
+function resolveReplacementLength(issue) {
+  const candidates = [
+    Number(issue?.sourceLength),
+    Number(issue?.length),
+    Number(issue?.word?.length),
+  ];
+
+  for (const candidate of candidates) {
+    if (Number.isFinite(candidate) && candidate > 0) {
+      return Math.floor(candidate);
+    }
+  }
+
+  return 1;
+}
+
+function normalizeSuggestionText(rawSuggestion) {
+  const text = String(rawSuggestion || "").trim();
+  if (!text) return "";
+
+  const firstChoice = text
+    .split(/[,/|;]/)
+    .map((entry) => entry.trim())
+    .find(Boolean);
+
+  return firstChoice || text;
+}
+
+function isAllUpperCase(value) {
+  return !!value && /[A-Z]/.test(value) && value === value.toUpperCase();
+}
+
+function isCapitalizedWord(value) {
+  if (!value) return false;
+  if (!/^[A-Za-z][A-Za-z'-]*$/.test(value)) return false;
+  return value[0] === value[0].toUpperCase() && value.slice(1) === value.slice(1).toLowerCase();
+}
+
+function applyWordCaseLike(sourceWord, suggestion) {
+  const source = String(sourceWord || "");
+  const next = String(suggestion || "");
+  if (!source || !next) return next;
+
+  if (isAllUpperCase(source)) {
+    return next.toUpperCase();
+  }
+
+  if (isCapitalizedWord(source)) {
+    return `${next.charAt(0).toUpperCase()}${next.slice(1).toLowerCase()}`;
+  }
+
+  return next;
+}
+
 export function getIssueFixType(issue) {
   const text = (issue?.message || "").toLowerCase();
   if (issue?.ruleId === "table-separator") return "table-separator";
@@ -92,8 +146,12 @@ export function applyMarkdownQuickFix(value, issue) {
   };
 }
 
-export function applyValidationSuggestion(value, issue) {
-  const suggestion = (issue?.suggestion || "").trim();
+export function applyValidationSuggestion(value, issue, preferredSuggestion = null) {
+  const explicit = normalizeSuggestionText(preferredSuggestion);
+  const listSuggestion = Array.isArray(issue?.suggestions)
+    ? issue.suggestions.map((entry) => normalizeSuggestionText(entry)).find(Boolean)
+    : "";
+  const suggestion = explicit || normalizeSuggestionText(issue?.suggestion) || listSuggestion;
   if (!suggestion) {
     return {
       nextValue: value || "",
@@ -102,23 +160,22 @@ export function applyValidationSuggestion(value, issue) {
     };
   }
 
-  const startIndex = getTextIndexAtLineColumn(value, issue?.line, issue?.column);
-  const replacementLength = Math.max(
-    Number(issue?.sourceLength) || 0,
-    Number(issue?.length) || 0,
-    issue?.word?.length || 0,
-    suggestion.length,
-    1
-  );
+  const source = value || "";
+  const startIndex = getTextIndexAtLineColumn(source, issue?.line, issue?.column);
+  const replacementLength = resolveReplacementLength(issue);
+  const sourceSlice = source.slice(startIndex, startIndex + replacementLength);
+  const replacement = issue?.ruleId === "spelling"
+    ? applyWordCaseLike(issue?.word || sourceSlice, suggestion)
+    : suggestion;
   const nextValue = [
-    (value || "").slice(0, startIndex),
-    suggestion,
-    (value || "").slice(startIndex + replacementLength),
+    source.slice(0, startIndex),
+    replacement,
+    source.slice(startIndex + replacementLength),
   ].join("");
 
   return {
     nextValue,
-    changed: nextValue !== (value || ""),
-    message: `Applied suggestion: ${suggestion}`,
+    changed: nextValue !== source,
+    message: `Applied suggestion: ${replacement}`,
   };
 }

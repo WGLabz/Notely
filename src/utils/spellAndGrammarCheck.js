@@ -10,6 +10,12 @@ import dic from "dictionary-en-us/index.dic?raw";
 const spellCheckCache = new Map();
 const MAX_CACHE_SIZE = 5000;
 
+const KEYBOARD_ROWS = [
+  "qwertyuiop",
+  "asdfghjkl",
+  "zxcvbnm",
+];
+
 // Validation result cache
 const validationCache = new Map();
 
@@ -24,6 +30,67 @@ const CUSTOM_WORDS = [
 const spell = nspell(aff, dic);
 for (const word of CUSTOM_WORDS) {
   spell.add(word);
+}
+
+function isKeyboardNeighborChar(sourceChar, targetChar) {
+  if (!sourceChar || !targetChar) return false;
+  const source = String(sourceChar).toLowerCase();
+  const target = String(targetChar).toLowerCase();
+  if (source === target) return false;
+
+  for (const row of KEYBOARD_ROWS) {
+    const sourceIndex = row.indexOf(source);
+    if (sourceIndex === -1) continue;
+    if (row[sourceIndex - 1] === target || row[sourceIndex + 1] === target) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function isAdjacentTransposition(source, target) {
+  if (!source || !target || source.length !== target.length || source === target) {
+    return false;
+  }
+
+  let mismatchIndex = -1;
+  for (let index = 0; index < source.length; index += 1) {
+    if (source[index] === target[index]) continue;
+    mismatchIndex = index;
+    break;
+  }
+
+  if (mismatchIndex < 0 || mismatchIndex >= source.length - 1) return false;
+  if (source.slice(0, mismatchIndex) !== target.slice(0, mismatchIndex)) return false;
+  if (source[mismatchIndex] !== target[mismatchIndex + 1]) return false;
+  if (source[mismatchIndex + 1] !== target[mismatchIndex]) return false;
+  return source.slice(mismatchIndex + 2) === target.slice(mismatchIndex + 2);
+}
+
+function scoreSuggestion(sourceWord, candidateWord) {
+  const source = String(sourceWord || "").toLowerCase();
+  const candidate = String(candidateWord || "").toLowerCase();
+  if (!source || !candidate) return Number.NEGATIVE_INFINITY;
+
+  let score = 0;
+  if (isAdjacentTransposition(source, candidate)) {
+    score += 250;
+  }
+
+  const minLength = Math.min(source.length, candidate.length);
+  for (let index = 0; index < minLength; index += 1) {
+    if (source[index] === candidate[index]) {
+      score += 6;
+    } else if (isKeyboardNeighborChar(source[index], candidate[index])) {
+      score += 3;
+    } else {
+      score -= 2;
+    }
+  }
+
+  score -= Math.abs(source.length - candidate.length) * 4;
+  return score;
 }
 
 function isValidWord(word) {
@@ -50,7 +117,7 @@ function isValidWord(word) {
 
 function suggestCorrection(word) {
   const cleanWord = word.replace(/[^\w'-]/g, "").toLowerCase();
-  if (!cleanWord) return "";
+  if (!cleanWord) return [];
 
   // Check cache first
   if (spellCheckCache.has(cleanWord)) {
@@ -58,12 +125,38 @@ function suggestCorrection(word) {
   }
 
   if (cleanWord.length < 3 || /^\d+/.test(cleanWord)) {
-    spellCheckCache.set(cleanWord, "");
-    return "";
+    spellCheckCache.set(cleanWord, []);
+    return [];
+  }
+
+  const suggestionSet = new Set();
+
+  // Prioritize adjacent transposition fixes (e.g., "liek" -> "like").
+  for (let index = 0; index < cleanWord.length - 1; index += 1) {
+    const chars = cleanWord.split("");
+    const nextIndex = index + 1;
+    [chars[index], chars[nextIndex]] = [chars[nextIndex], chars[index]];
+    const candidate = chars.join("");
+    if (candidate !== cleanWord && spell.correct(candidate)) {
+      suggestionSet.add(candidate);
+    }
   }
 
   const suggestions = spell.suggest(cleanWord);
-  const result = Array.isArray(suggestions) && suggestions.length ? String(suggestions[0] || "") : "";
+  if (Array.isArray(suggestions)) {
+    suggestions
+      .map((entry) => String(entry || "").trim().toLowerCase())
+      .filter(Boolean)
+      .forEach((entry) => suggestionSet.add(entry));
+  }
+
+  const result = Array.from(suggestionSet)
+    .sort((left, right) => {
+      const scoreDelta = scoreSuggestion(cleanWord, right) - scoreSuggestion(cleanWord, left);
+      if (scoreDelta !== 0) return scoreDelta;
+      return left.localeCompare(right);
+    })
+    .slice(0, 8);
   
   // Cache with size limit
   if (spellCheckCache.size >= MAX_CACHE_SIZE) {
@@ -366,7 +459,8 @@ export async function checkSpelling(content, options = {}) {
         continue;
       }
       if (!isValidWord(word)) {
-        const suggestion = suggestCorrection(word);
+        const suggestions = suggestCorrection(word);
+        const suggestion = suggestions[0] || "";
         const span = getMappedSpan(proseLine.indexMap, match.index, word.length);
         issues.push({
           line: proseLine.line,
@@ -378,6 +472,7 @@ export async function checkSpelling(content, options = {}) {
           sourceLength: span.sourceLength,
           word,
           suggestion,
+          suggestions,
         });
       }
     }
