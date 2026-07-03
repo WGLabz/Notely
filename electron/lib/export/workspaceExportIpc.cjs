@@ -4,6 +4,33 @@ const { assertTrustedIpcSender } = require("../ipc/ipcSecurity.cjs");
 
 const DEFAULT_EXPORT_MODE = "raw";
 const DEFAULT_CONTENT_MODE = "combined";
+const PDF_WRITE_RETRY_DELAYS_MS = [120, 320, 700];
+
+function isRetryableWriteError(error) {
+  const code = String(error?.code || "").toUpperCase();
+  return code === "EBUSY" || code === "EPERM" || code === "EACCES";
+}
+
+async function writeFileWithRetries(fs, filePath, data) {
+  let lastError = null;
+  for (let attempt = 0; attempt <= PDF_WRITE_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      fs.writeFileSync(filePath, data);
+      return;
+    } catch (error) {
+      if (!isRetryableWriteError(error)) {
+        throw error;
+      }
+      lastError = error;
+      if (attempt >= PDF_WRITE_RETRY_DELAYS_MS.length) {
+        break;
+      }
+      const waitMs = PDF_WRITE_RETRY_DELAYS_MS[attempt];
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+  }
+  throw lastError;
+}
 
 function getExportType(mode) {
   if (mode === "pdf") return "pdf";
@@ -265,7 +292,14 @@ async function exportPdfWorkspace({
           preferCSSPageSize: true,
         });
 
-        fs.writeFileSync(pdfOutputPath, pdfData);
+        try {
+          await writeFileWithRetries(fs, pdfOutputPath, pdfData);
+        } catch (error) {
+          if (isRetryableWriteError(error)) {
+            throw new Error(`Unable to save PDF because the target file is busy or locked: ${pdfOutputPath}. Close any app using it and try again.`);
+          }
+          throw error;
+        }
       } finally {
         if (!pdfWindow.isDestroyed()) {
           pdfWindow.close();

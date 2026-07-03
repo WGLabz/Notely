@@ -45,6 +45,34 @@ function registerDocumentIpcHandlers(ipcMain, deps) {
     buildPdfExportHtml,
   } = deps;
 
+  const PDF_WRITE_RETRY_DELAYS_MS = [120, 320, 700];
+
+  function isRetryableWriteError(error) {
+    const code = String(error?.code || "").toUpperCase();
+    return code === "EBUSY" || code === "EPERM" || code === "EACCES";
+  }
+
+  async function writeFileWithRetries(filePath, data) {
+    let lastError = null;
+    for (let attempt = 0; attempt <= PDF_WRITE_RETRY_DELAYS_MS.length; attempt += 1) {
+      try {
+        fs.writeFileSync(filePath, data);
+        return;
+      } catch (error) {
+        if (!isRetryableWriteError(error)) {
+          throw error;
+        }
+        lastError = error;
+        if (attempt >= PDF_WRITE_RETRY_DELAYS_MS.length) {
+          break;
+        }
+        const waitMs = PDF_WRITE_RETRY_DELAYS_MS[attempt];
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+      }
+    }
+    throw lastError;
+  }
+
   function resolveMetadataStore() {
     const store = typeof getMetadataStore === "function" ? getMetadataStore() : metadataStore;
     if (!store) {
@@ -407,7 +435,14 @@ function registerDocumentIpcHandlers(ipcMain, deps) {
           preferCSSPageSize: true
         });
 
-        fs.writeFileSync(saveResult.filePath, pdfData);
+        try {
+          await writeFileWithRetries(saveResult.filePath, pdfData);
+        } catch (error) {
+          if (isRetryableWriteError(error)) {
+            throw new Error(`Unable to save PDF because the target file is busy or locked: ${saveResult.filePath}. Close any app using it (including preview panes/OneDrive sync locks) and try again.`);
+          }
+          throw error;
+        }
         rememberPdfExportPath(saveResult.filePath);
       } finally {
         if (!pdfWindow.isDestroyed()) {

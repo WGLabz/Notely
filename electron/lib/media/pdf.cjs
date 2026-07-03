@@ -45,10 +45,15 @@ function buildPdfStyles({ compact = false } = {}) {
   const paragraphMargin = compact ? "10px" : "14px";
   const h1Size = compact ? "22px" : "24px";
   const h2Size = compact ? "16px" : "17px";
+  const imageScale = compact ? 0.85 : 0.8;
 
   return `
     :root {
       color-scheme: light;
+    }
+
+    @page {
+      margin: 12mm 10mm;
     }
 
     html, body {
@@ -63,6 +68,12 @@ function buildPdfStyles({ compact = false } = {}) {
 
     .markdown-body {
       max-width: 100%;
+      margin: 0;
+      padding: 0;
+      overflow-wrap: anywhere;
+      word-break: normal;
+      orphans: 3;
+      widows: 3;
     }
 
     h1 {
@@ -71,6 +82,8 @@ function buildPdfStyles({ compact = false } = {}) {
       margin: 0 0 16px;
       padding-bottom: 12px;
       border-bottom: 1px solid #d7e0e6;
+      break-after: avoid-page;
+      page-break-after: avoid;
     }
 
     h2 {
@@ -79,11 +92,15 @@ function buildPdfStyles({ compact = false } = {}) {
       margin: 24px 0 10px;
       padding-bottom: 6px;
       border-bottom: 1px solid #d7e0e6;
+      break-after: avoid-page;
+      page-break-after: avoid;
     }
 
     h3, h4, h5, h6 {
       line-height: 1.3;
       margin: 18px 0 8px;
+      break-after: avoid-page;
+      page-break-after: avoid;
     }
 
     p, ul, ol, blockquote, pre, table {
@@ -110,6 +127,8 @@ function buildPdfStyles({ compact = false } = {}) {
       border-radius: 6px;
       padding: 16px;
       overflow-x: auto;
+      break-inside: auto;
+      page-break-inside: auto;
     }
 
     pre code {
@@ -125,6 +144,8 @@ function buildPdfStyles({ compact = false } = {}) {
       border-radius: 6px;
       background: #f6f8fa;
       overflow: hidden;
+      break-inside: auto;
+      page-break-inside: auto;
     }
 
     .markdown-code-header {
@@ -151,6 +172,8 @@ function buildPdfStyles({ compact = false } = {}) {
       border: 0;
       border-radius: 0;
       background: #f6f8fa;
+      break-inside: auto;
+      page-break-inside: auto;
     }
 
     .markdown-code-pre code {
@@ -244,13 +267,24 @@ function buildPdfStyles({ compact = false } = {}) {
     img {
       max-width: 100%;
       height: auto;
+      max-height: 240mm;
+      object-fit: contain;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
 
     .notely-image-frame {
       position: relative;
-      display: inline-block;
+      display: block;
       max-width: 100%;
       vertical-align: top;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    .notely-image-frame img {
+      display: block;
+      margin: 0 auto;
     }
 
     .notely-image-annotation {
@@ -270,6 +304,44 @@ function buildPdfStyles({ compact = false } = {}) {
     }
 
     .notely-image-annotation { left: 10px; top: 10px; }
+
+    @media print {
+      pre,
+      .markdown-code-pre {
+        overflow: visible !important;
+      }
+
+      p,
+      li {
+        orphans: 3;
+        widows: 3;
+      }
+
+      blockquote,
+      table,
+      tr,
+      .notely-image-frame,
+      img {
+        break-inside: avoid-page;
+        page-break-inside: avoid;
+      }
+
+      .markdown-code-block,
+      .markdown-code-pre,
+      .markdown-code-line {
+        break-inside: auto;
+        page-break-inside: auto;
+      }
+
+      /* Slightly shrink images in print to reduce forced page splits and large white gaps. */
+      .notely-image-frame img,
+      .markdown-body > img,
+      p > img,
+      li > img {
+        max-width: ${imageScale * 100}%;
+        width: auto;
+      }
+    }
   `;
 }
 
