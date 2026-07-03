@@ -14,6 +14,12 @@
 - **Form focus styles** — focus indicators across all inputs, selects, and textareas have been softened to a subtle border tint and `2px` halo for a more professional desktop feel.
 - **Continue Writing panel** — now shows only the single most recently edited note instead of a list, making it faster to resume work.
 - **Task hover popover** — the note-level task summary popover now sizes to the available viewport height before showing a scrollbar.
+- **Note detail topbar consistency** — breadcrumb chips, task summary, save status, and action controls now use aligned heights and shared corner radius styling for a cleaner, unified row.
+
+### Fixes
+
+- **Workspace switch website refresh** — opening project website view after changing workspace now reflects the current workspace immediately instead of reusing stale scope from the previous folder.
+- **Task summary accessibility semantics** — the topbar task summary trigger now uses button semantics with screen-reader state attributes for improved accessibility.
 
 ---
 

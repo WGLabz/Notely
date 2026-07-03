@@ -88,3 +88,11 @@ If the terminal still fails, capture the exact error text shown in the terminal 
 3. Try **Notes as-is** first to isolate PDF or web export issues.
 
 If PDF-only export fails, retry with a smaller workspace to identify a problematic note or asset.
+
+## 12. Project Website Shows Notes from an Older Workspace
+
+1. Confirm workspace was changed from **File -> Open Workspace** and opened successfully.
+2. Re-open website using **Web -> Open Project Website** from the landing screen.
+3. If browser tab is pinned, open a new tab/window once.
+
+If this keeps happening, update to the latest build that includes workspace-switch website scope refresh fixes.

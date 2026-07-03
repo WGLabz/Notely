@@ -4,7 +4,14 @@ All notable documentation and user-facing behavior changes are tracked in this f
 
 ## Unreleased
 
-- No unreleased entries.
+### Changed
+
+- Refined note detail topbar visual consistency by normalizing control height and shared corner-radius usage
+
+### Fixed
+
+- Fixed project website/web preview scope refresh after workspace (notes folder) changes so newly selected workspaces render correctly
+- Improved note task summary trigger semantics for better keyboard and screen-reader compatibility
 
 ## 2026-07-03
 
