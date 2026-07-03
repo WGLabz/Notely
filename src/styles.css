@@ -562,43 +562,117 @@ button {
 }
 
 .about-dialog-card {
-  width: min(560px, calc(100vw - 32px));
+  width: min(640px, calc(100vw - 32px));
+}
+
+.about-dialog-header {
+  justify-content: flex-end;
 }
 
 .about-dialog-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: 10px 8px 4px;
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  text-align: left;
+  padding: 6px 6px 10px;
+}
+
+.about-brand-panel {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  padding: 8px 10px;
 }
 
 .about-brand-mark {
-  width: 96px;
-  height: 96px;
-  border-radius: var(--radius-2xl);
+  width: 88px;
+  height: 88px;
+  border-radius: var(--radius-xl);
   object-fit: cover;
-  box-shadow: var(--shadow-lg);
-  margin-bottom: 12px;
+  box-shadow: var(--shadow-md);
+  margin-bottom: 10px;
 }
 
-.about-dialog-content h3 {
+.about-brand-name {
   margin: 0;
-  font-size: var(--font-size-heading-lg);
+  font-size: 24px;
+  letter-spacing: 0.01em;
   color: #1f3e45;
 }
 
-.about-version {
-  margin: 8px 0 4px;
+.about-version-subscript {
+  margin: 1px 0 0;
   color: #4d676e;
-  font-size: var(--font-size-body-sm);
+  font-size: var(--font-size-label);
+}
+
+.about-info-panel {
+  display: grid;
+  gap: 10px;
 }
 
 .about-copy {
-  margin: 12px 0 4px;
-  max-width: 420px;
-  color: #345058;
-  line-height: 1.45;
+  margin: 0;
+  max-width: 460px;
+  color: #3f5b63;
+  font-size: var(--font-size-body-sm);
+  line-height: 1.5;
+}
+
+.about-details-list {
+  width: min(420px, 100%);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  background: #fcfdfd;
+  display: grid;
+  gap: 0;
+  overflow: hidden;
+}
+
+.about-detail-row {
+  margin: 0;
+  min-height: 34px;
+  padding: 8px 11px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #2f4a52;
+  font-size: 12px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.about-detail-row:first-child {
+  border-top: none;
+}
+
+.about-detail-row svg {
+  color: var(--accent-solid);
+  flex: 0 0 auto;
+}
+
+.about-detail-row a {
+  color: #2a6177;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.about-detail-row a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+  .about-dialog-content {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+
+  .about-info-panel {
+    text-align: left;
+  }
 }
 
 .splash-screen {
@@ -1144,6 +1218,14 @@ button {
 .overlay-dialog-header h2 {
   margin: 0;
   font-size: var(--font-size-heading-md);
+}
+
+.overlay-dialog-header.about-dialog-header {
+  justify-content: flex-end;
+}
+
+.overlay-dialog-header.about-dialog-header .icon-button {
+  margin-left: auto;
 }
 
 .overlay-dialog-field {
