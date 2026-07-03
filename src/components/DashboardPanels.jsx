@@ -33,10 +33,9 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
 
   const recentNotes = getRecentNotes(safeDocuments);
   const continueCandidates = safeContinueNotes
-    .filter((item) => item?.entryType === "file" && item?.filePath)
-    .slice(0, 4);
+    .filter((item) => item?.entryType === "file" && item?.filePath);
   const continueCandidate = continueCandidates[0] || recentNotes[0] || null;
-  const continueHistory = continueCandidates.length > 1 ? continueCandidates.slice(1) : [];
+  const continueHistory = [];
   const recentSlice = recentNotes.slice(0, DASHBOARD_SECTION_LIMIT);
   const allOpenTasks = useMemo(() => extractOpenTasksFromDocuments(safeTaskDocuments), [safeTaskDocuments]);
   const openTasks = useMemo(() => allOpenTasks.slice(0, DASHBOARD_SECTION_LIMIT), [allOpenTasks]);
