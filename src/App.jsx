@@ -174,11 +174,27 @@ function normalizeWorkspaceExportContentMode(rawValue) {
   return ["combined", "separate", "raw", "cleansed"].includes(rawValue) ? rawValue : "combined";
 }
 
+function getWorkspaceExportType(rawMode) {
+  const mode = normalizeWorkspaceExportMode(rawMode);
+  if (mode === "pdf") return "pdf";
+  if (mode === "web") return "html";
+  return "docs";
+}
+
+function updateWorkspaceExportTypeSegment(fileName, mode) {
+  const current = String(fileName || "").trim();
+  if (!current) return current;
+  const nextType = getWorkspaceExportType(mode);
+  const pattern = /(.*_)(pdf|html|docs)(_\d{2}_\d{2}_\d{4}\.zip)$/i;
+  if (!pattern.test(current)) return current;
+  return current.replace(pattern, `$1${nextType}$3`);
+}
+
 function normalizeWorkspaceExportOptions(rawValue) {
   const source = rawValue && typeof rawValue === "object" ? rawValue : {};
   return {
     destinationPath: typeof source.destinationPath === "string" ? source.destinationPath : "",
-    fileName: typeof source.fileName === "string" && source.fileName.trim() ? source.fileName : "notelyproject.zip",
+    fileName: typeof source.fileName === "string" && source.fileName.trim() ? source.fileName : "workspace_docs_dd_mm_yyyy.zip",
     includeMetadata: source.includeMetadata === true,
     mode: normalizeWorkspaceExportMode(source.mode),
     contentMode: normalizeWorkspaceExportContentMode(source.contentMode),
@@ -1104,10 +1120,7 @@ export default function App() {
     setWorkspaceExportProgress({ phase: "", percent: 0 });
     try {
       const defaults = await getWorkspaceExportDefaults();
-      setWorkspaceExportOptions((currentValue) => ({
-        ...normalizeWorkspaceExportOptions(defaults),
-        fileName: currentValue?.fileName || normalizeWorkspaceExportOptions(defaults).fileName,
-      }));
+      setWorkspaceExportOptions(normalizeWorkspaceExportOptions(defaults));
     } catch (error) {
       notify(error?.message || "Unable to load export defaults.", "error");
     }
@@ -1115,10 +1128,14 @@ export default function App() {
 
   function handleWorkspaceExportOptionChange(patch) {
     setWorkspaceExportOptions((currentValue) => {
+      const currentNormalized = normalizeWorkspaceExportOptions(currentValue);
       const nextValue = {
-        ...normalizeWorkspaceExportOptions(currentValue),
+        ...currentNormalized,
         ...(patch || {}),
       };
+      if (Object.prototype.hasOwnProperty.call(patch || {}, "mode") && !Object.prototype.hasOwnProperty.call(patch || {}, "fileName")) {
+        nextValue.fileName = updateWorkspaceExportTypeSegment(currentNormalized.fileName, nextValue.mode);
+      }
       return normalizeWorkspaceExportOptions(nextValue);
     });
   }

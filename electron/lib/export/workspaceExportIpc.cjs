@@ -20,7 +20,7 @@ function buildDatedExportBaseName(mode, now = new Date()) {
   const day = pad2(now.getDate());
   const month = pad2(now.getMonth() + 1);
   const year = now.getFullYear();
-  return `_${exportType}_${day}-${month}-${year}`;
+  return `_${exportType}_${day}_${month}_${year}`;
 }
 
 function normalizeMode(value) {
@@ -34,9 +34,22 @@ function normalizeContentMode(value) {
 }
 
 function normalizeZipFileName(value) {
-  const raw = String(value || "").trim() || DEFAULT_ZIP_FILE_NAME;
-  const cleaned = raw.replace(/[<>:"/\\|?*]/g, "-").replace(/\s+/g, " ").trim() || DEFAULT_ZIP_FILE_NAME;
+  const fallback = "workspace-export.zip";
+  const raw = String(value || "").trim() || fallback;
+  const cleaned = raw.replace(/[<>:"/\\|?*]/g, "-").replace(/\s+/g, " ").trim() || fallback;
   return cleaned.toLowerCase().endsWith(".zip") ? cleaned : `${cleaned}.zip`;
+}
+
+function normalizeArchiveRootFolderName(value, fallback = "workspace") {
+  const raw = String(value || "").trim();
+  const cleaned = raw
+    .replace(/[<>:"/\\|?*]/g, "_")
+    .replace(/\s+/g, "_")
+    .replace(/_+/g, "_")
+    .trim()
+    .replace(/^\.+/, "")
+    .replace(/[._\s]+$/, "");
+  return cleaned || fallback;
 }
 
 function ensureUniquePath(fs, path, targetPath) {
@@ -456,9 +469,11 @@ function registerWorkspaceExportIpcHandlers(ipcMain, deps) {
 
   registerTrustedHandler("workspace-export:get-defaults", () => {
     const mode = DEFAULT_EXPORT_MODE;
+    const notesRoot = path.resolve(getNotesRoot());
+    const workspaceName = normalizeArchiveRootFolderName(path.basename(notesRoot), "workspace");
     return {
       destinationPath: getDefaultDestinationPath(),
-      fileName: `${buildDatedExportBaseName(mode)}.zip`,
+      fileName: normalizeZipFileName(`${workspaceName}${buildDatedExportBaseName(mode)}.zip`),
       includeMetadata: false,
       mode,
       contentMode: DEFAULT_CONTENT_MODE,
@@ -489,9 +504,9 @@ function registerWorkspaceExportIpcHandlers(ipcMain, deps) {
     const includeMetadata = Boolean(payload?.includeMetadata);
     const mode = normalizeMode(payload?.mode);
     const contentMode = normalizeContentMode(payload?.contentMode);
+    const archiveRootName = normalizeArchiveRootFolderName(path.basename(notesRoot), "workspace");
     const requestedFileName = typeof payload?.fileName === "string" ? payload.fileName.trim() : "";
-    const fileName = normalizeZipFileName(requestedFileName || `${buildDatedExportBaseName(mode)}.zip`);
-    const archiveRootName = buildDatedExportBaseName(mode);
+    const fileName = normalizeZipFileName(requestedFileName || `${archiveRootName}${buildDatedExportBaseName(mode)}.zip`);
 
     if (!destinationPath) {
       throw new Error("Choose an export destination first.");

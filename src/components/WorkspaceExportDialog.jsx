@@ -107,7 +107,7 @@ export function WorkspaceExportDialog({
           type="text"
           value={values.fileName}
           onChange={(event) => onChange({ fileName: event.target.value })}
-          placeholder="notelyproject.zip"
+          placeholder="workspace_docs_dd_mm_yyyy.zip"
           disabled={loading}
         />
       </label>
