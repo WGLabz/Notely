@@ -9,10 +9,10 @@ A comprehensive, modular AI assistant integrated into the Notely markdown notes 
 - **Semantic Search**: Find semantically similar documents using embeddings
 - **Pattern Learning**: Detect and learn user preferences and workflows
 - **Relationship Discovery**: Automatically identify connections between documents
-- **Multi-LLM Support**: Pluggable LLM providers (Gemini, OpenAI, local)
-- **On-Device Only**: All processing local, no cloud sync
+- **Multi-LLM Support**: Configurable Gemini and Groq text providers with HuggingFace embeddings
+- **Local Persistence**: Metadata is stored locally; AI requests only run when the user invokes a configured provider
 
-### AI Commands (via Palette - Cmd+K / Ctrl+K)
+### AI Commands (via Palette - Ctrl/Cmd+Shift+I)
 - **Summarize**: Generate document summaries
 - **Analyze**: Provide content insights and analysis
 - **Format**: Fix markdown formatting issues
@@ -39,7 +39,7 @@ src/ai/
 │   ├── LLMRegistry.js             # Provider registry
 │   └── providers/
 │       ├── GeminiProvider.js      # Google Gemini
-│       └── (OpenAI, Local, etc.)
+│       └── GroqProvider.js        # Groq text generation
 ├── services/                      # Core services
 │   ├── DocumentService.js         # Document indexing
 │   ├── EmbeddingService.js        # Vector embeddings
@@ -285,10 +285,10 @@ queryExecutor.registerTool('custom', new CustomTool());
 
 ## Security & Privacy
 
-- ✅ **On-device only**: No cloud sync
+- ✅ **No background cloud sync**: AI requests are sent only to the providers the user configures and explicitly invokes
 - ✅ **Encrypted storage**: API keys stored securely via Electron's safeStorage
-- ✅ **No telemetry**: User patterns stored locally only
-- ✅ **User control**: Settings to disable learning, clear memory
+- ✅ **Local metadata**: Pattern data and embeddings stay in local app storage
+- ✅ **User control**: Settings to disable learning, embeddings, and relationship discovery, plus clear local AI data
 - ✅ **Context isolation**: Per-workspace isolated AI context
 
 ## Future Enhancements
@@ -303,7 +303,7 @@ queryExecutor.registerTool('custom', new CustomTool());
 
 ## API Reference
 
-See [AI_API.md](./AI_API.md) for detailed API documentation.
+See [AI_API.md](./AI_API.md) for module and integration reference.
 
 ## License
 
