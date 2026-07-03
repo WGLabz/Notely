@@ -2083,6 +2083,36 @@ export default function App() {
             </div>
           ) : (
             <div className="landing-notes-pane standalone">
+              <div className="landing-header">
+                <div className="landing-header-main">
+                  <div className="landing-title-row">
+                    <h1>{landingTitle}</h1>
+                  </div>
+                  <nav className="landing-path" aria-label="Folder path">
+                    {breadcrumbSegments.map((segment, index) => {
+                      const isLast = index === breadcrumbSegments.length - 1;
+                      return (
+                        <span className="landing-path-part" key={segment.path}>
+                          <button
+                            className={`landing-path-segment${isLast ? " active" : ""}`}
+                            type="button"
+                            disabled={isLast}
+                            title={segment.label}
+                            onClick={() => {
+                              if (!isLast) {
+                                void handleLandingNavigateTo(segment.path);
+                              }
+                            }}
+                          >
+                            {segment.label}
+                          </button>
+                          {!isLast ? <span className="landing-path-separator" aria-hidden="true">/</span> : null}
+                        </span>
+                      );
+                    })}
+                  </nav>
+                </div>
+              </div>
               <LandingListControls
                 query={landingListQuery}
                 onQueryChange={setLandingListQuery}

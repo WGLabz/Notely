@@ -2374,7 +2374,7 @@ button {
 
 .landing-path-segment {
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: #3f5b63;
   font-size: 12px;
