@@ -781,7 +781,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
     return () => {
       previewElement.removeEventListener("click", handleMediaClick);
     };
-  }, [basePath, inlineLinkedMarkdown, onMediaClick, onNotify]);
+  }, [basePath, inlineLinkedMarkdown, onMediaClick, onNotify, content, onContentChange]);
 
   useEffect(() => {
     if (!contextMenu) return undefined;

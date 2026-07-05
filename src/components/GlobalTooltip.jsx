@@ -116,7 +116,7 @@ export default function GlobalTooltip() {
         }));
       }
     }
-  }, [tooltipState.visible, tooltipState.content, tooltipState.targetRect]);
+  }, [tooltipState.visible, tooltipState.content, tooltipState.targetRect, tooltipState.x, tooltipState.y, tooltipState.placement]);
 
   if (!tooltipState.visible && !tooltipState.content) return null;
 

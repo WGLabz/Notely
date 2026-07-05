@@ -39,8 +39,8 @@ function buildAppMenu(win, context = {}) {
   const themePreference = ["auto", "light", "dark"].includes(context?.themePreference)
     ? context.themePreference
     : "auto";
-  const terminalOpen = context?.terminalOpen === true;
-  const terminalShell = context?.terminalShell === "bash" || context?.terminalShell === "cmd"
+  const _terminalOpen = context?.terminalOpen === true;
+  const _terminalShell = context?.terminalShell === "bash" || context?.terminalShell === "cmd"
     ? context.terminalShell
     : "auto";
   const isDevMode = Boolean(context?.isDevMode);
