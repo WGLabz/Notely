@@ -199,36 +199,6 @@ function buildAppMenu(win, context = {}) {
         },
         { type: "separator" },
         {
-          label: "Show Terminal",
-          type: "checkbox",
-          checked: terminalOpen,
-          click: () => sendMenuAction(win, "toggle-terminal")
-        },
-        {
-          label: "Terminal Shell",
-          submenu: [
-            {
-              label: "Auto",
-              type: "checkbox",
-              checked: terminalShell === "auto",
-              click: () => sendMenuAction(win, "terminal-shell-auto")
-            },
-            {
-              label: "Bash",
-              type: "checkbox",
-              checked: terminalShell === "bash",
-              click: () => sendMenuAction(win, "terminal-shell-bash")
-            },
-            {
-              label: "CMD",
-              type: "checkbox",
-              checked: terminalShell === "cmd",
-              click: () => sendMenuAction(win, "terminal-shell-cmd")
-            },
-          ],
-        },
-        { type: "separator" },
-        {
           label: "Theme",
           submenu: [
             {
@@ -259,25 +229,30 @@ function buildAppMenu(win, context = {}) {
         },
         { type: "separator" },
         {
-          label: "Show Outline",
-          type: "checkbox",
-          checked: outlineEnabled,
-          accelerator: "CmdOrCtrl+Alt+L",
-          click: () => sendMenuAction(win, "toggle-outline-enabled")
-        },
-        {
-          label: "Split Preview",
-          type: "checkbox",
-          checked: splitPreviewEnabled,
-          accelerator: "CmdOrCtrl+\\",
-          click: () => sendMenuAction(win, "toggle-split-preview")
-        },
-        {
-          label: "Focus Mode",
-          type: "checkbox",
-          checked: focusModeEnabled,
-          accelerator: "CmdOrCtrl+Alt+F",
-          click: () => sendMenuAction(win, "toggle-focus-mode")
+          label: "Editor Layout",
+          submenu: [
+            {
+              label: "Show Outline",
+              type: "checkbox",
+              checked: outlineEnabled,
+              accelerator: "CmdOrCtrl+Alt+L",
+              click: () => sendMenuAction(win, "toggle-outline-enabled")
+            },
+            {
+              label: "Split Preview",
+              type: "checkbox",
+              checked: splitPreviewEnabled,
+              accelerator: "CmdOrCtrl+\\",
+              click: () => sendMenuAction(win, "toggle-split-preview")
+            },
+            {
+              label: "Focus Mode",
+              type: "checkbox",
+              checked: focusModeEnabled,
+              accelerator: "CmdOrCtrl+Alt+F",
+              click: () => sendMenuAction(win, "toggle-focus-mode")
+            }
+          ]
         },
         {
           label: "Preview Options",
@@ -320,59 +295,70 @@ function buildAppMenu(win, context = {}) {
         },
         { type: "separator" },
         {
-          label: "Zoom In",
-          accelerator: "CmdOrCtrl+=",
-          click: () => sendMenuAction(win, "zoom-in")
-        },
-        {
-          label: "Zoom Out",
-          accelerator: "CmdOrCtrl+-",
-          click: () => sendMenuAction(win, "zoom-out")
-        },
-        {
-          label: "Reset Zoom",
-          accelerator: "CmdOrCtrl+0",
-          click: () => sendMenuAction(win, "zoom-reset")
-        },
-        { type: "separator" },
-        { role: "reload" },
-        { role: "forceReload" },
-        ...(isDevMode ? [{ role: "toggleDevTools" }] : [])
-      ]
-    : [
-        {
-          label: "Open Command Palette",
-          click: () => sendMenuAction(win, "open-command-palette")
-        },
-        { type: "separator" },
-        {
-          label: "Show Terminal",
-          type: "checkbox",
-          checked: terminalOpen,
-          click: () => sendMenuAction(win, "toggle-terminal")
-        },
-        {
-          label: "Terminal Shell",
+          label: "Terminal",
           submenu: [
             {
-              label: "Auto",
+              label: "Show Terminal",
+              type: "checkbox",
+              checked: terminalOpen,
+              click: () => sendMenuAction(win, "toggle-terminal")
+            },
+            { type: "separator" },
+            {
+              label: "Shell: Auto",
               type: "checkbox",
               checked: terminalShell === "auto",
               click: () => sendMenuAction(win, "terminal-shell-auto")
             },
             {
-              label: "Bash",
+              label: "Shell: Bash",
               type: "checkbox",
               checked: terminalShell === "bash",
               click: () => sendMenuAction(win, "terminal-shell-bash")
             },
             {
-              label: "CMD",
+              label: "Shell: CMD",
               type: "checkbox",
               checked: terminalShell === "cmd",
               click: () => sendMenuAction(win, "terminal-shell-cmd")
+            }
+          ]
+        },
+        { type: "separator" },
+        {
+          label: "Zoom",
+          submenu: [
+            {
+              label: "Zoom In",
+              accelerator: "CmdOrCtrl+=",
+              click: () => sendMenuAction(win, "zoom-in")
             },
-          ],
+            {
+              label: "Zoom Out",
+              accelerator: "CmdOrCtrl+-",
+              click: () => sendMenuAction(win, "zoom-out")
+            },
+            {
+              label: "Reset Zoom",
+              accelerator: "CmdOrCtrl+0",
+              click: () => sendMenuAction(win, "zoom-reset")
+            }
+          ]
+        },
+        { type: "separator" },
+        {
+          label: "Developer",
+          submenu: [
+            { role: "reload" },
+            { role: "forceReload" },
+            ...(isDevMode ? [{ type: "separator" }, { role: "toggleDevTools" }] : [])
+          ]
+        }
+      ]
+    : [
+        {
+          label: "Open Command Palette",
+          click: () => sendMenuAction(win, "open-command-palette")
         },
         { type: "separator" },
         {
@@ -400,54 +386,100 @@ function buildAppMenu(win, context = {}) {
         },
         { type: "separator" },
         {
-          label: "Tile Notes",
-          accelerator: "CmdOrCtrl+1",
-          type: "checkbox",
-          checked: viewMode === "tile",
-          click: () => sendMenuAction(win, "view-tile")
+          label: "Dashboard View",
+          submenu: [
+            {
+              label: "Tile Notes",
+              accelerator: "CmdOrCtrl+1",
+              type: "checkbox",
+              checked: viewMode === "tile",
+              click: () => sendMenuAction(win, "view-tile")
+            },
+            {
+              label: "Table Notes",
+              accelerator: "CmdOrCtrl+2",
+              type: "checkbox",
+              checked: viewMode === "table",
+              click: () => sendMenuAction(win, "view-table")
+            },
+            { type: "separator" },
+            {
+              label: "Comfortable Density",
+              accelerator: "CmdOrCtrl+3",
+              type: "checkbox",
+              checked: densityMode === "comfortable",
+              click: () => sendMenuAction(win, "view-density-comfortable")
+            },
+            {
+              label: "Compact Density",
+              accelerator: "CmdOrCtrl+4",
+              type: "checkbox",
+              checked: densityMode === "compact",
+              click: () => sendMenuAction(win, "view-density-compact")
+            }
+          ]
         },
+        { type: "separator" },
         {
-          label: "Table Notes",
-          accelerator: "CmdOrCtrl+2",
-          type: "checkbox",
-          checked: viewMode === "table",
-          click: () => sendMenuAction(win, "view-table")
+          label: "Terminal",
+          submenu: [
+            {
+              label: "Show Terminal",
+              type: "checkbox",
+              checked: terminalOpen,
+              click: () => sendMenuAction(win, "toggle-terminal")
+            },
+            { type: "separator" },
+            {
+              label: "Shell: Auto",
+              type: "checkbox",
+              checked: terminalShell === "auto",
+              click: () => sendMenuAction(win, "terminal-shell-auto")
+            },
+            {
+              label: "Shell: Bash",
+              type: "checkbox",
+              checked: terminalShell === "bash",
+              click: () => sendMenuAction(win, "terminal-shell-bash")
+            },
+            {
+              label: "Shell: CMD",
+              type: "checkbox",
+              checked: terminalShell === "cmd",
+              click: () => sendMenuAction(win, "terminal-shell-cmd")
+            }
+          ]
         },
         { type: "separator" },
         {
-          label: "Comfortable Density",
-          accelerator: "CmdOrCtrl+3",
-          type: "checkbox",
-          checked: densityMode === "comfortable",
-          click: () => sendMenuAction(win, "view-density-comfortable")
-        },
-        {
-          label: "Compact Density",
-          accelerator: "CmdOrCtrl+4",
-          type: "checkbox",
-          checked: densityMode === "compact",
-          click: () => sendMenuAction(win, "view-density-compact")
-        },
-        { type: "separator" },
-        {
-          label: "Zoom In",
-          accelerator: "CmdOrCtrl+=",
-          click: () => sendMenuAction(win, "zoom-in")
-        },
-        {
-          label: "Zoom Out",
-          accelerator: "CmdOrCtrl+-",
-          click: () => sendMenuAction(win, "zoom-out")
-        },
-        {
-          label: "Reset Zoom",
-          accelerator: "CmdOrCtrl+0",
-          click: () => sendMenuAction(win, "zoom-reset")
+          label: "Zoom",
+          submenu: [
+            {
+              label: "Zoom In",
+              accelerator: "CmdOrCtrl+=",
+              click: () => sendMenuAction(win, "zoom-in")
+            },
+            {
+              label: "Zoom Out",
+              accelerator: "CmdOrCtrl+-",
+              click: () => sendMenuAction(win, "zoom-out")
+            },
+            {
+              label: "Reset Zoom",
+              accelerator: "CmdOrCtrl+0",
+              click: () => sendMenuAction(win, "zoom-reset")
+            }
+          ]
         },
         { type: "separator" },
-        { role: "reload" },
-        { role: "forceReload" },
-        ...(isDevMode ? [{ role: "toggleDevTools" }] : [])
+        {
+          label: "Developer",
+          submenu: [
+            { role: "reload" },
+            { role: "forceReload" },
+            ...(isDevMode ? [{ type: "separator" }, { role: "toggleDevTools" }] : [])
+          ]
+        }
       ];
 
   const template = [
