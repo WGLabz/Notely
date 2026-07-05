@@ -1,12 +1,12 @@
 {
   "name": "notely",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Notely desktop markdown notes app.",
   "license": "CC-BY-NC-4.0",
   "author": {
-    "name": "Notely Team",
-    "email": "hello@notely.app"
+    "name": "WGLabz",
+    "email": "weargeniuslabs@gmail.com"
   },
   "main": "electron/main.cjs",
   "scripts": {
