@@ -196,7 +196,7 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
               {taskCounts.total > 0 && (
                 <div
                   className="dashboard-task-badge dashboard-task-summary"
-                  title={`${taskCounts.open} open | ${taskCounts.closed} closed`}
+                  data-tooltip={`${taskCounts.open} open | ${taskCounts.closed} closed`}
                   aria-label={`${taskCounts.open} open tasks and ${taskCounts.closed} closed tasks`}
                 >
                   <span className="task-open">{taskCounts.open}</span>
@@ -340,7 +340,7 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
               {taskCounts.total > 0 && (
                 <div
                   className="dashboard-task-badge dashboard-task-summary"
-                  title={`${taskCounts.open} open | ${taskCounts.closed} closed`}
+                  data-tooltip={`${taskCounts.open} open | ${taskCounts.closed} closed`}
                   aria-label={`${taskCounts.open} open tasks and ${taskCounts.closed} closed tasks`}
                 >
                   <span className="task-open">{taskCounts.open}</span>

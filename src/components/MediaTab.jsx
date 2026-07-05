@@ -534,7 +534,7 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
             type="button"
             onClick={() => setFilterType("missing")}
             disabled={!healthReport.missingFiles.length}
-            title="Show media links whose files are missing"
+            data-tooltip="Show media links whose files are missing"
           >
             Missing {healthReport.missingFiles.length}
           </button>
@@ -543,7 +543,7 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
             type="button"
             onClick={() => setFilterType("unused")}
             disabled={!healthReport.unusedFiles.length}
-            title="Show media files not referenced by any note"
+            data-tooltip="Show media files not referenced by any note"
           >
             Unused {healthReport.unusedFiles.length}
           </button>
@@ -552,7 +552,7 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
             type="button"
             onClick={() => setFilterType("duplicates")}
             disabled={!healthReport.duplicateGroups.length}
-            title="Show files with duplicate names"
+            data-tooltip="Show files with duplicate names"
           >
             Duplicates {healthReport.duplicateGroups.length}
           </button>
@@ -561,7 +561,7 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
             type="button"
             onClick={() => setFilterType("annotated")}
             disabled={!mediaSummary.annotated}
-            title="Show media with annotations"
+            data-tooltip="Show media with annotations"
           >
             Annotated {mediaSummary.annotated}
           </button>
@@ -570,7 +570,7 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
             type="button"
             onClick={() => setFilterType("preview-failed")}
             disabled={!healthReport.previewFailures.length}
-            title="Show media whose preview failed to load"
+            data-tooltip="Show media whose preview failed to load"
           >
             Preview failed {healthReport.previewFailures.length}
           </button>
@@ -580,7 +580,7 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
               type="button"
               onClick={handleDeleteUnusedMedia}
               disabled={busy}
-              title="Delete all unused media files"
+              data-tooltip="Delete all unused media files"
             >
               <Trash2 size={14} />
               Clean unused
@@ -619,7 +619,7 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
           <option value="referenced-first">Referenced First</option>
         </AppSelect>
         <div className="media-toolbar-actions">
-          <label className="media-upload-target" title="Choose where newly added media is stored">
+          <label className="media-upload-target" data-tooltip="Choose where newly added media is stored">
             <span>Save to</span>
             <AppSelect
               className="media-select"
@@ -638,7 +638,7 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
               danger
               onClick={handleDeleteUnusedMedia}
               disabled={busy}
-              title={`Delete ${unusedCount} unused media file${unusedCount === 1 ? "" : "s"}`}
+              data-tooltip={`Delete ${unusedCount} unused media file${unusedCount === 1 ? "" : "s"}`}
             >
               <Trash2 size={14} />
               <span>Delete unused ({unusedCount})</span>
@@ -649,7 +649,7 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
             iconOnly
             onClick={() => addInputRef.current?.click()}
             disabled={busy}
-            title="Add media"
+            data-tooltip="Add media"
           >
             <ImagePlus size={16} />
           </AppButton>
@@ -658,7 +658,7 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
             iconOnly
             onClick={() => setRefreshKey((value) => value + 1)}
             disabled={busy}
-            title="Refresh media"
+            data-tooltip="Refresh media"
           >
             <RefreshCw size={16} />
           </AppButton>
@@ -719,7 +719,7 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
                   }
                 }}
                 aria-label={`Preview ${fileName}`}
-                title="Click to preview"
+                data-tooltip="Click to preview"
               >
                 {showFallback ? (
                   <div className="media-fallback">
@@ -754,60 +754,60 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
                   </div>
                 )}
                 {previewBadge ? (
-                  <span className="media-type-chip" title={`Type: ${previewBadge.label}`}>
+                  <span className="media-type-chip" data-tooltip={`Type: ${previewBadge.label}`}>
                     {previewBadge.icon} {previewBadge.label}
                   </span>
                 ) : null}
                 {annotationText ? (
-                  <span className="media-annotation-badge" title={`Annotation: ${annotationText}`}>
+                  <span className="media-annotation-badge" data-tooltip={`Annotation: ${annotationText}`}>
                     Note
                   </span>
                 ) : null}
                 {mediaType === "image" && image.hasOriginal ? (
-                  <span className="media-original-badge" title="Original image backup available in .notes-app">
+                  <span className="media-original-badge" data-tooltip="Original image backup available in .notes-app">
                     Original saved
                   </span>
                 ) : null}
-                <span className="media-preview-name" title={fileName}>{fileName}</span>
+                <span className="media-preview-name" data-tooltip={fileName}>{fileName}</span>
               </div>
               <div className="media-info">
                 <div className="media-title-row">
-                  <p className="media-alt" title={image.altText}>{image.altText}</p>
+                  <p className="media-alt" data-tooltip={image.altText}>{image.altText}</p>
                   {referenced ? (
                     <span
                       className="media-badge linked"
-                      title={`Referenced in ${image.referenceCount || 0} note${(image.referenceCount || 0) === 1 ? "" : "s"}`}
+                      data-tooltip={`Referenced in ${image.referenceCount || 0} note${(image.referenceCount || 0) === 1 ? "" : "s"}`}
                     >
                       {`${image.referenceCount || 0} Refs`}
                     </span>
                   ) : (
-                    <span className="media-badge unlinked" title="Not referenced in any note">
+                    <span className="media-badge unlinked" data-tooltip="Not referenced in any note">
                       Unused
                     </span>
                   )}
                 </div>
                 {annotationText ? (
-                  <div className="media-annotation-row" title={annotationText}>
+                  <div className="media-annotation-row" data-tooltip={annotationText}>
                     <p className="media-annotation-text">{annotationText}</p>
                     <button
                       className="media-annotation-clear"
                       type="button"
                       onClick={() => handleClearAnnotation(image)}
                       disabled={busy}
-                      title="Clear annotation"
+                      data-tooltip="Clear annotation"
                       aria-label="Clear annotation"
                     >
                       <X size={12} />
                     </button>
                   </div>
                 ) : null}
-                <p className="media-path" title={image.path}>{image.path}</p>
+                <p className="media-path" data-tooltip={image.path}>{image.path}</p>
                 {referenced ? (
                   <button
                     className="media-usage-link"
                     type="button"
                     onClick={() => setUsageInspectorImage(image)}
-                    title="Inspect note usage"
+                    data-tooltip="Inspect note usage"
                   >
                     <ListTree size={12} />
                     <span>{image.referenceCount || 0} note{(image.referenceCount || 0) === 1 ? "" : "s"}</span>
@@ -818,18 +818,18 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
                     variant="small"
                     iconOnly
                     onClick={() => setSelectedMediaPreview({ path: image.path, type: mediaType })}
-                    title="Preview media"
+                    data-tooltip="Preview media"
                   >
                     <Eye size={14} />
                   </AppButton>
-                  <AppButton variant="small" iconOnly onClick={() => handleCopyMarkdown(image)} title="Copy markdown">
+                  <AppButton variant="small" iconOnly onClick={() => handleCopyMarkdown(image)} data-tooltip="Copy markdown">
                     <Copy size={14} />
                   </AppButton>
                   <AppButton
                     variant="small"
                     iconOnly
                     onClick={() => setUsageInspectorImage(image)}
-                    title="Inspect usage"
+                    data-tooltip="Inspect usage"
                   >
                     <ListTree size={14} />
                   </AppButton>
@@ -838,7 +838,7 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
                     iconOnly
                     onClick={() => handleOpenInDefaultApp(image.path)}
                     disabled={!basePath || openingPath === image.path}
-                    title={openingPath === image.path ? "Opening..." : "Open in default app"}
+                    data-tooltip={openingPath === image.path ? "Opening..." : "Open in default app"}
                   >
                     <ExternalLink size={14} />
                   </AppButton>
@@ -847,7 +847,7 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
                     iconOnly
                     onClick={() => openReplacePicker(image.path)}
                     disabled={busy}
-                    title="Update media"
+                    data-tooltip="Update media"
                   >
                     <Upload size={14} />
                   </AppButton>
@@ -857,7 +857,7 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
                     iconOnly
                     onClick={() => handleDeleteImage(image.path, referenced)}
                     disabled={busy}
-                    title={referenced ? "Remove media links" : "Delete media"}
+                    data-tooltip={referenced ? "Remove media links" : "Delete media"}
                   >
                     <Trash2 size={14} />
                   </AppButton>
@@ -898,7 +898,7 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
             <div className="media-usage-header">
               <div>
                 <h3>Media Usage</h3>
-                <p title={usageInspectorImage.path}>{usageInspectorImage.path}</p>
+                <p data-tooltip={usageInspectorImage.path}>{usageInspectorImage.path}</p>
               </div>
               <AppButton
                 variant="small"
@@ -916,7 +916,7 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
                   <div className="media-usage-row" key={documentRef.filePath}>
                     <div className="media-usage-row-text">
                       <strong>{documentRef.title || documentRef.fileName || "Untitled note"}</strong>
-                      <span title={documentRef.filePath}>{documentRef.filePath}</span>
+                      <span data-tooltip={documentRef.filePath}>{documentRef.filePath}</span>
                     </div>
                     {typeof onOpenDocument === "function" ? (
                       <AppButton variant="small" onClick={() => handleOpenUsageDocument(documentRef.filePath)}>

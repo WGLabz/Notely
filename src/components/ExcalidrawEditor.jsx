@@ -477,7 +477,7 @@ const ExcalidrawComponent = ({
                       key={item.key}
                       type="button"
                       onClick={() => insertLibraryItem(item)}
-                      title={item.name}
+                      data-tooltip={item.name}
                     >
                       <span className="library-search-result-preview" aria-hidden="true">
                         {libraryItemPreviews[item.key] ? (

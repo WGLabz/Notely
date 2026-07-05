@@ -328,7 +328,7 @@ export function GlobalSearchOverlay({
             type="button"
             className={typeFilter === "code" ? "active" : ""}
             onClick={() => setTypeFilter("code")}
-            title="Search only inside code blocks and inline code"
+            data-tooltip="Search only inside code blocks and inline code"
           >
             Code Blocks
           </button>
@@ -337,7 +337,7 @@ export function GlobalSearchOverlay({
             type="button"
             className={`global-search-regex-toggle${useRegex ? " active" : ""}${useRegex && !regexValid ? " error" : ""}`}
             onClick={() => setUseRegex((v) => !v)}
-            title="Toggle regular expression search"
+            data-tooltip="Toggle regular expression search"
             aria-pressed={useRegex}
           >
             .*

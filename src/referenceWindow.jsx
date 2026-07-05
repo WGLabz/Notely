@@ -198,7 +198,7 @@ function ReferenceWindowApp() {
               }}
               disabled={!isDirty || saving}
               type="button"
-              title="Save (Ctrl/Cmd+S)"
+              data-tooltip="Save (Ctrl/Cmd+S)"
             >
               <Save size={14} aria-hidden="true" />
               {saving ? "Saving..." : "Save"}

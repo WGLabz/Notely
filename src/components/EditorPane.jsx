@@ -491,7 +491,7 @@ export function EditorPane({
                 className={`split-sync-toggle ${scrollSyncEnabled ? "active" : ""}`}
                 type="button"
                 onClick={() => setScrollSyncEnabled((enabled) => !enabled)}
-                title={scrollSyncEnabled ? "Scroll sync is on" : "Scroll sync is off"}
+                data-tooltip={scrollSyncEnabled ? "Scroll sync is on" : "Scroll sync is off"}
                 aria-pressed={scrollSyncEnabled}
               >
                 {scrollSyncEnabled ? <Link2 size={14} /> : <Unlink size={14} />}

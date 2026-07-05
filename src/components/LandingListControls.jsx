@@ -84,7 +84,7 @@ export function LandingListControls({
           variant="small"
           className="landing-new-note-btn"
           onClick={onCreateNote}
-          title="Create a new note"
+          data-tooltip="Create a new note"
           aria-label="Create a new note"
         >
           <FilePlus2 size={16} />

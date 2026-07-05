@@ -18,7 +18,7 @@ export function DocumentEntryActions({
           type="button"
           className={className}
           aria-label={label}
-          title={title}
+          data-tooltip={title}
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -36,7 +36,7 @@ export function DocumentEntryActions({
         tabIndex={0}
         className={className}
         aria-label={label}
-        title={title}
+        data-tooltip={title}
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();

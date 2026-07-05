@@ -519,7 +519,7 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
             {mediaType === "pdf" && "📄"}
             {mediaType === "document" && docKind.icon}
           </span>
-          <span className="media-preview-filename" title={mediaPath}>
+          <span className="media-preview-filename" data-tooltip={mediaPath}>
             {fileName}
           </span>
           {fileExtension ? <span className="media-preview-ext">{fileExtension.toUpperCase()}</span> : null}
@@ -527,7 +527,7 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
         <button
           className="media-preview-close"
           onClick={onClose}
-          title="Close preview"
+          data-tooltip="Close preview"
           aria-label="Close media preview"
         >
           <X size={16} />
@@ -545,7 +545,7 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
                   className="image-action-button icon-only"
                   onClick={handleZoomOut}
                   disabled={imageZoom <= 0.5}
-                  title="Zoom out"
+                  data-tooltip="Zoom out"
                   aria-label="Zoom out"
                 >
                   <ZoomOut size={14} />
@@ -555,7 +555,7 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
                   className="image-action-button icon-only"
                   onClick={handleZoomIn}
                   disabled={imageZoom >= 3}
-                  title="Zoom in"
+                  data-tooltip="Zoom in"
                   aria-label="Zoom in"
                 >
                   <ZoomIn size={14} />
@@ -564,7 +564,7 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
                   className="image-action-button icon-only"
                   onClick={handleZoomReset}
                   disabled={imageZoom === 1}
-                  title="Reset zoom"
+                  data-tooltip="Reset zoom"
                   aria-label="Reset zoom"
                 >
                   <Maximize2 size={14} />
@@ -574,7 +574,7 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
                 <button
                   className="image-action-button"
                   onClick={() => handleOpenCrop({ annotationOnly: true })}
-                  title="Annotate image"
+                  data-tooltip="Annotate image"
                   aria-label="Annotate image"
                 >
                   <Pencil size={14} />
@@ -584,7 +584,7 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
                   <button
                     className="image-action-button"
                     onClick={handleRestoreOriginal}
-                    title="Restore original image"
+                    data-tooltip="Restore original image"
                     aria-label="Restore original image"
                     disabled={restoringOriginal}
                   >
@@ -595,7 +595,7 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
                 <button
                   className="image-action-button icon-only"
                   onClick={handleDownloadImage}
-                  title="Download image"
+                  data-tooltip="Download image"
                   aria-label="Download image"
                 >
                   <Download size={14} />
@@ -618,7 +618,7 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
                   alt="Preview"
                   onError={() => setError("Failed to load image")}
                   onContextMenu={handleImageContextMenu}
-                  title="Use the controls above to annotate or edit"
+                  data-tooltip="Use the controls above to annotate or edit"
                 />
                 {imageAnnotation?.text ? (
                   <span className="media-preview-image-annotation">
@@ -665,7 +665,7 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
             <button
               className="audio-mute-button"
               onClick={() => setIsMuted(!isMuted)}
-              title={isMuted ? "Unmute" : "Mute"}
+              data-tooltip={isMuted ? "Unmute" : "Mute"}
             >
               {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
             </button>
@@ -698,7 +698,7 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
               type="button"
               onClick={handleOpenInDefaultApp}
               disabled={!basePath || openingExternal}
-              title="Open in default app"
+              data-tooltip="Open in default app"
               aria-label="Open in default app"
             >
               <ExternalLink size={14} />
@@ -708,7 +708,7 @@ export function MediaPreviewPane({ mediaPath, mediaType, basePath, showOriginalI
               className="image-action-button"
               type="button"
               onClick={handleDownloadMedia}
-              title="Download file"
+              data-tooltip="Download file"
               aria-label="Download file"
             >
               <Download size={14} />

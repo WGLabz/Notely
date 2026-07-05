@@ -576,7 +576,7 @@ export default function AIPalette({
                   onClick={() => handleApply(option.id)}
                   disabled={option.disabled}
                   type="button"
-                  title={option.disabled ? "Target unavailable for the current cursor state." : option.label}
+                  data-tooltip={option.disabled ? "Target unavailable for the current cursor state." : option.label}
                 >
                   {option.label}
                 </button>

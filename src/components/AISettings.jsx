@@ -426,7 +426,7 @@ const AISettings = ({ isOpen, onClose }) => {
                   onClick={() => provider.available && setSelectedProvider(provider.id)}
                   disabled={loading || !provider.available}
                   type="button"
-                  title={!provider.available ? 'Coming soon' : undefined}
+                  data-tooltip={!provider.available ? 'Coming soon' : undefined}
                 >
                   <div className="provider-name">
                     {provider.name}

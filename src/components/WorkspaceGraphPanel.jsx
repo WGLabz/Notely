@@ -58,7 +58,7 @@ function GraphNode({ data }) {
     <div
       className={`wgp-node${selected ? " selected" : ""}${dimmed ? " dimmed" : ""}${isMedia ? " media-node" : ""}`}
       style={{ background: isMedia ? "var(--surface-muted)" : color, border: isMedia ? "1px dashed var(--text-subtle)" : undefined }}
-      title={isMedia ? `Media: ${label}` : label}
+      data-tooltip={isMedia ? `Media: ${label}` : label}
     >
       <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
       {isMedia && <span style={{ marginRight: "4px", fontSize: "0.65em" }}>📎</span>}
@@ -193,7 +193,7 @@ function ClusterBackground({ clusters, nodes, clusterIdx }) {
         pointerEvents: "none",
         zIndex: -1,
       }}
-      title={`Semantic cluster: ${cluster.members.length} notes, strength ${(cluster.strength * 100).toFixed(0)}%`}
+      data-tooltip={`Semantic cluster: ${cluster.members.length} notes, strength ${(cluster.strength * 100).toFixed(0)}%`}
     />
   );
 }
@@ -460,17 +460,17 @@ export function WorkspaceGraphPanel({ onClose, onOpenDocument }) {
               variant="small"
               onClick={handleRefreshSemantic}
               disabled={semanticLoading}
-              title="Refresh semantic clustering"
+              data-tooltip="Refresh semantic clustering"
             >
               <RefreshCw size={14} />
             </AppButton>
           )}
           {!embeddingsAvailable && !loading && !error && (
-            <span className="embedding-status-badge" title="Semantic clustering unavailable">
+            <span className="embedding-status-badge" data-tooltip="Semantic clustering unavailable">
               <Zap size={12} /> Embeddings off
             </span>
           )}
-          <AppIconButton className="workspace-graph-close" onClick={onClose} title="Close (Esc)">
+          <AppIconButton className="workspace-graph-close" onClick={onClose} data-tooltip="Close (Esc)">
             <X size={18} />
           </AppIconButton>
         </div>
@@ -484,7 +484,7 @@ export function WorkspaceGraphPanel({ onClose, onOpenDocument }) {
               variant="small"
               className={showMedia ? "active" : ""}
               onClick={() => setShowMedia(!showMedia)}
-              title={showMedia ? "Hide media files" : "Show media files"}
+              data-tooltip={showMedia ? "Hide media files" : "Show media files"}
             >
               {showMedia ? <Eye size={14} /> : <EyeOff size={14} />}
               {showMedia ? 'Media On' : 'Media Off'}

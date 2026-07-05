@@ -193,7 +193,7 @@ export function DocumentList({
         const previewTiles = (doc.previewImages || []).slice(0, 4).map((image, index) => {
           const key = `${doc.filePath}:${index}:${image.sourceFilePath || doc.filePath}:${image.path}`;
           const resolved = resolvedPreviewImages[key];
-          return resolved ? <img src={resolved.src} alt="" title={resolved.name} key={key} /> : null;
+          return resolved ? <img src={resolved.src} alt="" data-tooltip={resolved.name} key={key} /> : null;
         });
         const hasPreview = previewTiles.some(Boolean);
 

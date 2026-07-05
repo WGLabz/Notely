@@ -204,7 +204,7 @@ export function P2PStatusPanel({
                     </tr>
                   ) : fullSyncRows.map((row) => (
                     <tr key={row.peerId}>
-                      <td className="mono-cell" title={row.peerId}>{row.peerId}</td>
+                      <td className="mono-cell" data-tooltip={row.peerId}>{row.peerId}</td>
                       <td>{row.phase || "unknown"}</td>
                       <td>{Number(row.queuedFiles || 0)}</td>
                       <td>{Number(row.totalFiles || 0)}</td>
@@ -374,7 +374,7 @@ export function P2PStatusPanel({
                     trustedPeers.map((peer) => (
                       <tr key={peer.peerId}>
                         <td>{peer.name}</td>
-                        <td className="mono-cell" title={peer.peerId}>{peer.peerId}</td>
+                        <td className="mono-cell" data-tooltip={peer.peerId}>{peer.peerId}</td>
                         <td className="mono-cell">{peer.address || "N/A"}</td>
                         <td>{peer.listenPort || "N/A"}</td>
                         <td>{formatDateTime(peer.pairedAt)}</td>
@@ -423,7 +423,7 @@ export function P2PStatusPanel({
                     ) : sortedDiscovered.map((peer) => (
                       <tr key={peer.peerId}>
                         <td>{peer.name}</td>
-                        <td className="mono-cell" title={peer.peerId}>{peer.peerId}</td>
+                        <td className="mono-cell" data-tooltip={peer.peerId}>{peer.peerId}</td>
                         <td className="mono-cell">{peer.address}</td>
                         <td>{peer.listenPort || "N/A"}</td>
                         <td>{formatDateTime(peer.lastSeenAt)}</td>
@@ -493,7 +493,7 @@ export function P2PStatusPanel({
                       <tbody>
                         {peerSyncMeta.map((meta) => (
                           <tr key={meta.peerId}>
-                            <td className="mono-cell" title={meta.peerId}>{meta.peerId}</td>
+                            <td className="mono-cell" data-tooltip={meta.peerId}>{meta.peerId}</td>
                             <td>{meta.lastAckAt ? formatDateTime(meta.lastAckAt) : "None"}</td>
                             <td className={meta.lastError ? "p2p-test-fail" : ""}>{meta.lastError || "OK"}</td>
                           </tr>

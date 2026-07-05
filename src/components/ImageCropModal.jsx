@@ -490,7 +490,7 @@ export function ImageCropModal({
             onClick={onClose}
             disabled={saving}
             aria-label="Close image dialog"
-            title="Close"
+            data-tooltip="Close"
           >
             <X size={14} />
           </AppButton>
@@ -533,7 +533,7 @@ export function ImageCropModal({
                   style={selectionToPercent(selection)}
                   aria-hidden="true"
                 >
-                  <div className="image-crop-move-zone" data-crop-handle="move" title="Move crop" />
+                  <div className="image-crop-move-zone" data-crop-handle="move" data-tooltip="Move crop" />
                   <span className="image-crop-handle nw" data-crop-handle="nw" />
                   <span className="image-crop-handle n" data-crop-handle="n" />
                   <span className="image-crop-handle ne" data-crop-handle="ne" />

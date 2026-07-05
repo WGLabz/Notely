@@ -195,7 +195,7 @@ export function HelpCenterModal({ open, onClose, _appInfo, documents = [] }) {
                                 className={`help-doc-nav-item${isActive ? " active" : ""}`}
                                 onClick={() => activateDocumentSlug(entry.slug)}
                                 aria-current={isActive ? "page" : undefined}
-                                title={entry.title || "Documentation"}
+                                data-tooltip={entry.title || "Documentation"}
                               >
                                 <span className="help-doc-nav-title">{entry.title || "Documentation"}</span>
                               </button>

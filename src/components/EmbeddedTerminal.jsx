@@ -133,7 +133,7 @@ export function EmbeddedTerminal({
               variant="small"
               className={activeShellButton === "cmd" ? "active" : ""}
               onClick={() => onShellPreferenceChange?.("cmd")}
-              title="Use CMD shell"
+              data-tooltip="Use CMD shell"
             >
               CMD
             </AppButton>
@@ -141,7 +141,7 @@ export function EmbeddedTerminal({
               variant="small"
               className={activeShellButton === "bash" ? "active" : ""}
               onClick={() => onShellPreferenceChange?.("bash")}
-              title="Use BASH shell"
+              data-tooltip="Use BASH shell"
             >
               BASH
             </AppButton>
@@ -149,14 +149,14 @@ export function EmbeddedTerminal({
         </div>
         <div className="embedded-terminal-header-right">
           {sessionError ? (
-            <span className="embedded-terminal-error" title={sessionError}>{sessionError}</span>
+            <span className="embedded-terminal-error" data-tooltip={sessionError}>{sessionError}</span>
           ) : null}
           {sessionError ? (
             <AppButton variant="small" onClick={() => setRetryTick((value) => value + 1)}>
               Retry
             </AppButton>
           ) : null}
-          <AppIconButton className="embedded-terminal-close" onClick={onClose} aria-label="Close terminal" title="Close terminal">
+          <AppIconButton className="embedded-terminal-close" onClick={onClose} aria-label="Close terminal" data-tooltip="Close terminal">
             <X size={14} />
           </AppIconButton>
         </div>

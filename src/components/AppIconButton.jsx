@@ -5,6 +5,7 @@ export const AppIconButton = forwardRef(function AppIconButton(
     className = "",
     type = "button",
     children,
+    title,
     ...rest
   },
   ref,
@@ -12,7 +13,7 @@ export const AppIconButton = forwardRef(function AppIconButton(
   const classes = ["icon-button", className].filter(Boolean).join(" ");
 
   return (
-    <button ref={ref} type={type} className={classes} {...rest}>
+    <button ref={ref} type={type} className={classes} data-tooltip={title} {...rest}>
       {children}
     </button>
   );

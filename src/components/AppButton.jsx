@@ -8,6 +8,7 @@ export const AppButton = forwardRef(function AppButton(
     className = "",
     type = "button",
     children,
+    title,
     ...rest
   },
   ref,
@@ -23,7 +24,7 @@ export const AppButton = forwardRef(function AppButton(
     .join(" ");
 
   return (
-    <button ref={ref} type={type} className={classes} {...rest}>
+    <button ref={ref} type={type} className={classes} data-tooltip={title} {...rest}>
       {children}
     </button>
   );

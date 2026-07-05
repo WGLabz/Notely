@@ -565,7 +565,7 @@ const MetadataPanel = memo(function MetadataPanel({
                 type="button"
                 className="metadata-tag-chip-remove"
                 aria-label={`Remove tag ${tag}`}
-                title={`Remove ${tag}`}
+                data-tooltip={`Remove ${tag}`}
                 onClick={() => onTagRemove(tag)}
               >
                 <X size={12} />
@@ -655,7 +655,7 @@ const FindReplacePanel = memo(function FindReplacePanel({
           onClick={() => setFindCaseSensitive((value) => !value)}
           aria-pressed={findCaseSensitive}
           aria-label="Toggle case sensitive search"
-          title="Match case"
+          data-tooltip="Match case"
         >
           <Type size={14} />
           Case
@@ -666,28 +666,28 @@ const FindReplacePanel = memo(function FindReplacePanel({
           onClick={() => setFindUseRegex((value) => !value)}
           aria-pressed={findUseRegex}
           aria-label="Toggle regular expression search"
-          title="Use regular expression"
+          data-tooltip="Use regular expression"
         >
           <Code2 size={14} />
           Regex
         </button>
       </div>
-      <AppButton variant="small" className="find-action-button" onClick={onFindPrevious} title="Previous match (Shift+Enter)">
+      <AppButton variant="small" className="find-action-button" onClick={onFindPrevious} data-tooltip="Previous match (Shift+Enter)">
         <ChevronLeft size={14} />
         Prev
       </AppButton>
-      <AppButton variant="small" className="find-action-button" onClick={onFindNext} title="Next match (Enter)">
+      <AppButton variant="small" className="find-action-button" onClick={onFindNext} data-tooltip="Next match (Enter)">
         <ChevronRight size={14} />
         Next
       </AppButton>
       {showReplaceControls ? (
-        <AppButton variant="small" className="find-action-button" onClick={onReplace} title="Replace current match">
+        <AppButton variant="small" className="find-action-button" onClick={onReplace} data-tooltip="Replace current match">
           <PenLine size={14} />
           Replace
         </AppButton>
       ) : null}
       {showReplaceControls ? (
-        <AppButton variant="small" className="find-action-button" onClick={onReplaceAll} title="Replace all matches">
+        <AppButton variant="small" className="find-action-button" onClick={onReplaceAll} data-tooltip="Replace all matches">
           <FilePenLine size={14} />
           Replace All
         </AppButton>
@@ -719,7 +719,7 @@ const OutlinePanel = memo(function OutlinePanel({
           <AppButton
             variant="small"
             onClick={() => setIsOutlineCollapsed(false)}
-            title="Open outline panel"
+            data-tooltip="Open outline panel"
             aria-expanded="false"
           >
             <ListTree size={16} />
@@ -733,7 +733,7 @@ const OutlinePanel = memo(function OutlinePanel({
               <AppButton
                 variant="small"
                 onClick={() => setIsOutlineCollapsed(true)}
-                title="Close outline panel"
+                data-tooltip="Close outline panel"
                 aria-expanded="true"
               >
                 <ChevronRight size={16} />
@@ -748,7 +748,7 @@ const OutlinePanel = memo(function OutlinePanel({
                   type="button"
                   className={`outline-item level-${entry.level}`}
                   onClick={() => onJumpToLine(entry.line)}
-                  title={`Go to line ${entry.line}`}
+                  data-tooltip={`Go to line ${entry.line}`}
                 >
                   <span>{entry.text}</span>
                   <em>L{entry.line}</em>
@@ -1748,7 +1748,7 @@ export function DocumentDetail({
               <span className="detail-breadcrumb-separator" aria-hidden="true">/</span>
             </span>
           )}
-          <span className="detail-breadcrumb-current" title={document.title}>{document.title}</span>
+          <span className="detail-breadcrumb-current" data-tooltip={document.title}>{document.title}</span>
         </nav>
         {taskCounts.total > 0 && (
           <div
@@ -1769,11 +1769,11 @@ export function DocumentDetail({
               aria-expanded={isTaskSummaryOpen}
               aria-controls={taskSummaryPopoverId}
             >
-              <span className="task-count-item" title="Open tasks">
+              <span className="task-count-item" data-tooltip="Open tasks">
                 <CheckSquare size={14} />
                 {taskCounts.open}
               </span>
-              <span className="task-count-item" title="Closed tasks">
+              <span className="task-count-item" data-tooltip="Closed tasks">
                 <Square size={14} />
                 {taskCounts.closed}
               </span>
@@ -1820,7 +1820,7 @@ export function DocumentDetail({
           variant="small"
           className={`autosave-toggle-btn ${autosaveEnabled ? "active" : ""}`}
           onClick={() => setAutosaveEnabled((value) => !value)}
-          title="Toggle autosave"
+          data-tooltip="Toggle autosave"
         >
           <Save size={18} />
           {autosaveEnabled ? "Autosave On" : "Autosave Off"}
@@ -1840,7 +1840,7 @@ export function DocumentDetail({
           <AppButton
             variant="small"
             className={showMetadataPanel ? "active" : ""}
-            title="Toggle note metadata"
+            data-tooltip="Toggle note metadata"
             onClick={() => setShowMetadataPanel((value) => !value)}
           >
             {showMetadataPanel ? <EyeOff size={14} /> : <ListTree size={14} />}
@@ -1877,7 +1877,7 @@ export function DocumentDetail({
         {isFocusMode ? (
           <div className="mode-contract-banner" role="status" aria-live="polite">
             <span>Focus mode is active. Outline is hidden to reduce distractions.</span>
-            <AppButton variant="small" onClick={toggleFocusMode} title="Exit focus mode">
+            <AppButton variant="small" onClick={toggleFocusMode} data-tooltip="Exit focus mode">
               Exit focus mode
             </AppButton>
           </div>
@@ -1889,7 +1889,7 @@ export function DocumentDetail({
                 <button
                   type="button"
                   className="copy-menu-trigger"
-                  title="Copy note content"
+                  data-tooltip="Copy note content"
                   disabled={showMediaManager}
                 >
                   <Clipboard size={16} />
@@ -1900,7 +1900,7 @@ export function DocumentDetail({
                   <button
                     type="button"
                     role="menuitem"
-                    title="Copy note content as rendered HTML"
+                    data-tooltip="Copy note content as rendered HTML"
                     onClick={handleCopyAsHtml}
                     disabled={showMediaManager}
                   >
@@ -1910,7 +1910,7 @@ export function DocumentDetail({
                   <button
                     type="button"
                     role="menuitem"
-                    title="Copy note content as plain text (markdown source)"
+                    data-tooltip="Copy note content as plain text (markdown source)"
                     onClick={handleCopyAsText}
                     disabled={showMediaManager}
                   >
@@ -1927,7 +1927,7 @@ export function DocumentDetail({
                     setShowMediaManager(false);
                     setActiveTab("raw");
                   }}
-                  title="Quick notes"
+                  data-tooltip="Quick notes"
                 >
                   <FilePenLine size={16} />
                   <span>Quick Notes</span>
@@ -1938,7 +1938,7 @@ export function DocumentDetail({
                     setShowMediaManager(false);
                     setActiveTab("cleansed");
                   }}
-                  title="Formal notes"
+                  data-tooltip="Formal notes"
                 >
                   <FileText size={16} />
                   <span>Formal Notes</span>
@@ -1948,7 +1948,7 @@ export function DocumentDetail({
               <button
                 className={showMediaManager ? "active" : ""}
                 type="button"
-                title="Open assets manager"
+                data-tooltip="Open assets manager"
                 onClick={() => setShowMediaManager((value) => !value)}
               >
                 <Images size={16} />
@@ -1961,7 +1961,7 @@ export function DocumentDetail({
                     key={item.key}
                     disabled={showMediaManager}
                     onClick={() => setEditorMode(item.key, { announce: false })}
-                    title={showMediaManager ? "Close Assets view to switch mode" : `Switch to ${item.label} mode`}
+                    data-tooltip={showMediaManager ? "Close Assets view to switch mode" : `Switch to ${item.label} mode`}
                   >
                     <item.icon size={16} />
                     <span>{item.label}</span>
@@ -2041,7 +2041,7 @@ export function DocumentDetail({
             type="button"
             className="ai-panel-reveal"
             onClick={onShowAI}
-            title="Show AI panel"
+            data-tooltip="Show AI panel"
             aria-label="Show AI panel"
           >
             AI
@@ -2066,7 +2066,7 @@ export function DocumentDetail({
                   variant="small"
                   className={smartMode ? "active" : ""}
                   onClick={() => setSmartMode((value) => !value)}
-                  title="Ignore whitespace and collapse unchanged blocks"
+                  data-tooltip="Ignore whitespace and collapse unchanged blocks"
                 >
                   <Sparkles size={14} />
                   Smart
@@ -2075,12 +2075,12 @@ export function DocumentDetail({
                   variant="small"
                   className={showOnlyChanges ? "active" : ""}
                   onClick={() => setShowOnlyChanges((value) => !value)}
-                  title="Toggle changed lines only"
+                  data-tooltip="Toggle changed lines only"
                 >
                   <Filter size={14} />
                   {showOnlyChanges ? "All lines" : "Changes only"}
                 </AppButton>
-                <AppButton variant="small" onClick={() => setCompareModalOpen(false)} title="Close diff">
+                <AppButton variant="small" onClick={() => setCompareModalOpen(false)} data-tooltip="Close diff">
                   <X size={14} />
                 </AppButton>
               </div>
@@ -2143,7 +2143,7 @@ export function DocumentDetail({
               </AppIconButton>
             </div>
             <div className="overlay-dialog-actions split">
-              <AppButton variant="small" onClick={onRefreshHistory} title="Refresh history">
+              <AppButton variant="small" onClick={onRefreshHistory} data-tooltip="Refresh history">
                 <RotateCcw size={16} />
                 Refresh
               </AppButton>
@@ -2158,7 +2158,7 @@ export function DocumentDetail({
                       <AppButton
                         variant="small"
                         onClick={() => handleCompareVersion(entry)}
-                        title="Compare with latest"
+                        data-tooltip="Compare with latest"
                       >
                         <GitCompare size={14} />
                         Compare
@@ -2166,7 +2166,7 @@ export function DocumentDetail({
                       <AppButton
                         variant="small"
                         onClick={() => handleRestoreVersion(entry)}
-                        title="Restore this version into the editor"
+                        data-tooltip="Restore this version into the editor"
                       >
                         <RotateCcw size={14} />
                         Restore
@@ -2174,7 +2174,7 @@ export function DocumentDetail({
                       <AppButton
                         variant="small"
                         onClick={() => handleDeleteVersion(entry)}
-                        title="Delete this version"
+                        data-tooltip="Delete this version"
                       >
                         <Trash2 size={14} />
                         Delete

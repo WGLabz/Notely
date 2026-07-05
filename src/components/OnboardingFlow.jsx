@@ -112,7 +112,7 @@ export function OnboardingFlow({
             <button
               type="button"
               className="onboarding-close-btn"
-              title={(canClose && workspaceConfirmed) ? "Skip & close onboarding" : "Please select and confirm a workspace folder to close"}
+              data-tooltip={(canClose && workspaceConfirmed) ? "Skip & close onboarding" : "Please select and confirm a workspace folder to close"}
               onClick={handleFinish}
               disabled={!(canClose && workspaceConfirmed)}
               style={{ 
@@ -243,7 +243,7 @@ export function OnboardingFlow({
                 </button>
 
                 <div className="onboarding-path-display">
-                  <span title={selectedWorkspacePath}>
+                  <span data-tooltip={selectedWorkspacePath}>
                     {selectedWorkspacePath || "No custom directory selected"}
                   </span>
                   <button 

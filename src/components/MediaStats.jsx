@@ -74,10 +74,10 @@ export function MediaStats({ allMedia, onDeleteUnused, isDeleting = false }) {
   }, [allMedia]);
 
   return (
-    <div className="media-stats-inline" title="Media statistics">
+    <div className="media-stats-inline" data-tooltip="Media statistics">
       <span
         className="inline-main"
-        title={`${stats.total} media, total size ${formatFileSize(stats.totalSize)}`}
+        data-tooltip={`${stats.total} media, total size ${formatFileSize(stats.totalSize)}`}
       >
         📊 {stats.total} media ({formatFileSize(stats.totalSize)})
       </span>
@@ -88,7 +88,7 @@ export function MediaStats({ allMedia, onDeleteUnused, isDeleting = false }) {
             <span
               key={type}
               className="inline-chip"
-              title={`${type}: ${data.count} item${data.count === 1 ? "" : "s"}, ${formatFileSize(data.size)}`}
+              data-tooltip={`${type}: ${data.count} item${data.count === 1 ? "" : "s"}, ${formatFileSize(data.size)}`}
             >
               <span className="type-icon">
                 {type === "image" && "🖼️"}
@@ -107,7 +107,7 @@ export function MediaStats({ allMedia, onDeleteUnused, isDeleting = false }) {
       {stats.unused > 0 && (
         <span
           className="inline-unused-group"
-          title={`${stats.unused} unused${stats.unusedSize > 0 ? `, ${formatFileSize(stats.unusedSize)}` : ""}`}
+          data-tooltip={`${stats.unused} unused${stats.unusedSize > 0 ? `, ${formatFileSize(stats.unusedSize)}` : ""}`}
         >
           <span className="inline-unused">
             <AlertCircle size={14} />
@@ -117,7 +117,7 @@ export function MediaStats({ allMedia, onDeleteUnused, isDeleting = false }) {
             className="cleanup-button icon-only"
             onClick={onDeleteUnused}
             disabled={isDeleting}
-            title={isDeleting ? "Cleaning unused media..." : "Delete all unused media files"}
+            data-tooltip={isDeleting ? "Cleaning unused media..." : "Delete all unused media files"}
             aria-label={isDeleting ? "Cleaning unused media" : "Delete all unused media files"}
           >
             <Trash2 size={12} />
@@ -126,7 +126,7 @@ export function MediaStats({ allMedia, onDeleteUnused, isDeleting = false }) {
       )}
 
       {stats.duplicates.length > 0 && (
-        <span className="inline-duplicates" title={`${stats.duplicates.length} potential duplicate group${stats.duplicates.length === 1 ? "" : "s"}`}>
+        <span className="inline-duplicates" data-tooltip={`${stats.duplicates.length} potential duplicate group${stats.duplicates.length === 1 ? "" : "s"}`}>
           Found <strong>{stats.duplicates.length}</strong> duplicates
         </span>
       )}

@@ -133,7 +133,7 @@ export function WorkspaceActivityPanel({ data, loading, onRefresh }) {
         </div>
         <div className="activity-summary-card">
           <span>Root</span>
-          <strong className="mono-cell" title={currentData.workspaceRoot || ""}>{currentData.workspaceRoot || "N/A"}</strong>
+          <strong className="mono-cell" data-tooltip={currentData.workspaceRoot || ""}>{currentData.workspaceRoot || "N/A"}</strong>
         </div>
         <div className="activity-summary-card">
           <span>Events</span>
@@ -197,7 +197,7 @@ export function WorkspaceActivityPanel({ data, loading, onRefresh }) {
                   <td>{formatReason(item.reason)}</td>
                   <td>{item.actor || "local-user"}</td>
                   <td>{item.fileName || "Unknown"}</td>
-                  <td className="mono-cell" title={item.relativePath || ""}>{item.relativePath || item.filePath || "N/A"}</td>
+                  <td className="mono-cell" data-tooltip={item.relativePath || ""}>{item.relativePath || item.filePath || "N/A"}</td>
                 </tr>
               ))
             )}

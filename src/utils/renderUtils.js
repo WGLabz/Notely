@@ -99,7 +99,7 @@ md.renderer.rules.fence = (tokens, idx, options, env) => {
     })
     .join("");
 
-  return `<figure class="markdown-code-block"${sourceLineAttr}><figcaption class="markdown-code-header"><span class="markdown-code-lang">${escapeHtml(languageLabel)}</span><button type="button" class="markdown-code-copy" data-code-copy="true" data-code-raw="${rawCodeData}" aria-label="Copy code block" title="Copy code"><span class="markdown-code-copy-icon" aria-hidden="true"></span></button></figcaption><pre class="markdown-code-pre"><code class="hljs${language ? ` language-${escapeHtml(language)}` : ""}">${numberedHtml}</code></pre></figure>`;
+  return `<figure class="markdown-code-block"${sourceLineAttr}><figcaption class="markdown-code-header"><span class="markdown-code-lang">${escapeHtml(languageLabel)}</span><button type="button" class="markdown-code-copy" data-code-copy="true" data-code-raw="${rawCodeData}" aria-label="Copy code block" data-tooltip="Copy code"><span class="markdown-code-copy-icon" aria-hidden="true"></span></button></figcaption><pre class="markdown-code-pre"><code class="hljs${language ? ` language-${escapeHtml(language)}` : ""}">${numberedHtml}</code></pre></figure>`;
 };
 
 md.core.ruler.push("notely-source-lines", (state) => {
@@ -116,7 +116,7 @@ md.renderer.rules.image = (tokens, idx, options, env, self) => {
   const src = token.attrGet("src") || "";
   const label = getImageDisplayName(src, token.content || token.attrGet("alt") || "Image");
   const imageHtml = defaultImageRenderer(tokens, idx, options, env, self);
-  return `<span class="markdown-image-frame">${imageHtml}<span class="markdown-image-actions"><button type="button" class="markdown-image-action" data-image-action="view" aria-label="View image">View</button><button type="button" class="markdown-image-action" data-image-action="edit" aria-label="Annotate image">Annotate</button></span><span class="markdown-image-name" title="${escapeHtml(label)}">${escapeHtml(label)}</span></span>`;
+  return `<span class="markdown-image-frame">${imageHtml}<span class="markdown-image-actions"><button type="button" class="markdown-image-action" data-image-action="view" aria-label="View image">View</button><button type="button" class="markdown-image-action" data-image-action="edit" aria-label="Annotate image">Annotate</button></span><span class="markdown-image-name" data-tooltip="${escapeHtml(label)}">${escapeHtml(label)}</span></span>`;
 };
 
 export function renderMarkdown(content, options = {}) {

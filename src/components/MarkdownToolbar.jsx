@@ -875,10 +875,10 @@ export function MarkdownToolbar({
   return (
     <>
       <div className="editor-toolbar" aria-label="Markdown formatting toolbar">
-      <button onClick={() => onUndo?.()} title="Undo (Ctrl/Cmd+Z)" disabled={!canUndo}>
+      <button onClick={() => onUndo?.()} data-tooltip="Undo (Ctrl/Cmd+Z)" disabled={!canUndo}>
         <Undo2 size={18} />
       </button>
-      <button onClick={() => onRedo?.()} title="Redo (Ctrl/Cmd+Y)" disabled={!canRedo}>
+      <button onClick={() => onRedo?.()} data-tooltip="Redo (Ctrl/Cmd+Y)" disabled={!canRedo}>
         <Redo2 size={18} />
       </button>
       {snippets.map((snippet) => (
@@ -887,28 +887,28 @@ export function MarkdownToolbar({
           onClick={() =>
             applySnippet(value, onChange, textareaRef, snippet.before, snippet.after, snippet.placeholder)
           }
-          title={snippet.title}
+          data-tooltip={snippet.title}
         >
           <snippet.icon size={18} />
         </button>
       ))}
-      <button onClick={openTableBuilder} title="Insert table">
+      <button onClick={openTableBuilder} data-tooltip="Insert table">
         <Table2 size={18} />
       </button>
-      <button onClick={openWebLinker} title="Insert web link">
+      <button onClick={openWebLinker} data-tooltip="Insert web link">
         <Link2 size={18} />
       </button>
-      <button onClick={() => void openReferenceLinker("preview")} title="Open reference note (Ctrl/Cmd+Shift+K)">
+      <button onClick={() => void openReferenceLinker("preview")} data-tooltip="Open reference note (Ctrl/Cmd+Shift+K)">
         <FileText size={18} />
       </button>
-      <button onClick={() => imageInputRef.current?.click()} title="Insert media from file">
+      <button onClick={() => imageInputRef.current?.click()} data-tooltip="Insert media from file">
         <ImagePlus size={18} />
       </button>
       <button
         onClick={() => {
           void openScreenCapture();
         }}
-        title={`Capture screen area (Ctrl/Cmd+Shift+S) - ${screenCaptureMode === "review" ? "Review before insert" : "Auto insert"}`}
+        data-tooltip={`Capture screen area (Ctrl/Cmd+Shift+S) - ${screenCaptureMode === "review" ? "Review before insert" : "Auto insert"}`}
         disabled={screenCaptureBusy || screenCaptureSaving}
         className={screenCaptureMode === "review" ? "toolbar-btn-capture review" : "toolbar-btn-capture auto"}
       >
@@ -917,16 +917,16 @@ export function MarkdownToolbar({
           {screenCaptureMode === "review" ? "R" : "A"}
         </span>
       </button>
-      <button onClick={openAssetLinker} title="Insert workspace asset">
+      <button onClick={openAssetLinker} data-tooltip="Insert workspace asset">
         <Link size={18} />
       </button>
-      <button onClick={openDiagramBuilder} title="Insert diagram">
+      <button onClick={openDiagramBuilder} data-tooltip="Insert diagram">
         <Zap size={18} />
       </button>
-      <button onClick={runMarkdownValidation} title="Validate markdown syntax">
+      <button onClick={runMarkdownValidation} data-tooltip="Validate markdown syntax">
         <CheckCircle2 size={18} />
       </button>
-      <span className={`toolbar-validation-summary ${validationStatus}`} title={validationSummary}>
+      <span className={`toolbar-validation-summary ${validationStatus}`} data-tooltip={validationSummary}>
         {validationSummary}
       </span>
 
@@ -939,7 +939,7 @@ export function MarkdownToolbar({
         >
           <div className="mermaid-builder-header">
             <strong>Markdown Validation</strong>
-            <button className="mermaid-close" onClick={() => setShowValidationPanel(false)} title="Close">
+            <button className="mermaid-close" onClick={() => setShowValidationPanel(false)} data-tooltip="Close">
               x
             </button>
           </div>
@@ -1033,7 +1033,7 @@ export function MarkdownToolbar({
         <div className="table-builder" ref={tablePopoverRef} role="dialog" aria-label="Table builder">
           <div className="mermaid-builder-header">
             <strong>Insert Table</strong>
-            <button className="mermaid-close" onClick={() => setShowTableBuilder(false)} title="Close">
+            <button className="mermaid-close" onClick={() => setShowTableBuilder(false)} data-tooltip="Close">
               x
             </button>
           </div>
@@ -1087,7 +1087,7 @@ export function MarkdownToolbar({
         <div className="image-linker" ref={assetLinkPopoverRef} role="dialog" aria-label="Workspace asset linker">
           <div className="mermaid-builder-header">
             <strong>Insert Media From Workspace</strong>
-            <button className="mermaid-close" onClick={() => setShowAssetLinker(false)} title="Close">
+            <button className="mermaid-close" onClick={() => setShowAssetLinker(false)} data-tooltip="Close">
               x
             </button>
           </div>
@@ -1152,7 +1152,7 @@ export function MarkdownToolbar({
           ) : (
             <div className="image-linker-list">
               {filteredAssets.map((asset) => (
-                <button key={asset.path} onClick={() => linkExistingAsset(asset.path)} title={asset.path}>
+                <button key={asset.path} onClick={() => linkExistingAsset(asset.path)} data-tooltip={asset.path}>
                   {getAssetPathDisplayLabel(asset.path) || asset.path}
                 </button>
               ))}
@@ -1165,7 +1165,7 @@ export function MarkdownToolbar({
         <div className="image-linker" ref={referenceLinkPopoverRef} role="dialog" aria-label="Reference note picker">
           <div className="mermaid-builder-header">
             <strong>{referencePickerMode === "insert" ? "Insert Reference Link" : "Open Reference Note"}</strong>
-            <button className="mermaid-close" onClick={() => setShowReferenceLinker(false)} title="Close">
+            <button className="mermaid-close" onClick={() => setShowReferenceLinker(false)} data-tooltip="Close">
               x
             </button>
           </div>
@@ -1227,7 +1227,7 @@ export function MarkdownToolbar({
                         }
                         void previewReferenceDocLink(asset);
                       }}
-                      title={asset.displayPath || asset.fileName || asset.title}
+                      data-tooltip={asset.displayPath || asset.fileName || asset.title}
                     >
                       <span className="image-linker-note-title">{(asset.displayTitle || asset.fileName || "Untitled note").trim()}</span>
                       {asset.displayPath ? (
@@ -1245,7 +1245,7 @@ export function MarkdownToolbar({
                         }
                         insertReferenceDocLink(asset);
                       }}
-                      title={referencePickerMode === "insert"
+                      data-tooltip={referencePickerMode === "insert"
                         ? `Preview ${asset.displayTitle || asset.fileName || asset.title || "note"}`
                         : `Insert link to ${asset.displayTitle || asset.fileName || asset.title || "note"}`}
                       aria-label={referencePickerMode === "insert"
@@ -1266,7 +1266,7 @@ export function MarkdownToolbar({
         <div className="web-linker" ref={webLinkPopoverRef} role="dialog" aria-label="Web link inserter">
           <div className="mermaid-builder-header">
             <strong>Insert Web Link</strong>
-            <button className="mermaid-close" onClick={() => setShowWebLinker(false)} title="Close">
+            <button className="mermaid-close" onClick={() => setShowWebLinker(false)} data-tooltip="Close">
               x
             </button>
           </div>
@@ -1312,7 +1312,7 @@ export function MarkdownToolbar({
             <button
               className="mermaid-close"
               onClick={() => setShowMermaidBuilder(false)}
-              title="Close"
+              data-tooltip="Close"
             >
               x
             </button>

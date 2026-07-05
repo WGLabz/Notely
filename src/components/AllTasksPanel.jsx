@@ -105,11 +105,11 @@ export function AllTasksPanel({ isOpen, documents = [], onClose, onOpenNote }) {
           groups.map((group) => (
             <div className="tasks-group" key={group.filePath}>
               <div className="tasks-group-header">
-                <span className="tasks-group-title" title={group.filePath}>{group.noteTitle}</span>
+                <span className="tasks-group-title" data-tooltip={group.filePath}>{group.noteTitle}</span>
                 <button
                   type="button"
                   className="tasks-group-open"
-                  title={`Open ${group.noteTitle}`}
+                  data-tooltip={`Open ${group.noteTitle}`}
                   onClick={() => {
                     onOpenNote?.(group);
                     onClose();

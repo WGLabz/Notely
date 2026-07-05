@@ -188,7 +188,7 @@ export function ConflictResolutionPanel({
           >
             {section.label}
             {localFile?.[section.key] !== conflictFile?.[section.key] ? (
-              <span className="conflict-tab-indicator" title="Content differs" />
+              <span className="conflict-tab-indicator" data-tooltip="Content differs" />
             ) : null}
           </button>
         ))}
