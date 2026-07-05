@@ -2,8 +2,8 @@
   <img src="build/icon.png" width="128" alt="Notely Logo" />
   <h1>Notely</h1>
 
-  <a href="https://github.com/wglabz/notely/actions">
-    <img src="https://github.com/wglabz/notely/actions/workflows/ci.yml/badge.svg" alt="Build Status">
+  <a href="https://github.com/WGLabz/Notely/actions">
+    <img src="https://github.com/WGLabz/Notely/actions/workflows/ci.yml/badge.svg" alt="Build Status">
   </a>
   <img src="https://img.shields.io/badge/version-v0.1.0-blue" alt="Version" />
   <img src="https://img.shields.io/badge/license-CC--BY--NC--4.0-green" alt="License" />

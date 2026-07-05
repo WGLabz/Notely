@@ -125,7 +125,7 @@ describe("Excalidraw legacy path fallbacks", () => {
     fs.writeFileSync(path.join(notesRoot, "excali-diagrams", "postgres-architecture", diagramId, "diagram.png"), Buffer.from("png-data"));
 
     const markdown = [
-      `![Excalidraw Diagram](${legacyAsset}){data-diagram-id=\"${diagramId}\" data-diagram-type=\"excalidraw\"}`,
+      `![Excalidraw Diagram](${legacyAsset}){data-diagram-id="${diagramId}" data-diagram-type="excalidraw"}`,
       "",
       "```js",
       "const value = 42;",
@@ -141,7 +141,7 @@ describe("Excalidraw legacy path fallbacks", () => {
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
-        .replace(/\"/g, "&quot;"),
+        .replace(/"/g, "&quot;"),
       encodePathForUrl,
       normalizeToPosix,
       safeDecode,

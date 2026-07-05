@@ -2019,7 +2019,7 @@ export default function App() {
       await setOnboardingComplete(false);
       setOnboardingCompleteState(false);
       notify("Onboarding reset. Re-loading flow...", "info");
-    } catch (err) {
+    } catch {
       notify("Failed to reset onboarding.", "error");
     }
   };
