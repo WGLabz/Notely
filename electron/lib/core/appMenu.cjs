@@ -99,22 +99,6 @@ function buildAppMenu(win, context = {}) {
         },
         { type: "separator" },
         {
-          label: "Open",
-          submenu: [
-            {
-              label: "Open in VS Code",
-              accelerator: "CmdOrCtrl+Shift+O",
-              click: () => sendMenuAction(win, "open-in-editor")
-            },
-            {
-              label: "Open Website View",
-              accelerator: "CmdOrCtrl+Shift+W",
-              click: () => sendMenuAction(win, "open-website")
-            }
-          ]
-        },
-        { type: "separator" },
-        {
           label: "Rename Note",
           accelerator: "F2",
           click: () => sendMenuAction(win, "rename-note")
@@ -155,37 +139,10 @@ function buildAppMenu(win, context = {}) {
         },
         { type: "separator" },
         {
-          label: "Open Workspace in VS Code",
-          accelerator: "CmdOrCtrl+Shift+O",
-          click: () => sendMenuAction(win, "open-workspace-in-editor")
-        },
-        {
-          label: "Reveal Workspace in File Explorer",
-          accelerator: "CmdOrCtrl+Shift+J",
-          click: () => sendMenuAction(win, "reveal-workspace-in-explorer")
-        },
-        {
-          label: "Export Workspace as Zip",
-          accelerator: "CmdOrCtrl+Shift+E",
-          click: () => sendMenuAction(win, "export-workspace-zip")
-        },
-        { type: "separator" },
-        {
           label: `Move ${currentFolderLabel} to Removed`,
           accelerator: "CmdOrCtrl+Shift+Delete",
           enabled: canRemoveFolder,
           click: () => sendMenuAction(win, "remove-folder")
-        },
-        { type: "separator" },
-        {
-          label: "Open Website View",
-          accelerator: "CmdOrCtrl+Shift+W",
-          click: () => sendMenuAction(win, "open-website")
-        },
-        {
-          label: "Workspace Activity",
-          accelerator: "CmdOrCtrl+Shift+A",
-          click: () => sendMenuAction(win, "open-workspace-activity")
         },
         { type: "separator" },
         { role: "quit" }
@@ -211,15 +168,27 @@ function buildAppMenu(win, context = {}) {
             label: "Find and Replace",
             ...(isMac ? {} : { accelerator: "CmdOrCtrl+H" }),
             click: () => sendMenuAction(win, "find-replace")
-          },
-          {
-            label: "Enable Typo Check",
-            type: "checkbox",
-            checked: typoCheckEnabled,
-            click: () => sendMenuAction(win, "toggle-typo-check")
           }
         ]
-      : [])
+      : []),
+    { type: "separator" },
+    {
+      label: "Screen Capture Options",
+      submenu: [
+        {
+          label: "Auto Insert",
+          type: "checkbox",
+          checked: screenCaptureMode === "auto",
+          click: () => sendMenuAction(win, "settings-screen-capture-auto")
+        },
+        {
+          label: "Review Before Insert",
+          type: "checkbox",
+          checked: screenCaptureMode === "review",
+          click: () => sendMenuAction(win, "settings-screen-capture-review")
+        }
+      ]
+    }
   ];
 
   const viewSubmenu = screen === "document"
@@ -257,6 +226,36 @@ function buildAppMenu(win, context = {}) {
               click: () => sendMenuAction(win, "terminal-shell-cmd")
             },
           ],
+        },
+        { type: "separator" },
+        {
+          label: "Theme",
+          submenu: [
+            {
+              label: "System",
+              type: "checkbox",
+              checked: themePreference === "auto",
+              click: () => sendMenuAction(win, "theme-auto")
+            },
+            {
+              label: "Light",
+              type: "checkbox",
+              checked: themePreference === "light",
+              click: () => sendMenuAction(win, "theme-light")
+            },
+            {
+              label: "Dark",
+              type: "checkbox",
+              checked: themePreference === "dark",
+              click: () => sendMenuAction(win, "theme-dark")
+            }
+          ]
+        },
+        {
+          label: "Enable Typo Check",
+          type: "checkbox",
+          checked: typoCheckEnabled,
+          click: () => sendMenuAction(win, "toggle-typo-check")
         },
         { type: "separator" },
         {
@@ -377,6 +376,30 @@ function buildAppMenu(win, context = {}) {
         },
         { type: "separator" },
         {
+          label: "Theme",
+          submenu: [
+            {
+              label: "System",
+              type: "checkbox",
+              checked: themePreference === "auto",
+              click: () => sendMenuAction(win, "theme-auto")
+            },
+            {
+              label: "Light",
+              type: "checkbox",
+              checked: themePreference === "light",
+              click: () => sendMenuAction(win, "theme-light")
+            },
+            {
+              label: "Dark",
+              type: "checkbox",
+              checked: themePreference === "dark",
+              click: () => sendMenuAction(win, "theme-dark")
+            }
+          ]
+        },
+        { type: "separator" },
+        {
           label: "Tile Notes",
           accelerator: "CmdOrCtrl+1",
           type: "checkbox",
@@ -441,48 +464,39 @@ function buildAppMenu(win, context = {}) {
       submenu: viewSubmenu
     },
     {
-      label: "Settings",
+      label: "Workspace",
       submenu: [
         {
-          label: "Theme",
-          submenu: [
-            {
-              label: "System",
-              type: "checkbox",
-              checked: themePreference === "auto",
-              click: () => sendMenuAction(win, "theme-auto")
-            },
-            {
-              label: "Light",
-              type: "checkbox",
-              checked: themePreference === "light",
-              click: () => sendMenuAction(win, "theme-light")
-            },
-            {
-              label: "Dark",
-              type: "checkbox",
-              checked: themePreference === "dark",
-              click: () => sendMenuAction(win, "theme-dark")
-            }
-          ]
+          label: "Workspace Graph",
+          accelerator: "CmdOrCtrl+Shift+G",
+          click: () => sendMenuAction(win, "open-workspace-graph")
+        },
+        {
+          label: "Workspace Activity",
+          accelerator: "CmdOrCtrl+Shift+A",
+          click: () => sendMenuAction(win, "open-workspace-activity")
         },
         { type: "separator" },
         {
-          label: "Screen Capture",
-          submenu: [
-            {
-              label: "Auto Insert",
-              type: "checkbox",
-              checked: screenCaptureMode === "auto",
-              click: () => sendMenuAction(win, "settings-screen-capture-auto")
-            },
-            {
-              label: "Review Before Insert",
-              type: "checkbox",
-              checked: screenCaptureMode === "review",
-              click: () => sendMenuAction(win, "settings-screen-capture-review")
-            }
-          ]
+          label: "Open Workspace in VS Code",
+          accelerator: "CmdOrCtrl+Shift+O",
+          click: () => sendMenuAction(win, "open-workspace-in-editor")
+        },
+        {
+          label: "Reveal Workspace in File Explorer",
+          accelerator: "CmdOrCtrl+Shift+J",
+          click: () => sendMenuAction(win, "reveal-workspace-in-explorer")
+        },
+        {
+          label: "Export Workspace as Zip",
+          accelerator: "CmdOrCtrl+Shift+E",
+          click: () => sendMenuAction(win, "export-workspace-zip")
+        },
+        { type: "separator" },
+        {
+          label: screen === "document" ? "Open Current Note Website View" : "Open Project Website",
+          accelerator: "CmdOrCtrl+Shift+W",
+          click: () => sendMenuAction(win, "open-website")
         }
       ]
     },
@@ -550,32 +564,6 @@ function buildAppMenu(win, context = {}) {
         {
           label: "Clear Cache",
           click: () => sendMenuAction(win, "ai-clear-cache")
-        }
-      ]
-    },
-    {
-      label: "Workspace",
-      submenu: [
-        {
-          label: "Workspace Graph",
-          accelerator: "CmdOrCtrl+Shift+G",
-          click: () => sendMenuAction(win, "open-workspace-graph")
-        },
-        { type: "separator" },
-        {
-          label: "Workspace Activity",
-          accelerator: "CmdOrCtrl+Shift+A",
-          click: () => sendMenuAction(win, "open-workspace-activity")
-        }
-      ]
-    },
-    {
-      label: "Web",
-      submenu: [
-        {
-          label: screen === "document" ? "Open Current Note Website View" : "Open Project Website",
-          accelerator: "CmdOrCtrl+Shift+W",
-          click: () => sendMenuAction(win, "open-website")
         }
       ]
     },
