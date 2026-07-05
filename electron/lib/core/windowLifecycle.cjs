@@ -18,6 +18,7 @@ function createWindowLifecycle(deps) {
   let mainWindow = null;
   let splashWindow = null;
   let mainLoadReady = false;
+  let rendererBootReady = false;
   let splashReady = false;
   let pendingSplashPayload = null;
 
@@ -34,7 +35,20 @@ function createWindowLifecycle(deps) {
   }
 
   function resolveSplashBrandDataUri() {
-    // Keep splash rendering path I/O-free to maximize click-to-splash responsiveness.
+    try {
+      const iconCandidates = [
+        path.join(process.resourcesPath || "", "icon.png"),
+        path.join(process.cwd(), "build", "icon.png"),
+        path.join(projectRoot, "build", "icon.png")
+      ];
+      const iconPath = iconCandidates.find(p => p && fs.existsSync(p));
+      if (iconPath) {
+        const buffer = fs.readFileSync(iconPath);
+        return `data:image/png;base64,${buffer.toString("base64")}`;
+      }
+    } catch (e) {
+      // fallback to empty if read fails
+    }
     return "";
   }
 
@@ -124,7 +138,8 @@ function createWindowLifecycle(deps) {
       }
     });
 
-    const splashTitle = String(app.getName() || "Notely");
+    const rawName = String(app.getName() || "Notely");
+    const splashTitle = rawName.charAt(0).toUpperCase() + rawName.slice(1);
     const splashBrandUri = resolveSplashBrandDataUri();
     const markNode = splashBrandUri
       ? `<img class="mark-image" src="${splashBrandUri}" alt="${splashTitle} logo" />`
@@ -134,79 +149,166 @@ function createWindowLifecycle(deps) {
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:" />
-    <title>${splashTitle}</title>
+    <title>\${splashTitle}</title>
     <style>
       * { box-sizing: border-box; }
+      :root {
+        --bg-color: #f8fafc;
+        --card-bg: rgba(255, 255, 255, 0.6);
+        --card-border: rgba(255, 255, 255, 0.8);
+        --card-shadow: 0 24px 48px rgba(15, 23, 42, 0.08);
+        --text-main: #0f172a;
+        --text-muted: #64748b;
+        --accent: #0ea5e9;
+        --accent-glow: rgba(14, 165, 233, 0.3);
+        --progress-bg: #e2e8f0;
+        --progress-fill: linear-gradient(90deg, #38bdf8, #0284c7);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg-color: #0f172a;
+          --card-bg: rgba(30, 41, 59, 0.6);
+          --card-border: rgba(255, 255, 255, 0.08);
+          --card-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+          --text-main: #f8fafc;
+          --text-muted: #94a3b8;
+          --accent: #38bdf8;
+          --accent-glow: rgba(56, 189, 248, 0.2);
+          --progress-bg: #334155;
+          --progress-fill: linear-gradient(90deg, #0ea5e9, #38bdf8);
+        }
+      }
+
       body {
         margin: 0;
         min-height: 100vh;
         display: grid;
         place-items: center;
-        font-family: "Segoe UI", "Inter", system-ui, sans-serif;
-        background: radial-gradient(circle at 20% 20%, #eef7f4 0%, #d6e8e3 55%, #c5ded7 100%);
-        color: #26424a;
-      }
-      .card {
-        width: min(420px, calc(100vw - 32px));
-        border: 1px solid #b8d2cb;
-        border-radius: 20px;
-        background: rgba(255, 255, 255, 0.86);
-        box-shadow: 0 20px 45px rgba(18, 48, 53, 0.2);
-        padding: 26px 22px;
-        text-align: center;
-      }
-      .mark {
-        width: 84px;
-        height: 84px;
-        margin: 0 auto 12px;
-        border-radius: 16px;
-        background: linear-gradient(135deg, #4f8f89 0%, #7ab3ac 100%);
-        box-shadow: 0 10px 24px rgba(24, 60, 65, 0.23);
-      }
-      .mark-image {
-        width: 92px;
-        height: 92px;
-        margin: 0 auto 10px;
-        border-radius: 16px;
-        object-fit: cover;
-        box-shadow: 0 10px 24px rgba(24, 60, 65, 0.23);
-      }
-      h1 {
-        margin: 0;
-        font-size: 26px;
-        font-weight: 700;
-      }
-      p {
-        margin: 10px 0 0;
-        color: #4a6870;
-        font-size: 14px;
-      }
-      .progress {
-        margin: 12px auto 0;
-        width: min(280px, 100%);
-        height: 10px;
-        border-radius: 999px;
-        border: 1px solid #b7d1ca;
-        background: #eaf4f1;
+        font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg-color);
+        color: var(--text-main);
         overflow: hidden;
       }
+      
+      .bg-effects {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        overflow: hidden;
+      }
+      
+      .bg-glow {
+        position: absolute;
+        width: 60vh;
+        height: 60vh;
+        background: var(--accent);
+        filter: blur(120px);
+        opacity: 0.15;
+        border-radius: 50%;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        animation: pulse 6s infinite alternate ease-in-out;
+      }
+
+      @keyframes pulse {
+        0% { transform: translate(-50%, -50%) scale(0.85); opacity: 0.1; }
+        100% { transform: translate(-50%, -50%) scale(1.15); opacity: 0.2; }
+      }
+
+      .card {
+        position: relative;
+        z-index: 1;
+        width: min(420px, calc(100vw - 32px));
+        border: 1px solid var(--card-border);
+        border-radius: 24px;
+        background: var(--card-bg);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        box-shadow: var(--card-shadow);
+        padding: 48px 40px;
+        text-align: center;
+        animation: floatIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      @keyframes floatIn {
+        from { opacity: 0; transform: translateY(16px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .mark {
+        width: 80px;
+        height: 80px;
+        margin: 0 auto 24px;
+        border-radius: 20px;
+        background: var(--progress-fill);
+        box-shadow: 0 12px 32px var(--accent-glow);
+      }
+      
+      .mark-image {
+        width: 80px;
+        height: 80px;
+        margin: 0 auto 24px;
+        border-radius: 20px;
+        object-fit: cover;
+        box-shadow: 0 12px 32px var(--accent-glow);
+      }
+      
+      h1 {
+        margin: 0 0 8px;
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+      }
+      
+      p {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 14px;
+        font-weight: 500;
+      }
+      
+      .progress-container {
+        margin-top: 40px;
+      }
+      
+      .progress {
+        width: 100%;
+        height: 6px;
+        border-radius: 999px;
+        background: var(--progress-bg);
+        overflow: hidden;
+        margin-bottom: 12px;
+      }
+      
       .progress > span {
         display: block;
         height: 100%;
         width: 0%;
-        background: linear-gradient(90deg, #4f8f89 0%, #73ada6 100%);
+        background: var(--progress-fill);
         border-radius: 999px;
-        transition: width 220ms ease;
+        transition: width 300ms cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      
+      #splash-percent {
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
       }
     </style>
   </head>
   <body>
+    <div class="bg-effects"><div class="bg-glow"></div></div>
     <div class="card">
       ${markNode}
       <h1>${splashTitle}</h1>
-      <p id="splash-phase">Loading workspace...</p>
-      <div class="progress" aria-hidden="true"><span id="splash-progress-fill"></span></div>
-      <p id="splash-percent">0%</p>
+      <p id="splash-phase">Waking up...</p>
+      
+      <div class="progress-container">
+        <div class="progress" aria-hidden="true"><span id="splash-progress-fill"></span></div>
+        <p id="splash-percent">0%</p>
+      </div>
     </div>
   </body>
 </html>`;
@@ -310,6 +412,7 @@ function createWindowLifecycle(deps) {
     const windowIconPath = resolveWindowIconPath();
 
     mainLoadReady = false;
+    rendererBootReady = false;
     splashReady = false;
     pendingSplashPayload = null;
 
@@ -340,7 +443,9 @@ function createWindowLifecycle(deps) {
 
     win.once("ready-to-show", () => {
       mainLoadReady = true;
-      showMainWindow();
+      if (rendererBootReady) {
+        showMainWindow();
+      }
     });
 
     // Fail-safe: ensure app can still open if renderer boot handshake never arrives.
@@ -464,6 +569,7 @@ function createWindowLifecycle(deps) {
   function markRendererBootReady(webContents) {
     if (!mainWindow || mainWindow.isDestroyed()) return;
     if (!webContents || webContents.id !== mainWindow.webContents.id) return;
+    rendererBootReady = true;
     if (mainLoadReady) {
       showMainWindow();
     }
