@@ -80,12 +80,18 @@ import {
   onWorkspaceExportProgress,
   openWorkspaceInEditor,
   revealWorkspaceInExplorer,
+  getOnboardingComplete,
+  setOnboardingComplete,
+  getNotesRootSetting,
+  setNotesRootSetting,
 } from "./services/electronService";
 import { useToast } from "./hooks/useToast";
 import { useP2PSync } from "./hooks/useP2PSync";
 import { useAIAssistant } from "./hooks/useAIAssistant";
 import { useDocumentManager } from "./hooks/useDocumentManager";
 import { useWorkspaceScopedStorage } from "./hooks/useWorkspaceScopedStorage";
+import { OnboardingFlow } from "./components/OnboardingFlow";
+import { setupDemoWorkspace } from "./utils/demoWorkspace";
 
 function getPaletteUsageKey(commandId) {
   const rawId = resolvePaletteCommandId(commandId);
@@ -307,7 +313,10 @@ export default function App() {
     version: "0.0.0",
     versionCore: "0.0.0",
     commitHash: "",
+    isPackaged: true,
   });
+  const [onboardingComplete, setOnboardingCompleteState] = useState(true);
+  const [defaultNotesPath, setDefaultNotesPath] = useState("");
   const [themePreference, setThemePreferenceState] = useState("auto");
   const [effectiveTheme, setEffectiveTheme] = useState("light");
   const [zoomFactor, setZoomFactorState] = useState(1);
@@ -714,6 +723,7 @@ export default function App() {
           version: String(info?.version || "0.0.0"),
           versionCore: String(info?.versionCore || "0.0.0"),
           commitHash: String(info?.commitHash || ""),
+          isPackaged: Boolean(info?.isPackaged),
         });
       })
       .catch(() => {
@@ -818,6 +828,24 @@ export default function App() {
       setThemePreferenceState(nextPreference);
       setEffectiveTheme(nextEffective);
     });
+  }, []);
+
+  useEffect(() => {
+    void getOnboardingComplete()
+      .then((res) => {
+        setOnboardingCompleteState(res?.onboardingComplete ?? false);
+      })
+      .catch(() => {
+        setOnboardingCompleteState(true);
+      });
+
+    void getNotesRootSetting()
+      .then((res) => {
+        if (res?.notesRoot) {
+          setDefaultNotesPath(res.notesRoot);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -1956,6 +1984,46 @@ export default function App() {
     [favoriteNotes, recentDashboardNotes, continueDashboardNotes]
   );
 
+  const handleOnboardingComplete = async ({ workspacePath, theme, setupDemo }) => {
+    try {
+      const themeResult = await persistThemePreference(theme);
+      const appliedPreference = ["auto", "light", "dark"].includes(themeResult?.themePreference)
+        ? themeResult.themePreference
+        : theme;
+      const appliedTheme = themeResult?.effectiveTheme === "dark" ? "dark" : "light";
+      setThemePreferenceState(appliedPreference);
+      setEffectiveTheme(appliedTheme);
+
+      if (workspacePath) {
+        await setNotesRootSetting(workspacePath);
+        if (setupDemo) {
+          try {
+            await setupDemoWorkspace(workspacePath);
+          } catch (demoErr) {
+            console.error("Demo setup failed:", demoErr);
+          }
+        }
+        await loadDocumentsData();
+      }
+
+      await setOnboardingComplete(true);
+      setOnboardingCompleteState(true);
+      notify("Onboarding complete! Welcome to Notely.", "success");
+    } catch (err) {
+      notify(err?.message || "Failed to complete onboarding setup.", "error");
+    }
+  };
+
+  const handleResetOnboarding = async () => {
+    try {
+      await setOnboardingComplete(false);
+      setOnboardingCompleteState(false);
+      notify("Onboarding reset. Re-loading flow...", "info");
+    } catch (err) {
+      notify("Failed to reset onboarding.", "error");
+    }
+  };
+
   return (
     <div className={`app-shell${showTerminal ? " terminal-open" : ""}${current ? " document-screen" : " landing-screen"}`}>
       <div className="toast-stack" aria-live="polite" aria-atomic="true">
@@ -2744,6 +2812,45 @@ export default function App() {
           />
         </Suspense>
       ) : null}
+
+      {!onboardingComplete && (
+        <OnboardingFlow
+          onComplete={handleOnboardingComplete}
+          defaultNotesPath={defaultNotesPath}
+          themePreference={themePreference}
+          onThemeChange={(theme) => {
+            const isDark = theme === "dark" || (theme === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+            setEffectiveTheme(isDark ? "dark" : "light");
+            setThemePreferenceState(theme);
+          }}
+          appInfo={appInfo}
+          canClose={Boolean(notesFolderPath)}
+        />
+      )}
+
+      {!appInfo.isPackaged && (
+        <button
+          type="button"
+          onClick={handleResetOnboarding}
+          style={{
+            position: "fixed",
+            bottom: "32px",
+            left: "12px",
+            zIndex: 10000,
+            background: "var(--status-danger-bg)",
+            color: "var(--status-danger-text)",
+            border: "1px solid var(--status-danger-border)",
+            padding: "var(--space-2) var(--space-4)",
+            borderRadius: "var(--radius-sm)",
+            cursor: "pointer",
+            fontSize: "var(--font-size-caption)",
+            fontWeight: "bold",
+            boxShadow: "var(--shadow-md)"
+          }}
+        >
+          Dev: Reset Onboarding
+        </button>
+      )}
 
     </div>
   );

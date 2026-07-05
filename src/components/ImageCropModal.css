@@ -277,3 +277,52 @@
     flex: 1 1 220px;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   DARK THEME — ImageCropModal overrides
+   ══════════════════════════════════════════════════════════════════ */
+
+:root[data-theme="dark"] .image-crop-modal {
+  background: var(--surface-elevated);
+  border-color: var(--border-default);
+}
+
+:root[data-theme="dark"] .image-crop-header {
+  border-bottom-color: var(--border-default);
+}
+
+:root[data-theme="dark"] .image-crop-header h3 {
+  color: var(--text-strong);
+}
+
+:root[data-theme="dark"] .image-crop-header p {
+  color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .image-crop-canvas-wrap {
+  background: linear-gradient(135deg, var(--surface-bg) 0%, var(--surface-elevated) 100%);
+}
+
+:root[data-theme="dark"] .image-crop-handle {
+  background: var(--surface-elevated);
+  border-color: var(--accent-solid);
+}
+
+:root[data-theme="dark"] .image-crop-footer {
+  border-top-color: var(--border-default);
+}
+
+:root[data-theme="dark"] .image-crop-hint {
+  color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .image-crop-aspect-label {
+  color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .image-crop-rotation-number,
+:root[data-theme="dark"] .image-annotation-input {
+  background: var(--surface-bg);
+  border-color: var(--border-default);
+  color: var(--app-text);
+}

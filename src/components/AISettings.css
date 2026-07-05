@@ -657,3 +657,255 @@
     font-size: 10px;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   DARK THEME — AISettings overrides
+   ══════════════════════════════════════════════════════════════════ */
+
+:root[data-theme="dark"] .ai-settings-dialog-header {
+  background: linear-gradient(180deg, var(--surface-elevated) 0%, var(--surface-bg) 100%);
+  border-bottom-color: var(--border-default);
+}
+
+:root[data-theme="dark"] .ai-settings-title-group h2 {
+  color: var(--text-strong);
+}
+
+:root[data-theme="dark"] .ai-settings-title-group p {
+  color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .ai-settings-status {
+  border-bottom-color: var(--border-default);
+}
+
+:root[data-theme="dark"] .ai-settings-status.success {
+  background: var(--status-success-bg);
+  color: var(--status-success-text);
+}
+
+:root[data-theme="dark"] .ai-settings-status.error {
+  background: var(--status-danger-bg);
+  color: var(--status-danger-text);
+}
+
+:root[data-theme="dark"] .ai-settings-status.info {
+  background: var(--status-info-bg);
+  color: var(--status-info-text);
+}
+
+:root[data-theme="dark"] .ai-settings-content {
+  background: var(--surface-bg);
+}
+
+:root[data-theme="dark"] .ai-settings-intent-header h3 {
+  color: var(--text-subtle);
+}
+
+:root[data-theme="dark"] .ai-settings-intent-header p {
+  color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .ai-settings-disclosure-toggle {
+  background: var(--surface-elevated);
+  border-color: var(--border-default);
+  color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .ai-settings-disclosure-toggle:hover {
+  background: var(--surface-accent);
+  border-color: var(--accent-solid);
+}
+
+:root[data-theme="dark"] .ai-settings-disclosure-toggle.active {
+  background: var(--surface-accent);
+  border-color: var(--accent-solid);
+  color: var(--text-strong);
+}
+
+:root[data-theme="dark"] .ai-settings-section {
+  background: var(--surface-elevated);
+  border-color: var(--border-default);
+}
+
+:root[data-theme="dark"] .ai-settings-section h3 {
+  color: var(--text-subtle);
+}
+
+:root[data-theme="dark"] .ai-settings-badge {
+  background: var(--surface-accent);
+  color: var(--accent-soft);
+}
+
+:root[data-theme="dark"] .ai-settings-badge.badge-ok {
+  background: var(--status-success-bg);
+  color: var(--status-success-text);
+}
+
+:root[data-theme="dark"] .ai-settings-badge.badge-off {
+  background: var(--status-warning-bg);
+  color: var(--status-warning-text);
+}
+
+:root[data-theme="dark"] .ai-settings-embeddings-info {
+  color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .provider-card {
+  background: var(--surface-bg);
+  border-color: var(--border-default);
+}
+
+:root[data-theme="dark"] .provider-card:hover:not(:disabled) {
+  background: var(--surface-accent);
+  border-color: var(--accent-solid);
+}
+
+:root[data-theme="dark"] .provider-card.selected {
+  background: var(--surface-accent);
+  border-color: var(--accent-solid);
+}
+
+:root[data-theme="dark"] .provider-name {
+  color: var(--text-strong);
+}
+
+:root[data-theme="dark"] .provider-planned-badge {
+  background: var(--surface-elevated);
+  color: var(--text-subtle);
+}
+
+:root[data-theme="dark"] .provider-description {
+  color: var(--text-subtle);
+}
+
+:root[data-theme="dark"] .api-key-group label,
+:root[data-theme="dark"] .preference-group label,
+:root[data-theme="dark"] .ai-settings-option-row span {
+  color: var(--text-strong);
+}
+
+:root[data-theme="dark"] .provider-model-select {
+  background: var(--surface-bg);
+  border-color: var(--border-default);
+  color: var(--app-text);
+}
+
+:root[data-theme="dark"] .provider-model-select:focus {
+  border-color: var(--accent-solid);
+  box-shadow: 0 0 0 3px rgba(93, 153, 163, 0.18);
+}
+
+:root[data-theme="dark"] .api-key-input {
+  background: var(--surface-bg);
+  border-color: var(--border-default);
+  color: var(--app-text);
+}
+
+:root[data-theme="dark"] .api-key-input:focus {
+  border-color: var(--accent-solid);
+  box-shadow: 0 0 0 3px rgba(93, 153, 163, 0.18);
+}
+
+:root[data-theme="dark"] .test-result.success {
+  background: var(--status-success-bg);
+  border-color: var(--status-success-border);
+  color: var(--status-success-text);
+}
+
+:root[data-theme="dark"] .test-result.error {
+  background: var(--status-danger-bg);
+  border-color: var(--status-danger-border);
+  color: var(--status-danger-text);
+}
+
+:root[data-theme="dark"] .ai-settings-range-row {
+  background: var(--surface-bg);
+  border-color: var(--border-default);
+}
+
+:root[data-theme="dark"] .ai-settings-range-label {
+  color: var(--text-strong);
+}
+
+:root[data-theme="dark"] .help-text {
+  color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .ai-settings-meta-pill {
+  background: var(--surface-elevated);
+  border-color: var(--border-default);
+  color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .ai-settings-storage-copy strong {
+  color: var(--text-strong);
+}
+
+:root[data-theme="dark"] .ai-settings-storage-copy span {
+  color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .data-management p,
+:root[data-theme="dark"] .info-section ul {
+  color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .info-section code {
+  background: var(--surface-elevated);
+  color: var(--accent-soft);
+}
+
+:root[data-theme="dark"] .ai-settings-footer {
+  background: var(--surface-elevated);
+  border-top-color: var(--border-default);
+}
+
+:root[data-theme="dark"] .btn {
+  background: var(--surface-elevated);
+  border-color: var(--border-default);
+  color: var(--text-strong);
+}
+
+:root[data-theme="dark"] .btn:hover:not(:disabled) {
+  background: var(--surface-accent);
+  border-color: var(--border-soft);
+}
+
+:root[data-theme="dark"] .btn-danger {
+  background: var(--status-danger-bg);
+  border-color: var(--status-danger-border);
+  color: var(--status-danger-text);
+}
+
+:root[data-theme="dark"] .btn-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--status-danger-bg) 80%, var(--surface-bg));
+  border-color: var(--status-danger-border);
+}
+
+:root[data-theme="dark"] .ai-settings-capability-warnings {
+  background: rgba(200, 160, 30, 0.06);
+  border-color: rgba(200, 150, 30, 0.25);
+}
+
+:root[data-theme="dark"] .capability-warning {
+  color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .capability-warning strong {
+  color: var(--text-strong);
+}
+
+:root[data-theme="dark"] .ai-settings-embedding-staleness {
+  background: rgba(93, 153, 163, 0.08);
+  border-color: rgba(93, 153, 163, 0.2);
+  color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .ai-settings-content::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+}
+
+:root[data-theme="dark"] .ai-settings-content::-webkit-scrollbar-thumb:hover {
+  background: var(--border-soft);
+}

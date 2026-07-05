@@ -557,3 +557,213 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   DARK THEME — AIPalette overrides
+   ══════════════════════════════════════════════════════════════════ */
+
+:root[data-theme="dark"] .ai-palette {
+  background: var(--surface-elevated);
+  border-color: var(--border-default);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme="dark"] .ai-palette-context-bar {
+  background: var(--surface-accent);
+  border-bottom-color: var(--border-default);
+}
+
+:root[data-theme="dark"] .ai-preset-chip {
+  background: var(--surface-elevated);
+  border-color: var(--border-default);
+  color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .ai-preset-chip.active {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+  color: var(--text-on-accent);
+}
+
+:root[data-theme="dark"] .ai-target-chip {
+  background: var(--surface-bg);
+  border-color: var(--border-default);
+  color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .ai-target-chip.active {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+  color: var(--text-on-accent);
+}
+
+:root[data-theme="dark"] .ai-palette-context-copy {
+  color: var(--text-subtle);
+}
+
+:root[data-theme="dark"] .ai-palette-input-group {
+  background: var(--surface-bg);
+  border-bottom-color: var(--border-default);
+}
+
+:root[data-theme="dark"] .ai-palette-quick-actions {
+  background: linear-gradient(180deg, var(--surface-elevated) 0%, var(--surface-muted) 100%);
+  border-bottom-color: var(--border-default);
+}
+
+:root[data-theme="dark"] .ai-palette-section-label {
+  color: var(--text-subtle);
+}
+
+:root[data-theme="dark"] .ai-quick-card {
+  background: var(--surface-bg);
+  border-color: var(--border-default);
+  color: var(--text-strong);
+}
+
+:root[data-theme="dark"] .ai-quick-card span {
+  color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .ai-quick-card:hover {
+  border-color: var(--border-soft);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+}
+
+:root[data-theme="dark"] .ai-palette-input {
+  background: var(--surface-bg);
+  border-color: var(--border-default);
+  color: var(--app-text);
+}
+
+:root[data-theme="dark"] .ai-palette-input:focus {
+  border-color: var(--accent-solid);
+  box-shadow: 0 0 0 3px rgba(93, 153, 163, 0.18);
+}
+
+:root[data-theme="dark"] .ai-palette-input:disabled {
+  background: var(--surface-elevated);
+}
+
+:root[data-theme="dark"] .ai-palette-error {
+  background: var(--status-danger-bg);
+  border-bottom-color: var(--status-danger-border);
+  color: var(--status-danger-text);
+}
+
+:root[data-theme="dark"] .ai-palette-suggestion:hover {
+  background: var(--surface-accent);
+  border-color: var(--border-default);
+}
+
+:root[data-theme="dark"] .ai-palette-suggestion.selected {
+  background: var(--surface-accent-strong);
+  border-color: var(--accent-solid);
+}
+
+:root[data-theme="dark"] .suggestion-icon {
+  background: var(--surface-accent);
+  color: var(--accent-soft);
+}
+
+:root[data-theme="dark"] .suggestion-label {
+  color: var(--text-strong);
+}
+
+:root[data-theme="dark"] .suggestion-description {
+  color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .ai-palette-empty {
+  color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .ai-palette-recent {
+  background: var(--surface-muted);
+  border-top-color: var(--border-default);
+}
+
+:root[data-theme="dark"] .recent-label {
+  color: var(--text-subtle);
+}
+
+:root[data-theme="dark"] .recent-item {
+  background: var(--surface-elevated);
+  border-color: var(--border-default);
+  color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .recent-item:hover {
+  background: var(--surface-accent);
+  border-color: var(--accent-solid);
+  color: var(--text-strong);
+}
+
+:root[data-theme="dark"] .ai-palette-result {
+  background: var(--surface-bg);
+  border-top-color: var(--border-default);
+}
+
+:root[data-theme="dark"] .ai-palette-result-header {
+  color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .ai-palette-result-body {
+  background: var(--surface-elevated);
+  border-color: var(--border-default);
+  color: var(--app-text);
+}
+
+:root[data-theme="dark"] .ai-apply-button {
+  background: var(--surface-accent);
+  border-color: var(--border-soft);
+  color: var(--text-strong);
+}
+
+:root[data-theme="dark"] .ai-diff-preview {
+  background: var(--surface-elevated);
+  border-color: var(--border-default);
+}
+
+:root[data-theme="dark"] .ai-diff-preview-head {
+  color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .ai-diff-row.added {
+  background: color-mix(in srgb, var(--status-success-bg) 55%, var(--surface-bg));
+}
+
+:root[data-theme="dark"] .ai-diff-row.removed {
+  background: color-mix(in srgb, var(--status-danger-bg) 55%, var(--surface-bg));
+}
+
+:root[data-theme="dark"] .ai-diff-row.changed {
+  background: color-mix(in srgb, var(--status-warning-bg) 55%, var(--surface-bg));
+}
+
+:root[data-theme="dark"] .ai-diff-cell.previous {
+  color: var(--status-danger-text);
+}
+
+:root[data-theme="dark"] .ai-diff-cell.latest {
+  color: var(--status-success-text);
+}
+
+:root[data-theme="dark"] .ai-diff-line {
+  color: var(--text-subtle);
+}
+
+:root[data-theme="dark"] .ai-palette-footer {
+  background: var(--surface-muted);
+  border-top-color: var(--border-default);
+  color: var(--text-subtle);
+}
+
+:root[data-theme="dark"] .ai-palette-suggestions::-webkit-scrollbar-thumb,
+:root[data-theme="dark"] .ai-palette-result-body::-webkit-scrollbar-thumb {
+  background: var(--border-soft);
+}
+
+:root[data-theme="dark"] .custom-query-label {
+  color: var(--text-subtle);
+}

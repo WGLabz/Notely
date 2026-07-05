@@ -364,6 +364,19 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
   const [_activeLine, setActiveLine] = useState(1);
   const [docLength, setDocLength] = useState(String(value || "").length);
 
+  const [themeMode, setThemeMode] = useState(() => {
+    return document.documentElement.getAttribute("data-theme") || "light";
+  });
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      const currentTheme = document.documentElement.getAttribute("data-theme") || "light";
+      setThemeMode(currentTheme);
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
+  }, []);
+
   const valueLength = String(value || "").length;
   const decorationsSynced = docLength === valueLength;
 
@@ -685,6 +698,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
         className="markdown-codemirror"
         value={value}
         height="100%"
+        theme={themeMode === "dark" ? "dark" : "light"}
         basicSetup={{
           foldGutter: false,
           highlightActiveLine: true,

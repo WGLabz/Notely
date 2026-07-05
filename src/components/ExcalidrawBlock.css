@@ -88,3 +88,39 @@
   font-size: 0.9rem;
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   DARK THEME — ExcalidrawBlock overrides
+   ══════════════════════════════════════════════════════════════════ */
+
+:root[data-theme="dark"] .excalidraw-preview-container {
+  background-color: var(--surface-elevated);
+  border-color: var(--border-default);
+}
+
+:root[data-theme="dark"] .excalidraw-preview-container:hover {
+  background-color: var(--surface-elevated);
+  border-color: var(--border-soft);
+}
+
+:root[data-theme="dark"] .excalidraw-preview-thumbnail {
+  background-color: var(--surface-elevated);
+}
+
+:root[data-theme="dark"] .click-hint {
+  background: rgba(29, 39, 42, 0.92);
+  color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .excalidraw-empty-state {
+  color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .excalidraw-loading {
+  color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .excalidraw-error {
+  background-color: var(--status-danger-bg);
+  color: var(--status-danger-text);
+}
+
