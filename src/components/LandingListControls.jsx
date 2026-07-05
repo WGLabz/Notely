@@ -59,21 +59,33 @@ export function LandingListControls({
 
       <div className="landing-list-count" aria-live="polite">
         <span className="landing-list-count-item">
-          Showing <strong>{visibleCount}</strong> of <strong>{totalCount}</strong>
+          {visibleCount !== totalCount ? (
+            <>Showing <strong>{visibleCount}</strong> of <strong>{totalCount}</strong> items</>
+          ) : (
+            <><strong>{totalCount}</strong> items</>
+          )}
         </span>
         <span className="landing-list-count-separator" aria-hidden="true">|</span>
         <span className="landing-list-count-item landing-list-count-icon-item">
           <Folder size={14} aria-hidden="true" />
-          <strong>{visibleFolderCount}</strong>
-          <span>/</span>
+          {visibleFolderCount !== totalFolderCount ? (
+            <>
+              <strong>{visibleFolderCount}</strong>
+              <span>/</span>
+            </>
+          ) : null}
           <span>{totalFolderCount}</span>
           <em>Folders</em>
         </span>
         <span className="landing-list-count-separator" aria-hidden="true">|</span>
         <span className="landing-list-count-item landing-list-count-icon-item">
           <FileText size={14} aria-hidden="true" />
-          <strong>{visibleNoteCount}</strong>
-          <span>/</span>
+          {visibleNoteCount !== totalNoteCount ? (
+            <>
+              <strong>{visibleNoteCount}</strong>
+              <span>/</span>
+            </>
+          ) : null}
           <span>{totalNoteCount}</span>
           <em>Notes</em>
         </span>

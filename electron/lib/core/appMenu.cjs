@@ -294,37 +294,7 @@ function buildAppMenu(win, context = {}) {
           ]
         },
         { type: "separator" },
-        {
-          label: "Terminal",
-          submenu: [
-            {
-              label: "Show Terminal",
-              type: "checkbox",
-              checked: terminalOpen,
-              click: () => sendMenuAction(win, "toggle-terminal")
-            },
-            { type: "separator" },
-            {
-              label: "Shell: Auto",
-              type: "checkbox",
-              checked: terminalShell === "auto",
-              click: () => sendMenuAction(win, "terminal-shell-auto")
-            },
-            {
-              label: "Shell: Bash",
-              type: "checkbox",
-              checked: terminalShell === "bash",
-              click: () => sendMenuAction(win, "terminal-shell-bash")
-            },
-            {
-              label: "Shell: CMD",
-              type: "checkbox",
-              checked: terminalShell === "cmd",
-              click: () => sendMenuAction(win, "terminal-shell-cmd")
-            }
-          ]
-        },
-        { type: "separator" },
+        
         {
           label: "Zoom",
           submenu: [
@@ -420,37 +390,7 @@ function buildAppMenu(win, context = {}) {
           ]
         },
         { type: "separator" },
-        {
-          label: "Terminal",
-          submenu: [
-            {
-              label: "Show Terminal",
-              type: "checkbox",
-              checked: terminalOpen,
-              click: () => sendMenuAction(win, "toggle-terminal")
-            },
-            { type: "separator" },
-            {
-              label: "Shell: Auto",
-              type: "checkbox",
-              checked: terminalShell === "auto",
-              click: () => sendMenuAction(win, "terminal-shell-auto")
-            },
-            {
-              label: "Shell: Bash",
-              type: "checkbox",
-              checked: terminalShell === "bash",
-              click: () => sendMenuAction(win, "terminal-shell-bash")
-            },
-            {
-              label: "Shell: CMD",
-              type: "checkbox",
-              checked: terminalShell === "cmd",
-              click: () => sendMenuAction(win, "terminal-shell-cmd")
-            }
-          ]
-        },
-        { type: "separator" },
+        
         {
           label: "Zoom",
           submenu: [
