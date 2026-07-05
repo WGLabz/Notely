@@ -46,7 +46,7 @@ function createWindowLifecycle(deps) {
         const buffer = fs.readFileSync(iconPath);
         return `data:image/png;base64,${buffer.toString("base64")}`;
       }
-    } catch (_e) {
+    } catch {
       // fallback to empty if read fails
     }
     return "";
