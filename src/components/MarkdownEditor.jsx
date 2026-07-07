@@ -615,6 +615,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
           highlightActiveLineGutter: true,
           dropCursor: false,
           searchKeymap: false,
+          drawSelection: false,
         }}
         extensions={editorExtensions}
         onCreateEditor={(view) => {

@@ -9,7 +9,6 @@ export const editorTheme = EditorView.theme({
     overflow: "auto",
     fontFamily: '"Cascadia Code", Consolas, ui-monospace, monospace',
     lineHeight: "1.6",
-    scrollBehavior: "smooth",
   },
   ".cm-content": {
     whiteSpace: "pre-wrap",
@@ -30,6 +29,12 @@ export const editorTheme = EditorView.theme({
   },
   ".cm-activeLine, .cm-activeLineGutter": {
     backgroundColor: "var(--surface-accent)",
+  },
+  ".cm-selectionLayer": {
+    display: "none !important",
+  },
+  "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection": {
+    backgroundColor: "rgba(10, 107, 138, 0.3) !important",
   },
   ".cm-issue-spelling": {
     backgroundColor: "var(--status-warning-bg)",
