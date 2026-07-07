@@ -295,6 +295,7 @@ export default function App() {
   const [landingAssetsOpen, setLandingAssetsOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
+  const [globalSearchQuery, setGlobalSearchQuery] = useState("");
   const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false);
   const [workspaceGraphOpen, setWorkspaceGraphOpen] = useState(false);
   const [helpCenterOpen, setHelpCenterOpen] = useState(false);
@@ -704,6 +705,7 @@ export default function App() {
         event.preventDefault();
         setCommandPaletteOpen(false);
         setShortcutsModalOpen(false);
+        setGlobalSearchQuery("");
         setGlobalSearchOpen(true);
         return;
       }
@@ -846,6 +848,14 @@ export default function App() {
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
   }, []);
 
+  useEffect(() => {
+    function handleCustomSearch(e) {
+      setGlobalSearchQuery(e.detail?.query || "");
+      setGlobalSearchOpen(true);
+    }
+    window.addEventListener("open-global-search-query", handleCustomSearch);
+    return () => window.removeEventListener("open-global-search-query", handleCustomSearch);
+  }, []);
   useEffect(() => {
     void getOnboardingComplete()
       .then((res) => {
@@ -1767,6 +1777,7 @@ export default function App() {
     }
 
     if (resolvedCommandId === "open-global-search") {
+      setGlobalSearchQuery("");
       setGlobalSearchOpen(true);
       return;
     }
@@ -1918,6 +1929,7 @@ export default function App() {
     }
 
     if (action === "search") {
+      setGlobalSearchQuery("");
       setGlobalSearchOpen(true);
       return;
     }
@@ -2737,6 +2749,7 @@ export default function App() {
             onClose={() => setGlobalSearchOpen(false)}
             workspaceStorageScope={workspaceStorageScope}
             onOpenResult={handleOpenGlobalSearchResult}
+            initialQuery={globalSearchQuery}
           />
         </Suspense>
       ) : null}

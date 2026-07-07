@@ -204,8 +204,9 @@ export function GlobalSearchOverlay({
   workspaceStorageScope = "default",
   onClose,
   onOpenResult,
+  initialQuery = "",
 }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [activeIndex, setActiveIndex] = useState(0);
   const [typeFilter, setTypeFilter] = useState("all");
   const [useRegex, setUseRegex] = useState(false);
@@ -228,10 +229,20 @@ export function GlobalSearchOverlay({
   }), [documents, currentDocument, query, typeFilter, useRegex, regexValid]);
 
   useEffect(() => {
-    if (!isOpen) return;
-    setActiveIndex(0);
-    requestAnimationFrame(() => inputRef.current?.focus());
-  }, [isOpen]);
+    if (isOpen) {
+      setQuery(initialQuery);
+      setActiveIndex(0);
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      });
+    } else {
+      setQuery("");
+      setActiveIndex(0);
+      setTypeFilter("all");
+      setUseRegex(false);
+    }
+  }, [isOpen, initialQuery]);
 
   useEffect(() => {
     setActiveIndex((index) => Math.min(index, Math.max(0, results.length - 1)));

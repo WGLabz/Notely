@@ -6368,6 +6368,9 @@ button {
 
 .editor-context-menu button {
   width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   justify-content: flex-start;
   min-height: 32px;
   border: 0;
@@ -6381,6 +6384,13 @@ button {
 
 .editor-context-menu button:hover {
   background: #e9f2ee;
+}
+
+.editor-context-menu button svg {
+  width: 14px;
+  height: 14px;
+  opacity: 0.8;
+  flex-shrink: 0;
 }
 
 .editor-context-menu-group {

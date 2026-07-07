@@ -413,6 +413,9 @@ export function EditorPane({
       findMatches={findMatches}
       activeFindMatchIndex={activeFindMatchIndex}
       onEditorReady={() => setEditorReadyTick((value) => value + 1)}
+      onSearchRequest={(query) => {
+        window.dispatchEvent(new CustomEvent("open-global-search-query", { detail: { query } }));
+      }}
     />
   );
 
@@ -479,6 +482,9 @@ export function EditorPane({
             onMediaClick={setSelectedMediaPreview}
             showOriginalImages={showOriginalImages}
             inlineLinkedMarkdown={inlineLinkedMarkdown}
+            onSearchRequest={(query) => {
+              window.dispatchEvent(new CustomEvent("open-global-search-query", { detail: { query } }));
+            }}
           />
         </div>
         {selectedMediaPreview ? (
@@ -563,6 +569,9 @@ export function EditorPane({
               onMediaClick={setSelectedMediaPreview}
               showOriginalImages={showOriginalImages}
               inlineLinkedMarkdown={inlineLinkedMarkdown}
+              onSearchRequest={(query) => {
+                window.dispatchEvent(new CustomEvent("open-global-search-query", { detail: { query } }));
+              }}
             />
           </section>
         </div>

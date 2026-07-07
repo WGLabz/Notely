@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, memo } from "react";
+import { Search, Copy, ExternalLink, Pencil, RefreshCw, Trash2, RotateCcw } from "lucide-react";
 import {
   renderMarkdown,
   parseDiagramBlocks,
@@ -414,6 +415,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
   onMediaClick,
   showOriginalImages = false,
   inlineLinkedMarkdown = false,
+  onSearchRequest,
 }) {
   const previewRef = useRef(null);
   const menuRef = useRef(null);
@@ -849,6 +851,21 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
 
     const imageElement = sourceImage || getImageActionElement(event.target);
     if (!imageElement) {
+      const selection = window.getSelection();
+      const text = selection.toString().trim();
+      if (text) {
+        event?.preventDefault?.();
+        setContextMenu({
+          kind: "text",
+          x: Number.isFinite(x) ? x : event?.clientX,
+          y: Number.isFinite(y) ? y : event?.clientY,
+          keyboardOpened: !Number.isFinite(event?.clientX),
+          anchorX: Number.isFinite(x) ? x : event?.clientX,
+          anchorY: Number.isFinite(y) ? y : event?.clientY,
+          selectedText: text,
+        });
+        return;
+      }
       closeContextMenu({ restoreFocus: false });
       return;
     }
@@ -1244,44 +1261,51 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
 
   const imageMenuActions = [
     {
-      key: "view",
+      key: "view-image",
       label: "View image",
+      icon: <ExternalLink size={16} />,
       onSelect: viewImageFromMenu,
       disabled: false,
     },
     {
       key: "crop",
       label: "Edit image",
+      icon: <Pencil size={16} />,
       onSelect: openCropFromMenu,
       disabled: false,
     },
     {
       key: "edit-excalidraw",
       label: "Edit with Excalidraw",
+      icon: <Pencil size={16} />,
       onSelect: openExcalidrawFromImageMenu,
       disabled: false,
     },
     {
       key: "copy",
       label: "Copy markdown",
+      icon: <Copy size={16} />,
       onSelect: copyMarkdownFromMenu,
       disabled: false,
     },
     {
       key: "replace",
       label: "Replace image",
+      icon: <RefreshCw size={16} />,
       onSelect: openReplaceFromMenu,
       disabled: replaceState.busy,
     },
     {
       key: "rename",
       label: "Rename image",
+      icon: <Pencil size={16} />,
       onSelect: handleRenameFromMenu,
       disabled: replaceState.busy,
     },
     {
       key: "delete",
       label: "Delete image",
+      icon: <Trash2 size={16} />,
       onSelect: handleDeleteFromMenu,
       disabled: replaceState.busy,
     },
@@ -1291,12 +1315,14 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
     {
       key: "edit-diagram",
       label: "Edit diagram",
+      icon: <Pencil size={16} />,
       onSelect: editDiagramFromMenu,
       disabled: false,
     },
     {
       key: "copy-diagram",
       label: "Copy diagram markdown",
+      icon: <Copy size={16} />,
       onSelect: copyDiagramMarkdownFromMenu,
       disabled: false,
     },
@@ -1306,12 +1332,45 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
     diagramMenuActions.push({
       key: "restore-original",
       label: "Restore original image",
+      icon: <RotateCcw size={16} />,
       onSelect: restoreOriginalImageFromDiagramMenu,
       disabled: false,
     });
   }
 
-  const activeMenuActions = contextMenu?.kind === "diagram" ? diagramMenuActions : imageMenuActions;
+  const textMenuActions = [
+    {
+      key: "copy-text",
+      label: "Copy selection",
+      icon: <Copy size={16} />,
+      onSelect: () => {
+        navigator.clipboard.writeText(contextMenu?.selectedText || "").then(() => {
+          onNotify?.("Copied to clipboard", "success");
+        }).catch(() => {
+          onNotify?.("Failed to copy text", "error");
+        });
+        closeContextMenu();
+      },
+      disabled: false,
+    },
+    {
+      key: "search-text",
+      label: "Find in document",
+      icon: <Search size={16} />,
+      onSelect: () => {
+        onSearchRequest?.(contextMenu?.selectedText || "");
+        closeContextMenu();
+      },
+      disabled: false,
+    }
+  ];
+
+  const activeMenuActions =
+    contextMenu?.kind === "text"
+      ? textMenuActions
+      : contextMenu?.kind === "diagram"
+      ? diagramMenuActions
+      : imageMenuActions;
 
   const handleMenuKeyDown = (event) => {
     if (!contextMenu) return;
@@ -1488,7 +1547,9 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
           onKeyDown={handleMenuKeyDown}
         >
           <div className="editor-context-menu-group">
-            <div className="editor-context-menu-label">{contextMenu?.kind === "diagram" ? "Diagram actions" : "Image actions"}</div>
+            <div className="editor-context-menu-label">
+              {contextMenu?.kind === "diagram" ? "Diagram actions" : contextMenu?.kind === "text" ? "Text actions" : "Image actions"}
+            </div>
             {activeMenuActions.map((action, index) => (
               <button
                 key={action.key}
@@ -1500,6 +1561,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
                 onClick={action.onSelect}
                 disabled={action.disabled}
               >
+                {action.icon}
                 {action.label}
               </button>
             ))}

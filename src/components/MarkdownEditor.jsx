@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, memo } from "react";
 import CodeMirror from "@uiw/react-codemirror";
+import { Search, Copy, Sparkles, MessageSquare, RefreshCcw, FileSearch, List, Wand2, EyeOff, Settings } from "lucide-react";
 import { markdown } from "@codemirror/lang-markdown";
 import { EditorSelection, RangeSetBuilder } from "@codemirror/state";
 import { Decoration, EditorView, keymap, WidgetType } from "@codemirror/view";
@@ -261,6 +262,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
   aiEnabled = true,
   onOpenAIRequest,
   onOpenAISettings,
+  onSearchRequest,
   ghostSuggestion,
   onAcceptInlineGhost,
   onRejectInlineGhost,
@@ -652,6 +654,44 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
               Go to line {contextMenu.line}
             </button>
           ) : null}
+          {contextMenu.hasSelection ? (
+            <>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  if (viewRef.current) {
+                    const { from, to } = viewRef.current.state.selection.main;
+                    const text = viewRef.current.state.sliceDoc(from, to);
+                    navigator.clipboard.writeText(text).then(() => {
+                      onNotify?.("Copied to clipboard", "success");
+                    }).catch(() => {
+                      onNotify?.("Failed to copy text", "error");
+                    });
+                  }
+                  setContextMenu(null);
+                }}
+              >
+                <Copy size={16} />
+                Copy selection
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  if (viewRef.current) {
+                    const { from, to } = viewRef.current.state.selection.main;
+                    const text = viewRef.current.state.sliceDoc(from, to);
+                    onSearchRequest?.(text);
+                  }
+                  setContextMenu(null);
+                }}
+              >
+                <Search size={16} />
+                Find in document
+              </button>
+            </>
+          ) : null}
           {aiEnabled ? (
             <div className="editor-context-menu-group">
               <div className="editor-context-menu-label">AI actions</div>
@@ -670,6 +710,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
                       setContextMenu(null);
                     }}
                   >
+                    <MessageSquare size={16} />
                     Ask AI about selection
                   </button>
                   <button
@@ -685,6 +726,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
                       setContextMenu(null);
                     }}
                   >
+                    <RefreshCcw size={16} />
                     Rewrite selection with AI
                   </button>
                   <button
@@ -700,6 +742,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
                       setContextMenu(null);
                     }}
                   >
+                    <FileSearch size={16} />
                     Find related notes in workspace
                   </button>
                   <button
@@ -715,6 +758,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
                       setContextMenu(null);
                     }}
                   >
+                    <List size={16} />
                     Turn selection into action items
                   </button>
                 </>
@@ -733,6 +777,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
                       setContextMenu(null);
                     }}
                   >
+                    <MessageSquare size={16} />
                     Ask AI about this section
                   </button>
                   <button
@@ -748,6 +793,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
                       setContextMenu(null);
                     }}
                   >
+                    <Sparkles size={16} />
                     Continue this section with AI
                   </button>
                   <button
@@ -763,6 +809,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
                       setContextMenu(null);
                     }}
                   >
+                    <FileSearch size={16} />
                     Explore related workspace notes
                   </button>
                   <button
@@ -778,6 +825,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
                       setContextMenu(null);
                     }}
                   >
+                    <Wand2 size={16} />
                     Summarize current block
                   </button>
                 </>
@@ -794,6 +842,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
                   setContextMenu(null);
                 }}
               >
+                <Settings size={16} />
                 Configure AI settings
               </button>
             </div>
@@ -850,6 +899,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
                         role="menuitem"
                         onClick={() => applyIssueAction(issue)}
                       >
+                        <Wand2 size={16} />
                         {label}
                       </button>
                     )}
@@ -862,6 +912,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
                           setContextMenu(null);
                         }}
                       >
+                        <EyeOff size={16} />
                         Ignore word: {issue.word}
                       </button>
                     ) : null}
