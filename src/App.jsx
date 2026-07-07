@@ -715,6 +715,7 @@ export default function App() {
         setCommandPaletteOpen(false);
         setGlobalSearchOpen(false);
         setShortcutsModalOpen(true);
+        return;
       }
     }
 
@@ -1515,7 +1516,7 @@ export default function App() {
       id: "toggle-focus-mode",
       label: focusModeEnabled ? "Exit Focus Mode" : "Enter Focus Mode",
       group: "View",
-      shortcut: "Ctrl/Cmd+Alt+F",
+      shortcut: "F11",
       disabled: !current,
       aliases: "focus distraction free writing",
     },
@@ -2058,7 +2059,7 @@ export default function App() {
   };
 
   return (
-    <div className={`app-shell${showTerminal ? " terminal-open" : ""}${current ? " document-screen" : " landing-screen"}`}>
+    <div className={`app-shell${showTerminal ? " terminal-open" : ""}${current ? " document-screen" : " landing-screen"}${focusModeEnabled && current ? " focus-mode-active" : ""}`}>
       <div className="toast-stack" aria-live="polite" aria-atomic="true">
         {toasts.map((toast) => (
           <div className={`toast-item ${toast.type}`} key={toast.id}>
@@ -2067,7 +2068,7 @@ export default function App() {
         ))}
       </div>
       {error && <div className="error-banner">{error}</div>}
-      {!showTerminal ? (
+      {!showTerminal && !(focusModeEnabled && current) ? (
         <div className="terminal-status-bar">
           <div className="terminal-status-left">
             <button

@@ -51,6 +51,8 @@ export function EditorPane({
   workspaceStorageScope = "default",
   typoCheckEnabled = true,
   screenCaptureMode = "auto",
+  isFocusMode,
+  onToggleFocusMode,
 }) {
   const previewRef = useRef(null);
   const splitPaneRef = useRef(null);
@@ -454,6 +456,8 @@ export function EditorPane({
       onNotify?.("Cleared ignored spelling words.", "info");
     },
     screenCaptureMode,
+    isFocusMode,
+    onToggleFocusMode,
   };
 
   const renderToolbar = () => (

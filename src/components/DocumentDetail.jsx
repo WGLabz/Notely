@@ -28,7 +28,6 @@ import {
   CheckSquare,
   Square,
   Type,
-  Globe,
 } from "lucide-react";
 import AppButton from "./AppButton";
 import AppIconButton from "./AppIconButton";
@@ -1730,109 +1729,112 @@ export function DocumentDetail({
 
   return (
     <div className="detail-shell">
-      <div className="detail-topbar">
-        <nav className="detail-breadcrumb" aria-label="Note location">
-          {breadcrumbs.length ? breadcrumbs.map((segment) => (
-            <span className="detail-breadcrumb-part" key={segment.path}>
-              <button
-                className="detail-breadcrumb-link"
-                type="button"
-                onClick={() => onNavigateBreadcrumb?.(segment.path)}
-              >
-                {segment.label}
-              </button>
-              <span className="detail-breadcrumb-separator" aria-hidden="true">/</span>
-            </span>
-          )) : (
-            <span className="detail-breadcrumb-part">
-              <button className="detail-breadcrumb-link" type="button" onClick={onBack}>Notes</button>
-              <span className="detail-breadcrumb-separator" aria-hidden="true">/</span>
-            </span>
-          )}
-          <span className="detail-breadcrumb-current" data-tooltip={document.title}>{document.title}</span>
-        </nav>
-        {taskCounts.total > 0 && (
-          <div
-            className="detail-task-summary"
-            onMouseEnter={() => setIsTaskSummaryOpen(true)}
-            onMouseLeave={() => setIsTaskSummaryOpen(false)}
-            onFocus={() => setIsTaskSummaryOpen(true)}
-            onBlur={(event) => {
-              if (!event.currentTarget.contains(event.relatedTarget)) {
-                setIsTaskSummaryOpen(false);
-              }
-            }}
-          >
-            <button
-              className="detail-task-counts"
-              type="button"
-              aria-label={`${taskCounts.open} open tasks and ${taskCounts.closed} closed tasks`}
-              aria-expanded={isTaskSummaryOpen}
-              aria-controls={taskSummaryPopoverId}
-            >
-              <span className="task-count-item" data-tooltip="Open tasks">
-                <CheckSquare size={14} />
-                {taskCounts.open}
+      {!isFocusMode && (
+        <div className="detail-topbar">
+          <nav className="detail-breadcrumb" aria-label="Note location">
+            {breadcrumbs.length ? breadcrumbs.map((segment) => (
+              <span className="detail-breadcrumb-part" key={segment.path}>
+                <button
+                  className="detail-breadcrumb-link"
+                  type="button"
+                  onClick={() => onNavigateBreadcrumb?.(segment.path)}
+                >
+                  {segment.label}
+                </button>
+                <span className="detail-breadcrumb-separator" aria-hidden="true">/</span>
               </span>
-              <span className="task-count-item" data-tooltip="Closed tasks">
-                <Square size={14} />
-                {taskCounts.closed}
+            )) : (
+              <span className="detail-breadcrumb-part">
+                <button className="detail-breadcrumb-link" type="button" onClick={onBack}>Notes</button>
+                <span className="detail-breadcrumb-separator" aria-hidden="true">/</span>
               </span>
-            </button>
+            )}
+            <span className="detail-breadcrumb-current" data-tooltip={document.title}>{document.title}</span>
+          </nav>
+          {taskCounts.total > 0 && (
             <div
-              id={taskSummaryPopoverId}
-              className="detail-task-popover"
-              role="tooltip"
-              aria-label="Note task summary"
+              className="detail-task-summary"
+              onMouseEnter={() => setIsTaskSummaryOpen(true)}
+              onMouseLeave={() => setIsTaskSummaryOpen(false)}
+              onFocus={() => setIsTaskSummaryOpen(true)}
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) {
+                  setIsTaskSummaryOpen(false);
+                }
+              }}
             >
-              {openTaskItems.length ? (
-                <div className="detail-task-popover-section">
-                  <strong>Open</strong>
-                  <ul className="detail-task-popover-list">
-                    {openTaskItems.map((task) => (
-                      <li className="detail-task-popover-item open" key={task.id}>
-                        <span className="detail-task-popover-marker">[ ]</span>
-                        <span>{task.text}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-              {closedTaskItems.length ? (
-                <div className="detail-task-popover-section">
-                  <strong>Closed</strong>
-                  <ul className="detail-task-popover-list">
-                    {closedTaskItems.map((task) => (
-                      <li className="detail-task-popover-item closed" key={task.id}>
-                        <span className="detail-task-popover-marker">[x]</span>
-                        <span>{task.text}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
+              <button
+                className="detail-task-counts"
+                type="button"
+                aria-label={`${taskCounts.open} open tasks and ${taskCounts.closed} closed tasks`}
+                aria-expanded={isTaskSummaryOpen}
+                aria-controls={taskSummaryPopoverId}
+              >
+                <span className="task-count-item" data-tooltip="Open tasks">
+                  <CheckSquare size={14} />
+                  {taskCounts.open}
+                </span>
+                <span className="task-count-item" data-tooltip="Closed tasks">
+                  <Square size={14} />
+                  {taskCounts.closed}
+                </span>
+              </button>
+              <div
+                id={taskSummaryPopoverId}
+                className="detail-task-popover"
+                role="tooltip"
+                aria-label="Note task summary"
+              >
+                {openTaskItems.length ? (
+                  <div className="detail-task-popover-section">
+                    <strong>Open</strong>
+                    <ul className="detail-task-popover-list">
+                      {openTaskItems.map((task) => (
+                        <li className="detail-task-popover-item open" key={task.id}>
+                          <span className="detail-task-popover-marker">[ ]</span>
+                          <span>{task.text}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {closedTaskItems.length ? (
+                  <div className="detail-task-popover-section">
+                    <strong>Closed</strong>
+                    <ul className="detail-task-popover-list">
+                      {closedTaskItems.map((task) => (
+                        <li className="detail-task-popover-item closed" key={task.id}>
+                          <span className="detail-task-popover-marker">[x]</span>
+                          <span>{task.text}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
             </div>
+          )}
+          <div className={`save-status ${dirty ? "dirty" : "clean"}`} aria-live="polite">
+            {dirty ? "Unsaved" : "Saved"}
           </div>
-        )}
-        <div className={`save-status ${dirty ? "dirty" : "clean"}`} aria-live="polite">
-          {dirty ? "Unsaved" : "Saved"}
+          <AppButton
+            variant="small"
+            className={`autosave-toggle-btn ${autosaveEnabled ? "active" : ""}`}
+            onClick={() => setAutosaveEnabled((value) => !value)}
+            data-tooltip="Toggle autosave"
+          >
+            <Save size={18} />
+            {autosaveEnabled ? "Autosave On" : "Autosave Off"}
+          </AppButton>
         </div>
-        <AppButton
-          variant="small"
-          className={`autosave-toggle-btn ${autosaveEnabled ? "active" : ""}`}
-          onClick={() => setAutosaveEnabled((value) => !value)}
-          data-tooltip="Toggle autosave"
-        >
-          <Save size={18} />
-          {autosaveEnabled ? "Autosave On" : "Autosave Off"}
-        </AppButton>
-      </div>
+      )}
 
-      {autosaveEnabled && lastAutoSaveAt ? (
+      {!isFocusMode && autosaveEnabled && lastAutoSaveAt ? (
         <div className="autosave-status">Last autosave {new Date(lastAutoSaveAt).toLocaleTimeString()}</div>
       ) : null}
 
-      <header className="doc-header">
+      {!isFocusMode && (
+        <header className="doc-header">
         <div className="doc-header-main">
           <h1>{document.title}</h1>
           <p className="doc-header-file">{document.fileName}</p>
@@ -1849,6 +1851,21 @@ export function DocumentDetail({
           </AppButton>
         </div>
       </header>
+      )}
+
+      {isFocusMode && (
+        <div className="mode-contract-banner" role="status" aria-live="polite">
+          <span>Focus mode is active — press F11 to exit</span>
+          <button
+            type="button"
+            data-tooltip="Exit focus mode"
+            className="mode-contract-exit"
+            onClick={() => onFocusModeChange?.(false)}
+          >
+            Exit
+          </button>
+        </div>
+      )}
 
       <MetadataPanel
         showMetadataPanel={showMetadataPanel}
@@ -1874,16 +1891,9 @@ export function DocumentDetail({
         onTagsKeyDown={handleTagsKeyDown}
       />
 
-      <div className={`workspace ${isOutlineEnabled ? "" : "outline-panel-disabled"} ${isOutlineCollapsed ? "outline-panel-collapsed" : ""} ${isFocusMode ? "focus-mode" : ""} ${aiSidebar ? "with-ai-chat" : ""}`}>
-        {isFocusMode ? (
-          <div className="mode-contract-banner" role="status" aria-live="polite">
-            <span>Focus mode is active. Outline is hidden to reduce distractions.</span>
-            <AppButton variant="small" onClick={toggleFocusMode} data-tooltip="Exit focus mode">
-              Exit focus mode
-            </AppButton>
-          </div>
-        ) : null}
+      <div className={`workspace ${isOutlineEnabled ? "" : "outline-panel-disabled"} ${isOutlineCollapsed ? "outline-panel-collapsed" : ""} ${aiSidebar ? "with-ai-chat" : ""}`}>
         <main className="editor-panel">
+          {!isFocusMode && (
           <div className="tab-row">
             <div className="mode-switch">
               <div className="copy-menu" role="group" aria-label="Copy options">
@@ -1971,6 +1981,7 @@ export function DocumentDetail({
               </div>
             </div>
           </div>
+          )}
 
           <FindReplacePanel
             showFindReplace={showFindReplace}
@@ -2019,6 +2030,8 @@ export function DocumentDetail({
                 source: "inline-continue",
               });
             }}
+            isFocusMode={isFocusMode}
+            onToggleFocusMode={() => onFocusModeChange?.(!isFocusMode)}
             ghostSuggestion={inlineGhostSuggestion}
             onAcceptInlineGhost={onAcceptInlineGhost}
             onRejectInlineGhost={onRejectInlineGhost}

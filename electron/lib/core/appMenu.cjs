@@ -294,6 +294,12 @@ function buildAppMenu(win, context = {}) {
           ]
         },
         { type: "separator" },
+        {
+          label: "Toggle Full Screen (Focus Mode)",
+          accelerator: "F11",
+          click: () => sendMenuAction(win, "toggle-focus-mode")
+        },
+        { type: "separator" },
         
         {
           label: "Zoom",

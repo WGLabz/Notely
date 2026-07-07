@@ -215,6 +215,10 @@ button {
   padding-bottom: calc(var(--app-shell-pad-bottom) + var(--terminal-dock-height) + 16px);
 }
 
+.app-shell.focus-mode-active {
+  --app-shell-pad-bottom: 0px;
+}
+
 .toast-stack {
   position: fixed;
   top: var(--space-6);
@@ -4395,23 +4399,40 @@ button {
 }
 
 .mode-contract-banner {
-  grid-column: 1 / -1;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  min-height: 34px;
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-sm);
-  background: var(--surface-muted);
-  color: var(--text-strong);
-  font-size: var(--font-size-label);
+  justify-content: center;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  background: #e6f4ea;
+  color: #137333;
+  border-bottom: 1px solid #ceead6;
+  font-size: 11px;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .mode-contract-banner .small-button {
   min-height: 26px;
+}
+
+.mode-contract-exit {
+  margin-left: auto;
+  padding: 2px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(19, 115, 51, 0.4);
+  background: transparent;
+  color: #137333;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.mode-contract-exit:hover {
+  background: rgba(19, 115, 51, 0.1);
 }
 
 .editor-panel,
@@ -5283,7 +5304,10 @@ button {
 .editor-panel {
   display: flex;
   min-height: 0;
+  height: 100%;
+  flex: 1;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .tab-row {
@@ -5498,6 +5522,7 @@ button {
 .pane-block {
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   background: #fffefd;
 }
 
@@ -5607,6 +5632,11 @@ button {
   overflow: hidden;
   min-height: 360px;
   border: 0;
+}
+
+/* In focus-mode the editor must be fully constrained by the grid cell so mouse-scroll works */
+.workspace.focus-mode .markdown-editor {
+  min-height: 0;
 }
 
 .editor-toolbar {
@@ -6298,8 +6328,11 @@ button {
 }
 
 .markdown-codemirror {
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 .markdown-codemirror .cm-editor {
@@ -6309,6 +6342,7 @@ button {
 
 .markdown-codemirror .cm-scroller {
   height: 100%;
+  overflow: auto;
 }
 
 .markdown-codemirror .cm-focused {
@@ -9617,3 +9651,11 @@ button {
 .document-card:nth-child(n+13), .document-table tbody tr:nth-child(n+13) { animation-delay: 0.26s; }
 
 .code-block-modal { width: min(90vw, 800px) !important; }
+
+/* Full Screen (Zen Mode) overrides */
+
+:root[data-theme="dark"] .mode-contract-banner {
+  background: rgba(46, 125, 50, 0.2);
+  color: #81c784;
+  border-color: rgba(129, 199, 132, 0.3);
+}

@@ -16,6 +16,8 @@ import {
   ImagePlus,
   Zap,
   Scan,
+  Maximize,
+  Minimize,
 } from "lucide-react";
 import AppSelect from "./AppSelect";
 import { applySnippet, createMediaMarkdown, insertTextAtCursor, normalizeImagePathForMarkdown } from "../utils/markdownUtils";
@@ -163,6 +165,8 @@ export function MarkdownToolbar({
   onRemoveIgnoredSpellingWord,
   onClearIgnoredSpellingWords,
   screenCaptureMode = "auto",
+  isFocusMode,
+  onToggleFocusMode,
 }) {
   const imageInputRef = useRef(null);
   const mermaidPopoverRef = useRef(null);
@@ -882,7 +886,15 @@ export function MarkdownToolbar({
   return (
     <>
       <div className="editor-toolbar" aria-label="Markdown formatting toolbar">
-      <button onClick={() => onUndo?.()} data-tooltip="Undo (Ctrl/Cmd+Z)" disabled={!canUndo}>
+        <button
+          onClick={() => onToggleFocusMode?.()}
+          data-tooltip={isFocusMode ? "Exit Full Screen (Focus Mode)" : "Enter Full Screen (Focus Mode)"}
+          className={isFocusMode ? "active" : ""}
+        >
+          {isFocusMode ? <Minimize size={18} /> : <Maximize size={18} />}
+        </button>
+        <div className="toolbar-separator" aria-hidden="true" />
+        <button onClick={() => onUndo?.()} data-tooltip="Undo (Ctrl/Cmd+Z)" disabled={!canUndo}>
         <Undo2 size={18} />
       </button>
       <button onClick={() => onRedo?.()} data-tooltip="Redo (Ctrl/Cmd+Y)" disabled={!canRedo}>
