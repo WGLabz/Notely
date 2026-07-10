@@ -136,6 +136,7 @@ contextBridge.exposeInMainWorld("notesApi", {
   deleteImage: (payload) => ipcRenderer.invoke("images:delete", payload),
   replaceImage: (payload) => ipcRenderer.invoke("images:replace", payload),
   renameImage: (payload) => ipcRenderer.invoke("images:rename", payload),
+  downloadImage: (payload) => ipcRenderer.invoke("images:download", payload),
   createTerminalSession: (payload) => ipcRenderer.invoke("terminal:create", payload),
   writeTerminalInput: (payload) => ipcRenderer.invoke("terminal:write", payload),
   resizeTerminal: (payload) => ipcRenderer.invoke("terminal:resize", payload),

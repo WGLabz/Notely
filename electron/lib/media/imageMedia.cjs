@@ -26,7 +26,9 @@ function createImageMedia(deps) {
     getNotesRoot,
     getAppDataDir,
     emitLocalP2PSyncEvent,
-    hashContent
+    hashContent,
+    getLastPdfExportPath,
+    rememberPdfExportPath
   } = deps;
 
   const THUMBNAIL_DIR_NAME = "thumbnails";
@@ -652,6 +654,43 @@ registerTrustedHandler("images:save", (_event, payload) => {
   emitImageSyncFromDisk(mediaFilePath, { op: "create" });
 
   return `/media/${subFolder}/${finalName}`;
+});
+
+registerTrustedHandler("images:download", async (event, payload) => {
+  const { base64Data, defaultFilename } = payload || {};
+  if (!base64Data || typeof base64Data !== "string") {
+    throw new Error("Invalid download data.");
+  }
+
+  const { dialog } = require("electron");
+  const fs = require("fs");
+
+  const lastPdfExportPath = typeof getLastPdfExportPath === "function" ? getLastPdfExportPath() : "";
+  const defaultSavePath = lastPdfExportPath
+    ? path.join(lastPdfExportPath, defaultFilename || "diagram.png")
+    : defaultFilename || "diagram.png";
+
+  const { filePath } = await dialog.showSaveDialog(BrowserWindow.fromWebContents(event.sender), {
+    title: "Download Diagram",
+    defaultPath: defaultSavePath,
+    filters: [
+      { name: "PNG Images", extensions: ["png"] },
+      { name: "All Files", extensions: ["*"] }
+    ]
+  });
+
+  if (!filePath) {
+    return { cancelled: true };
+  }
+
+  const buffer = Buffer.from(base64Data.split(",")[1], "base64");
+  fs.writeFileSync(filePath, buffer);
+
+  if (typeof rememberPdfExportPath === "function") {
+    rememberPdfExportPath(filePath);
+  }
+
+  return { success: true, filePath };
 });
 
 registerTrustedHandler("images:list", (_event, payload) => {

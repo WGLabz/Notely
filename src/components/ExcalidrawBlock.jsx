@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { Download } from "lucide-react";
 import { readDiagramImage, readDiagramSource, writeDiagramSource } from "../services/diagramService";
+import { downloadImage } from "../services/electronService";
 import ExcalidrawComponent from "./ExcalidrawEditor";
 import "./ExcalidrawBlock.css";
 
-export function ExcalidrawBlock({ imagePath, diagramId, documentPath, originAssetPath, originAltText, onUpdate }) {
+export function ExcalidrawBlock({ imagePath, diagramId, documentPath, originAssetPath, originAltText, onUpdate, onNotify }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [thumbnail, setThumbnail] = useState(null);
   const [error, setError] = useState("");
@@ -52,14 +53,17 @@ export function ExcalidrawBlock({ imagePath, diagramId, documentPath, originAsse
     };
   }, [diagramId, documentPath, imagePath]);
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!thumbnail) return;
-    const link = document.createElement("a");
-    link.href = thumbnail;
-    link.download = `${diagramId || "diagram"}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      const result = await downloadImage(thumbnail, `${diagramId || "diagram"}.png`);
+      if (result?.success) {
+        onNotify?.("Diagram exported successfully.", "success");
+      }
+    } catch (err) {
+      console.error("Failed to download diagram:", err);
+      onNotify?.("Failed to export diagram.", "error");
+    }
   };
 
   const handleSave = async (newDiagramData, previewImageData) => {
@@ -84,9 +88,11 @@ export function ExcalidrawBlock({ imagePath, diagramId, documentPath, originAsse
       });
       
       setError("");
+      onNotify?.("Diagram saved successfully.", "success");
     } catch (err) {
       console.error("Failed to save diagram:", err);
       setError("Failed to save diagram");
+      onNotify?.("Failed to save diagram.", "error");
     } finally {
       setLoading(false);
     }

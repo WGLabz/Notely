@@ -627,6 +627,8 @@ const imageMedia = createImageMedia({
   getAppDataDir: () => appDataDir,
   emitLocalP2PSyncEvent: (payload) => p2pSyncEngine.emitLocalP2PSyncEvent(payload),
   hashContent,
+  getLastPdfExportPath,
+  rememberPdfExportPath,
 });
 
 const {

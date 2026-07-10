@@ -1518,6 +1518,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
               originAssetPath={part.originAssetPath}
               originAltText={part.originAltText}
               documentPath={basePath?.split(/[/\\]/).slice(0, -1).join("/")}
+              onNotify={onNotify}
               index={index}
               key={`${part.type}-${index}`}
             />

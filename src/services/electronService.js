@@ -771,6 +771,14 @@ export async function renameImage(basePath, assetPath, nextFileName) {
   return api.renameImage({ basePath, assetPath, nextFileName });
 }
 
+export async function downloadImage(base64Data, defaultFilename) {
+  const api = getNotesApi();
+  if (typeof api.downloadImage !== "function") {
+    throw new Error("Image download action unavailable. Please restart the app.");
+  }
+  return api.downloadImage({ base64Data, defaultFilename });
+}
+
 export async function createTerminalSession(cwd, options = {}) {
   const api = getNotesApi();
   if (typeof api.createTerminalSession !== "function") {
