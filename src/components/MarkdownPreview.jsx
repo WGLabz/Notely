@@ -1084,7 +1084,6 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
       }
 
       onNotify?.("Image converted to Excalidraw diagram.", "success");
-      closeDiagramEditor();
       void previewImageData;
     } catch (error) {
       onNotify?.(error?.message || "Unable to save Excalidraw diagram.", "error");

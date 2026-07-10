@@ -273,6 +273,25 @@ const ExcalidrawComponent = ({
     return () => document.removeEventListener("keydown", handleEscape);
   }, [isLibrarySearchOpen, onClose]);
 
+  const handleSaveRef = useRef(null);
+  useEffect(() => {
+    handleSaveRef.current = handleSave;
+  });
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key?.toLowerCase() === "s") {
+        event.preventDefault();
+        event.stopPropagation();
+        handleSaveRef.current?.();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, true);
+    };
+  }, []);
+
   const handleSave = async () => {
     if (!excalidrawAPIRef.current || isSaving) return;
 
@@ -500,7 +519,7 @@ const ExcalidrawComponent = ({
             </AppButton>
             <AppButton variant="small" onClick={onClose} disabled={isSaving}>
               <X size={14} aria-hidden="true" />
-              Cancel
+              Close
             </AppButton>
           </div>
         </div>

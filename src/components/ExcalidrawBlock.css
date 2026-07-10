@@ -124,3 +124,43 @@
   color: var(--status-danger-text);
 }
 
+.excalidraw-download-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid #c8dcd3;
+  background: rgba(255, 255, 255, 0.92);
+  color: #2e543f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s, background 0.2s, color 0.2s;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.excalidraw-preview-thumbnail:hover .excalidraw-download-btn {
+  opacity: 1;
+}
+
+.excalidraw-download-btn:hover {
+  background: #2e543f;
+  color: #ffffff;
+  border-color: #2e543f;
+}
+
+:root[data-theme="dark"] .excalidraw-download-btn {
+  background: rgba(29, 39, 42, 0.92);
+  color: var(--text-muted);
+  border-color: var(--border-default);
+}
+
+:root[data-theme="dark"] .excalidraw-download-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-strong);
+}
+

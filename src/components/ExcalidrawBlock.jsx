@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Download } from "lucide-react";
 import { readDiagramImage, readDiagramSource, writeDiagramSource } from "../services/diagramService";
 import ExcalidrawComponent from "./ExcalidrawEditor";
 import "./ExcalidrawBlock.css";
@@ -51,6 +52,16 @@ export function ExcalidrawBlock({ imagePath, diagramId, documentPath, originAsse
     };
   }, [diagramId, documentPath, imagePath]);
 
+  const handleDownload = () => {
+    if (!thumbnail) return;
+    const link = document.createElement("a");
+    link.href = thumbnail;
+    link.download = `${diagramId || "diagram"}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleSave = async (newDiagramData, previewImageData) => {
     try {
       setLoading(true);
@@ -73,7 +84,6 @@ export function ExcalidrawBlock({ imagePath, diagramId, documentPath, originAsse
       });
       
       setError("");
-      setIsModalOpen(false);
     } catch (err) {
       console.error("Failed to save diagram:", err);
       setError("Failed to save diagram");
@@ -109,6 +119,18 @@ export function ExcalidrawBlock({ imagePath, diagramId, documentPath, originAsse
               className="diagram-image"
               onError={() => setThumbnail(null)}
             />
+            <button
+              className="excalidraw-download-btn"
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDownload();
+              }}
+              title="Download diagram as PNG"
+              aria-label="Download diagram as PNG"
+            >
+              <Download size={14} />
+            </button>
             <span className="click-hint">(Click to edit)</span>
           </div>
         ) : !loading ? (
