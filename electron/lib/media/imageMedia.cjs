@@ -439,10 +439,15 @@ function isRasterImagePath(filePath) {
   return RASTER_IMAGE_EXTENSIONS.has(path.extname(filePath || "").toLowerCase());
 }
 
+function getThumbnailDirForImage(imagePath) {
+  if (!imagePath) return "";
+  const relativeImagePath = path.relative(getNotesRoot(), path.resolve(imagePath));
+  const relativeDir = path.dirname(relativeImagePath);
+  return path.join(getAppDataDir(), THUMBNAIL_DIR_NAME, relativeDir);
+}
+
 function getThumbnailPathForImage(imagePath) {
   const stat = fs.statSync(imagePath);
-  const imageDir = path.dirname(imagePath);
-  const thumbnailDir = path.join(imageDir, THUMBNAIL_DIR_NAME);
   const ext = path.extname(imagePath);
   const baseName = path.basename(imagePath, ext).replace(/[<>:"/\\|?*]+/g, "-") || "image";
   const cacheKey = crypto
@@ -450,6 +455,7 @@ function getThumbnailPathForImage(imagePath) {
     .update(`${path.resolve(imagePath)}:${stat.size}:${Math.round(stat.mtimeMs)}`)
     .digest("hex")
     .slice(0, 12);
+  const thumbnailDir = getThumbnailDirForImage(imagePath);
   return path.join(thumbnailDir, `${baseName}-${cacheKey}.jpg`);
 }
 
@@ -462,6 +468,9 @@ function ensureImageThumbnail(imagePath) {
   if (fs.existsSync(thumbnailPath)) {
     return thumbnailPath;
   }
+
+  // Clear any existing stale thumbnails for this image before generating a new one
+  clearThumbnailCacheForImage(imagePath);
 
   ensureDir(path.dirname(thumbnailPath));
   const image = nativeImage.createFromPath(imagePath);
@@ -478,8 +487,8 @@ function ensureImageThumbnail(imagePath) {
 
 function clearThumbnailCacheForImage(imagePath) {
   if (!imagePath) return;
-  const thumbnailDir = path.join(path.dirname(imagePath), THUMBNAIL_DIR_NAME);
-  if (!fs.existsSync(thumbnailDir)) return;
+  const thumbnailDir = getThumbnailDirForImage(imagePath);
+  if (!thumbnailDir || !fs.existsSync(thumbnailDir)) return;
 
   const ext = path.extname(imagePath);
   const baseName = path.basename(imagePath, ext).replace(/[<>:"/\\|?*]+/g, "-") || "image";
