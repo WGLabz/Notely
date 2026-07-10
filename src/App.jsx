@@ -392,6 +392,7 @@ export default function App() {
   } = useDocumentManager({ notify });
 
   const [activeDocumentChangedOnDisk, setActiveDocumentChangedOnDisk] = useState(false);
+  const currentFilePath = current?.filePath;
 
   useEffect(() => {
     setActiveDocumentChangedOnDisk(false);
@@ -400,12 +401,12 @@ export default function App() {
   useEffect(() => {
     if (typeof window.notesApi?.onDocumentChangedOnDisk !== "function") return undefined;
     const unsubscribe = window.notesApi.onDocumentChangedOnDisk((payload) => {
-      if (payload && current && payload.filePath === current.filePath) {
+      if (payload && currentFilePath && payload.filePath === currentFilePath) {
         setActiveDocumentChangedOnDisk(true);
       }
     });
     return () => unsubscribe();
-  }, [current?.filePath]);
+  }, [currentFilePath]);
 
   const workspaceStorageScope = useMemo(() => {
     const rawWorkspaceId = activeProject?.slug || activeProject?.rootPath || notesFolderPath || "default";

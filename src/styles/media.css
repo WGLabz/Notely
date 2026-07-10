@@ -434,11 +434,17 @@
 .media-toolbar .app-select-root {
   width: auto;
   display: inline-flex;
+  align-items: stretch;
 }
 
+/* Override trigger to match toolbar height and font */
 .media-toolbar .app-select-trigger {
   width: auto;
   min-width: 0;
+  min-height: 0;
+  height: 26px;
+  padding: 0 7px;
+  font-size: 11px;
   white-space: nowrap;
 }
 
@@ -447,6 +453,23 @@
   min-width: 100%;
   left: 0;
   right: auto;
+}
+
+/* "Save to" label select — same treatment */
+.media-upload-target .app-select-root {
+  width: auto;
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.media-upload-target .app-select-trigger {
+  width: auto;
+  min-width: 0;
+  min-height: 0;
+  height: 26px;
+  padding: 0 7px;
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .media-toolbar-actions {
@@ -487,13 +510,8 @@
 }
 
 .media-select {
-  height: 26px;
-  padding: 2px 7px;
-  font-size: 11px;
-  border: 1px solid var(--border-default, #cbdad5);
-  border-radius: 6px;
-  background: var(--surface-bg, #fff);
-  color: var(--app-text, #1a3a3e);
+  /* Layout only — visual styling is on .app-select-trigger inside */
+  position: relative;
 }
 
 /* Summary line below toolbar — hidden; info already in health panel */

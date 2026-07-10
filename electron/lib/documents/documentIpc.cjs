@@ -90,7 +90,6 @@ function registerDocumentIpcHandlers(ipcMain, deps) {
   }
 
   const lastAppHashes = new Map();
-  let currentWatcher = null;
   let watchedPath = null;
 
   function stopWatching(filePath) {

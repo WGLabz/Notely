@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Copy, ExternalLink, Eye, ImageOff, ImagePlus, ListTree, MoreHorizontal, RefreshCw, Upload, Trash2, X } from "lucide-react";
 import { extractAllMediaFromMarkdown } from "../utils/mediaUtils";
 import { getMediaTypeFromExtension } from "../utils/mediaUtils";
@@ -531,7 +531,7 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
         <div className={`media-health-panel ${healthReport.issueCount ? "warn" : "ok"}`}>
           <div className="media-health-main">
             <div className="media-health-title">
-              <AlertTriangle size={13} />
+              <AlertTriangle size={14} />
               <strong>Workspace Health</strong>
               <span className="media-health-status">
                 {healthReport.issueCount ? `${healthReport.issueCount} item${healthReport.issueCount === 1 ? "" : "s"} to review` : "No issues"}
@@ -789,7 +789,7 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
                     setOpenMenuPath(isMenuOpen ? null : image.path);
                   }}
                 >
-                  <MoreHorizontal size={15} />
+                  <MoreHorizontal size={14} />
                 </button>
 
                 {isMenuOpen && (
@@ -797,36 +797,36 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
                     <button className="media-card-menu-item" role="menuitem" type="button"
                       onClick={(e) => { e.stopPropagation(); setOpenMenuPath(null); setSelectedMediaPreview({ path: image.path, type: mediaType }); }}
                     >
-                      <Eye size={13} /> Preview
+                      <Eye size={14} /> Preview
                     </button>
                     <button className="media-card-menu-item" role="menuitem" type="button"
                       onClick={(e) => { e.stopPropagation(); setOpenMenuPath(null); handleCopyMarkdown(image); }}
                     >
-                      <Copy size={13} /> Copy markdown
+                      <Copy size={14} /> Copy markdown
                     </button>
                     <button className="media-card-menu-item" role="menuitem" type="button"
                       onClick={(e) => { e.stopPropagation(); setOpenMenuPath(null); setUsageInspectorImage(image); }}
                     >
-                      <ListTree size={13} /> Inspect usage
+                      <ListTree size={14} /> Inspect usage
                     </button>
                     <button className="media-card-menu-item" role="menuitem" type="button"
                       disabled={!basePath || openingPath === image.path}
                       onClick={(e) => { e.stopPropagation(); setOpenMenuPath(null); handleOpenInDefaultApp(image.path); }}
                     >
-                      <ExternalLink size={13} /> {openingPath === image.path ? "Opening…" : "Open in app"}
+                      <ExternalLink size={14} /> {openingPath === image.path ? "Opening…" : "Open in app"}
                     </button>
                     <button className="media-card-menu-item" role="menuitem" type="button"
                       disabled={busy}
                       onClick={(e) => { e.stopPropagation(); setOpenMenuPath(null); openReplacePicker(image.path); }}
                     >
-                      <Upload size={13} /> Replace file
+                      <Upload size={14} /> Replace file
                     </button>
                     <div className="media-card-menu-separator" />
                     <button className="media-card-menu-item danger" role="menuitem" type="button"
                       disabled={busy}
                       onClick={(e) => { e.stopPropagation(); setOpenMenuPath(null); handleDeleteImage(image.path, referenced); }}
                     >
-                      <Trash2 size={13} /> {referenced ? "Remove links" : "Delete file"}
+                      <Trash2 size={14} /> {referenced ? "Remove links" : "Delete file"}
                     </button>
                   </div>
                 )}
