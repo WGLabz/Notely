@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Copy, ExternalLink, Eye, ImageOff, ImagePlus, ListTree, RefreshCw, Upload, Trash2, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, Copy, ExternalLink, Eye, ImageOff, ImagePlus, ListTree, MoreHorizontal, RefreshCw, Upload, Trash2, X } from "lucide-react";
 import { extractAllMediaFromMarkdown } from "../utils/mediaUtils";
 import { getMediaTypeFromExtension } from "../utils/mediaUtils";
 import AppButton from "./AppButton";
@@ -62,8 +62,20 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
   const [selectedMediaPreview, setSelectedMediaPreview] = useState(null);
   const [usageInspectorImage, setUsageInspectorImage] = useState(null);
   const [openingPath, setOpeningPath] = useState("");
+  const [openMenuPath, setOpenMenuPath] = useState(null);
   const addInputRef = useRef(null);
   const replaceInputRef = useRef(null);
+  const menuRef = useRef(null);
+
+  // Close context menu on outside click
+  useEffect(() => {
+    if (!openMenuPath) return;
+    function handleOutside(e) {
+      if (!menuRef.current?.contains(e.target)) setOpenMenuPath(null);
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [openMenuPath]);
 
   const referencedPathSet = useMemo(() => {
     return new Set(Object.keys(imageUsage).filter((pathValue) => (imageUsage[pathValue]?.referenceCount || 0) > 0));
@@ -515,155 +527,145 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
 
   return (
     <div>
-      <div className={`media-health-panel ${healthReport.issueCount ? "warn" : "ok"}`}>
-        <div className="media-health-main">
-          <div className="media-health-title">
-            <AlertTriangle size={14} />
-            <strong>Workspace Health</strong>
-            <span className="media-health-status">
-              {healthReport.issueCount ? `${healthReport.issueCount} item${healthReport.issueCount === 1 ? "" : "s"} to review` : "No issues"}
-            </span>
-            <span className="media-health-summary">
-              {mediaSummary.total} media · {formatFileSize(mediaSummary.size)} · {mediaSummary.used} used · {mediaSummary.unused} unused · {mediaSummary.annotated} annotated
-            </span>
+      <div className="media-header-block">
+        <div className={`media-health-panel ${healthReport.issueCount ? "warn" : "ok"}`}>
+          <div className="media-health-main">
+            <div className="media-health-title">
+              <AlertTriangle size={13} />
+              <strong>Workspace Health</strong>
+              <span className="media-health-status">
+                {healthReport.issueCount ? `${healthReport.issueCount} item${healthReport.issueCount === 1 ? "" : "s"} to review` : "No issues"}
+              </span>
+              <span className="media-health-summary">
+                {mediaSummary.total} media · {formatFileSize(mediaSummary.size)} · {mediaSummary.used} used · {mediaSummary.unused} unused · {mediaSummary.annotated} annotated
+              </span>
+            </div>
+          </div>
+          <div className="media-health-actions">
+            <button
+              className="media-health-chip"
+              type="button"
+              onClick={() => setFilterType("missing")}
+              disabled={!healthReport.missingFiles.length}
+              data-tooltip="Show media links whose files are missing"
+            >
+              Missing {healthReport.missingFiles.length}
+            </button>
+            <button
+              className="media-health-chip"
+              type="button"
+              onClick={() => setFilterType("unused")}
+              disabled={!healthReport.unusedFiles.length}
+              data-tooltip="Show media files not referenced by any note"
+            >
+              Unused {healthReport.unusedFiles.length}
+            </button>
+            <button
+              className="media-health-chip"
+              type="button"
+              onClick={() => setFilterType("duplicates")}
+              disabled={!healthReport.duplicateGroups.length}
+              data-tooltip="Show files with duplicate names"
+            >
+              Duplicates {healthReport.duplicateGroups.length}
+            </button>
+            <button
+              className="media-health-chip"
+              type="button"
+              onClick={() => setFilterType("annotated")}
+              disabled={!mediaSummary.annotated}
+              data-tooltip="Show media with annotations"
+            >
+              Annotated {mediaSummary.annotated}
+            </button>
+            <button
+              className="media-health-chip"
+              type="button"
+              onClick={() => setFilterType("preview-failed")}
+              disabled={!healthReport.previewFailures.length}
+              data-tooltip="Show media whose preview failed to load"
+            >
+              Preview failed {healthReport.previewFailures.length}
+            </button>
           </div>
         </div>
-        <div className="media-health-actions">
-          <button
-            className="media-health-chip"
-            type="button"
-            onClick={() => setFilterType("missing")}
-            disabled={!healthReport.missingFiles.length}
-            data-tooltip="Show media links whose files are missing"
-          >
-            Missing {healthReport.missingFiles.length}
-          </button>
-          <button
-            className="media-health-chip"
-            type="button"
-            onClick={() => setFilterType("unused")}
-            disabled={!healthReport.unusedFiles.length}
-            data-tooltip="Show media files not referenced by any note"
-          >
-            Unused {healthReport.unusedFiles.length}
-          </button>
-          <button
-            className="media-health-chip"
-            type="button"
-            onClick={() => setFilterType("duplicates")}
-            disabled={!healthReport.duplicateGroups.length}
-            data-tooltip="Show files with duplicate names"
-          >
-            Duplicates {healthReport.duplicateGroups.length}
-          </button>
-          <button
-            className="media-health-chip"
-            type="button"
-            onClick={() => setFilterType("annotated")}
-            disabled={!mediaSummary.annotated}
-            data-tooltip="Show media with annotations"
-          >
-            Annotated {mediaSummary.annotated}
-          </button>
-          <button
-            className="media-health-chip"
-            type="button"
-            onClick={() => setFilterType("preview-failed")}
-            disabled={!healthReport.previewFailures.length}
-            data-tooltip="Show media whose preview failed to load"
-          >
-            Preview failed {healthReport.previewFailures.length}
-          </button>
-          {healthReport.unusedFiles.length ? (
-            <button
-              className="media-health-clean"
-              type="button"
-              onClick={handleDeleteUnusedMedia}
-              disabled={busy}
-              data-tooltip="Delete all unused media files"
-            >
-              <Trash2 size={14} />
-              Clean unused
-            </button>
-          ) : null}
-        </div>
-      </div>
 
-      <div className="media-toolbar">
-        <AppInput
-          className="media-search"
-          type="text"
-          value={searchText}
-          onChange={(event) => setSearchText(event.target.value)}
-          placeholder="Search by name or path"
-        />
-        <AppSelect className="media-select" value={filterType} onChange={(event) => setFilterType(event.target.value)}>
-          <option value="all">All Media</option>
-          <option value="referenced">Referenced Only</option>
-          <option value="unused">Unused Only</option>
-          <option value="annotated">Annotated Only</option>
-          <option value="missing">Missing Files</option>
-          <option value="duplicates">Duplicate Names</option>
-          <option value="preview-failed">Preview Failed</option>
-          <optgroup label="By Type">
-            <option value="images">Images Only</option>
-            <option value="videos">Videos Only</option>
-            <option value="audio">Audio Only</option>
-            <option value="pdfs">PDFs Only</option>
-            <option value="documents">Documents Only</option>
-          </optgroup>
-        </AppSelect>
-        <AppSelect className="media-select" value={sortType} onChange={(event) => setSortType(event.target.value)}>
-          <option value="name-asc">Name A-Z</option>
-          <option value="name-desc">Name Z-A</option>
-          <option value="referenced-first">Referenced First</option>
-        </AppSelect>
-        <div className="media-toolbar-actions">
-          <label className="media-upload-target" data-tooltip="Choose where newly added media is stored">
-            <span>Save to</span>
-            <AppSelect
-              className="media-select"
-              value={uploadTarget}
-              onChange={(event) => setUploadTarget(event.target.value)}
-              disabled={busy}
-              aria-label="Media upload target"
-            >
-              <option value="note">Note folder</option>
-              <option value="workspace">Workspace library</option>
-            </AppSelect>
-          </label>
-          {unusedCount > 0 && (
+        <div className="media-toolbar">
+          <AppInput
+            className="media-search"
+            type="text"
+            value={searchText}
+            onChange={(event) => setSearchText(event.target.value)}
+            placeholder="Search by name or path"
+          />
+          <AppSelect className="media-select" value={filterType} onChange={(event) => setFilterType(event.target.value)}>
+            <option value="all">All Media</option>
+            <option value="referenced">Referenced Only</option>
+            <option value="unused">Unused Only</option>
+            <option value="annotated">Annotated Only</option>
+            <option value="missing">Missing Files</option>
+            <option value="duplicates">Duplicate Names</option>
+            <option value="preview-failed">Preview Failed</option>
+            <optgroup label="By Type">
+              <option value="images">Images Only</option>
+              <option value="videos">Videos Only</option>
+              <option value="audio">Audio Only</option>
+              <option value="pdfs">PDFs Only</option>
+              <option value="documents">Documents Only</option>
+            </optgroup>
+          </AppSelect>
+          <AppSelect className="media-select" value={sortType} onChange={(event) => setSortType(event.target.value)}>
+            <option value="name-asc">Name A-Z</option>
+            <option value="name-desc">Name Z-A</option>
+            <option value="referenced-first">Referenced First</option>
+          </AppSelect>
+          <div className="media-toolbar-actions">
+            <label className="media-upload-target" data-tooltip="Choose where newly added media is stored">
+              <span>Save to</span>
+              <AppSelect
+                className="media-select"
+                value={uploadTarget}
+                onChange={(event) => setUploadTarget(event.target.value)}
+                disabled={busy}
+                aria-label="Media upload target"
+              >
+                <option value="note">Note folder</option>
+                <option value="workspace">Workspace library</option>
+              </AppSelect>
+            </label>
+            {unusedCount > 0 && (
+              <AppButton
+                variant="small"
+                danger
+                onClick={handleDeleteUnusedMedia}
+                disabled={busy}
+                data-tooltip={`Delete ${unusedCount} unused media file${unusedCount === 1 ? "" : "s"}`}
+              >
+                <Trash2 size={14} />
+                <span>Delete unused ({unusedCount})</span>
+              </AppButton>
+            )}
             <AppButton
               variant="small"
-              danger
-              onClick={handleDeleteUnusedMedia}
+              iconOnly
+              onClick={() => addInputRef.current?.click()}
               disabled={busy}
-              data-tooltip={`Delete ${unusedCount} unused media file${unusedCount === 1 ? "" : "s"}`}
+              data-tooltip="Add media"
             >
-              <Trash2 size={14} />
-              <span>Delete unused ({unusedCount})</span>
+              <ImagePlus size={16} />
             </AppButton>
-          )}
-          <AppButton
-            variant="small"
-            iconOnly
-            onClick={() => addInputRef.current?.click()}
-            disabled={busy}
-            data-tooltip="Add media"
-          >
-            <ImagePlus size={16} />
-          </AppButton>
-          <AppButton
-            variant="small"
-            iconOnly
-            onClick={() => setRefreshKey((value) => value + 1)}
-            disabled={busy}
-            data-tooltip="Refresh media"
-          >
-            <RefreshCw size={16} />
-          </AppButton>
-          <AppInput ref={addInputRef} type="file" accept={MEDIA_FILE_INPUT_ACCEPT} onChange={handleAddImage} hidden />
-          <AppInput ref={replaceInputRef} type="file" accept={MEDIA_FILE_INPUT_ACCEPT} onChange={handleReplaceImage} hidden />
+            <AppButton
+              variant="small"
+              iconOnly
+              onClick={() => setRefreshKey((value) => value + 1)}
+              disabled={busy}
+              data-tooltip="Refresh media"
+            >
+              <RefreshCw size={16} />
+            </AppButton>
+            <AppInput ref={addInputRef} type="file" accept={MEDIA_FILE_INPUT_ACCEPT} onChange={handleAddImage} hidden />
+            <AppInput ref={replaceInputRef} type="file" accept={MEDIA_FILE_INPUT_ACCEPT} onChange={handleReplaceImage} hidden />
+          </div>
         </div>
       </div>
 
@@ -704,6 +706,8 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
             const canRender = !isResolving && (isDataUrl || !basePath);
             const showFallback = Boolean(thumbnailFailures[image.id] || image.missingFile || (!isResolving && !isDataUrl && basePath));
             const imageSrc = resolvedSrc || image.path;
+
+            const isMenuOpen = openMenuPath === image.path;
 
             return (
             <div className="media-item" key={image.id}>
@@ -770,6 +774,64 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
                 ) : null}
                 <span className="media-preview-name" data-tooltip={fileName}>{fileName}</span>
               </div>
+
+              {/* ⋯ three-dot menu — positioned at media-item level so it escapes overflow:hidden on preview */}
+              <div
+                className={`media-card-menu-wrap${isMenuOpen ? " open" : ""}`}
+                ref={isMenuOpen ? menuRef : null}
+              >
+                <button
+                  className="media-card-menu-btn"
+                  type="button"
+                  aria-label="More actions"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpenMenuPath(isMenuOpen ? null : image.path);
+                  }}
+                >
+                  <MoreHorizontal size={15} />
+                </button>
+
+                {isMenuOpen && (
+                  <div className="media-card-menu" role="menu">
+                    <button className="media-card-menu-item" role="menuitem" type="button"
+                      onClick={(e) => { e.stopPropagation(); setOpenMenuPath(null); setSelectedMediaPreview({ path: image.path, type: mediaType }); }}
+                    >
+                      <Eye size={13} /> Preview
+                    </button>
+                    <button className="media-card-menu-item" role="menuitem" type="button"
+                      onClick={(e) => { e.stopPropagation(); setOpenMenuPath(null); handleCopyMarkdown(image); }}
+                    >
+                      <Copy size={13} /> Copy markdown
+                    </button>
+                    <button className="media-card-menu-item" role="menuitem" type="button"
+                      onClick={(e) => { e.stopPropagation(); setOpenMenuPath(null); setUsageInspectorImage(image); }}
+                    >
+                      <ListTree size={13} /> Inspect usage
+                    </button>
+                    <button className="media-card-menu-item" role="menuitem" type="button"
+                      disabled={!basePath || openingPath === image.path}
+                      onClick={(e) => { e.stopPropagation(); setOpenMenuPath(null); handleOpenInDefaultApp(image.path); }}
+                    >
+                      <ExternalLink size={13} /> {openingPath === image.path ? "Opening…" : "Open in app"}
+                    </button>
+                    <button className="media-card-menu-item" role="menuitem" type="button"
+                      disabled={busy}
+                      onClick={(e) => { e.stopPropagation(); setOpenMenuPath(null); openReplacePicker(image.path); }}
+                    >
+                      <Upload size={13} /> Replace file
+                    </button>
+                    <div className="media-card-menu-separator" />
+                    <button className="media-card-menu-item danger" role="menuitem" type="button"
+                      disabled={busy}
+                      onClick={(e) => { e.stopPropagation(); setOpenMenuPath(null); handleDeleteImage(image.path, referenced); }}
+                    >
+                      <Trash2 size={13} /> {referenced ? "Remove links" : "Delete file"}
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <div className="media-info">
                 <div className="media-title-row">
                   <p className="media-alt" data-tooltip={image.altText}>{image.altText}</p>
@@ -802,66 +864,6 @@ export function MediaTab({ content, basePath, onNotify, onOpenDocument }) {
                   </div>
                 ) : null}
                 <p className="media-path" data-tooltip={image.path}>{image.path}</p>
-                {referenced ? (
-                  <button
-                    className="media-usage-link"
-                    type="button"
-                    onClick={() => setUsageInspectorImage(image)}
-                    data-tooltip="Inspect note usage"
-                  >
-                    <ListTree size={12} />
-                    <span>{image.referenceCount || 0} note{(image.referenceCount || 0) === 1 ? "" : "s"}</span>
-                  </button>
-                ) : null}
-                <div className="media-item-actions">
-                  <AppButton
-                    variant="small"
-                    iconOnly
-                    onClick={() => setSelectedMediaPreview({ path: image.path, type: mediaType })}
-                    data-tooltip="Preview media"
-                  >
-                    <Eye size={14} />
-                  </AppButton>
-                  <AppButton variant="small" iconOnly onClick={() => handleCopyMarkdown(image)} data-tooltip="Copy markdown">
-                    <Copy size={14} />
-                  </AppButton>
-                  <AppButton
-                    variant="small"
-                    iconOnly
-                    onClick={() => setUsageInspectorImage(image)}
-                    data-tooltip="Inspect usage"
-                  >
-                    <ListTree size={14} />
-                  </AppButton>
-                  <AppButton
-                    variant="small"
-                    iconOnly
-                    onClick={() => handleOpenInDefaultApp(image.path)}
-                    disabled={!basePath || openingPath === image.path}
-                    data-tooltip={openingPath === image.path ? "Opening..." : "Open in default app"}
-                  >
-                    <ExternalLink size={14} />
-                  </AppButton>
-                  <AppButton
-                    variant="small"
-                    iconOnly
-                    onClick={() => openReplacePicker(image.path)}
-                    disabled={busy}
-                    data-tooltip="Update media"
-                  >
-                    <Upload size={14} />
-                  </AppButton>
-                  <AppButton
-                    variant="small"
-                    danger
-                    iconOnly
-                    onClick={() => handleDeleteImage(image.path, referenced)}
-                    disabled={busy}
-                    data-tooltip={referenced ? "Remove media links" : "Delete media"}
-                  >
-                    <Trash2 size={14} />
-                  </AppButton>
-                </div>
               </div>
             </div>
           );

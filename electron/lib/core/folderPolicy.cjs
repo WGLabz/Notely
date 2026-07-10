@@ -1,4 +1,4 @@
-const RESERVED_WORKSPACE_DIRS = new Set(["images", "removed", "excali-diagrams"]);
+const RESERVED_WORKSPACE_DIRS = new Set(["images", "removed", "excali-diagrams", "media"]);
 
 function shouldHideDirectory(name) {
   const lowerName = String(name || "").toLowerCase();

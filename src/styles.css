@@ -1183,12 +1183,14 @@ button {
 
 .assets-dialog-card {
   width: min(980px, calc(100vw - 32px));
-  max-height: calc(100vh - 64px);
-  overflow: auto;
+  height: calc(100vh - 64px);
+  overflow: hidden;
   padding: 0;
   border-radius: var(--radius-2xl);
   border: 1px solid var(--border-soft);
   box-shadow: var(--shadow-xl);
+  display: flex;
+  flex-direction: column;
 }
 
 .assets-dialog-header {
@@ -1222,9 +1224,20 @@ button {
 }
 
 .assets-dialog-body {
-  max-height: calc(100vh - 170px);
-  overflow: auto;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
   background: var(--surface-elevated);
+}
+
+/* header block (health + toolbar) stays sticky at top of scrollable body */
+.assets-dialog-body .media-header-block {
+  position: sticky;
+  top: 0;
+  background: var(--surface-elevated);
+  padding-left: 18px;
+  padding-right: 18px;
+  z-index: 10;
 }
 
 .assets-dialog-body .media-actions,
@@ -1243,7 +1256,7 @@ button {
 @media (max-width: 820px) {
   .assets-dialog-card {
     width: calc(100vw - 18px);
-    max-height: calc(100vh - 24px);
+    height: calc(100vh - 24px);
     border-radius: 12px;
   }
 
@@ -1253,10 +1266,6 @@ button {
 
   .assets-dialog-title-group p {
     font-size: 11px;
-  }
-
-  .assets-dialog-body {
-    max-height: calc(100vh - 150px);
   }
 }
 
@@ -5760,12 +5769,28 @@ button {
   top: calc(100% + 8px);
   right: 0;
   width: min(420px, 88vw);
-  border: 1px solid #cfd8d4;
-  border-radius: 8px;
-  padding: 10px;
-  background: var(--surface-bg);
-  box-shadow: 0 14px 32px rgba(17, 36, 40, 0.18);
-  z-index: 30;
+  border: 1px solid var(--border-default, #cfd8d4);
+  border-radius: 12px;
+  padding: 16px;
+  background: var(--surface-bg, #ffffff);
+  box-shadow: 0 20px 40px rgba(15, 32, 36, 0.15), 0 1px 3px rgba(0, 0, 0, 0.05);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(8px);
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .web-linker {
@@ -6087,30 +6112,84 @@ button {
 }
 
 .image-linker-list {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 6px;
-  margin-top: 8px;
-  max-height: 170px;
-  overflow: auto;
+  margin-top: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.image-linker-list::-webkit-scrollbar {
+  width: 6px;
+}
+.image-linker-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.image-linker-list::-webkit-scrollbar-thumb {
+  background: var(--border-default, #cfd8d4);
+  border-radius: 4px;
+}
+.image-linker-list::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted, #888);
+}
+
+.image-linker-list button {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 12px;
+  background: var(--surface-bg);
+  border: 1px solid var(--border-default, #e0e0e0);
+  border-radius: 8px;
+  color: var(--app-text, #333);
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: left;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+}
+
+.image-linker-list button:hover {
+  background: var(--accent-soft, #e6f7ff) !important;
+  border-color: var(--accent, #0088cc) !important;
+  color: var(--accent, #0088cc) !important;
+  transform: translateX(2px);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 
 .image-linker-url-actions {
   display: flex;
   justify-content: flex-end;
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
 .image-linker-url-actions button {
-  min-width: 132px;
+  min-width: 120px;
+  padding: 8px 16px;
+  background: var(--accent, #0088cc);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.image-linker-list button {
-  width: 100%;
-  min-height: 30px;
-  justify-content: flex-start;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.image-linker-url-actions button:hover:not(:disabled) {
+  background: var(--accent-hover, #0077b3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 136, 204, 0.2);
+}
+
+.image-linker-url-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .image-linker-note-row {

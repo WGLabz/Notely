@@ -679,6 +679,9 @@ registerTrustedHandler("images:list", (_event, payload) => {
           : entry.name;
 
         if (entry.isDirectory()) {
+          if (entry.name === THUMBNAIL_DIR_NAME || entry.name === ORIGINAL_IMAGE_DIR_NAME) {
+            continue;
+          }
           queue.push(relativePath);
           continue;
         }
