@@ -6,7 +6,7 @@ export async function setupDemoWorkspace(workspacePath) {
     const overviewDoc = await createDocument("Notely Overview", workspacePath);
     await saveDocument({
       filePath: overviewDoc.filePath,
-      header: "---\ntags:\n  - overview\n  - root\n---\n",
+      header: "Name: Notely Overview\nTags: overview, root\nLocation: Local Workspace\nTime: 09:00, 10 Jul 2026 to 10:30, 10 Jul 2026\n",
       rawNotes: `# Notely App Overview
 
 Welcome to the Notely app! Notely is an advanced local-first desktop application built with Electron and React, designed specifically for team collaboration and project document management. It merges traditional Markdown files with rich features like interactive diagrams, local AI search, and secure serverless sync.
@@ -80,7 +80,7 @@ Explore the folders to learn more about Markdown custom formatting, assets, AI s
     const markdownDoc = await createDocument("Markdown & Features", guidesFolder.filePath);
     await saveDocument({
       filePath: markdownDoc.filePath,
-      header: "---\ntags:\n  - guide\n  - markdown\n---\n",
+      header: "Name: Markdown & Features\nTags: guide, markdown\nLocation: User Guide\nTime: 11:00, 10 Jul 2026 to 12:00, 10 Jul 2026\n",
       rawNotes: `# Markdown & Core Rendering Features
 
 Notely is designed to make document formatting simple and powerful. We write in standard Markdown and enrich it with customizable, interactive preview elements.
@@ -129,7 +129,7 @@ Beyond standard headers, **bold**, *italics*, and ~~strikethrough~~, Notely impl
     const mediaDoc = await createDocument("Media and Assets", guidesFolder.filePath);
     await saveDocument({
       filePath: mediaDoc.filePath,
-      header: "---\ntags:\n  - guide\n  - media\n---\n",
+      header: "Name: Media and Assets\nTags: guide, media\nLocation: User Guide\nTime: 13:00, 10 Jul 2026 to 14:00, 10 Jul 2026\n",
       rawNotes: `# Managing Media and Assets
 
 In Notely, media files are stored locally within your workspace under the hidden \`.notes-app\` metadata folder. This keeps your workspace root clean while preserving all reference paths.
@@ -172,7 +172,7 @@ stateDiagram-v2
     const aiDoc = await createDocument("AI and Search", advancedFolder.filePath);
     await saveDocument({
       filePath: aiDoc.filePath,
-      header: "---\ntags:\n  - advanced\n  - ai\n---\n",
+      header: "Name: AI and Search\nTags: advanced, ai\nLocation: Engine Room\nTime: 15:00, 10 Jul 2026 to 16:00, 10 Jul 2026\n",
       rawNotes: `# AI Integration and Semantic Search
 
 Notely's AI subsystem works entirely local-first for data indexation, generating vector embeddings to represent note semantics.
@@ -206,7 +206,7 @@ flowchart TD
     const syncDoc = await createDocument("Peer-to-Peer Sync", advancedFolder.filePath);
     await saveDocument({
       filePath: syncDoc.filePath,
-      header: "---\ntags:\n  - advanced\n  - p2p\n---\n",
+      header: "Name: Peer-to-Peer Sync\nTags: advanced, p2p\nLocation: Network Hub\nTime: 17:00, 10 Jul 2026 to 18:00, 10 Jul 2026\n",
       rawNotes: `# Decentralized Peer-to-Peer Sync
 
 Notely's sync engine lets you share notes between devices directly without cloud servers, maintaining data sovereignty and absolute privacy.

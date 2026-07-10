@@ -308,6 +308,54 @@ function renderRootWebsitePage() {
   });
 }
 
+  function buildMetadataHtml(parsed) {
+    if (!parsed || !parsed.metadata || Object.keys(parsed.metadata).length === 0) {
+      return "";
+    }
+
+    const meta = parsed.metadata;
+    const rows = [];
+    const keyLabels = {
+      name: "Name",
+      date: "Date",
+      time: "Time",
+      location: "Location",
+      tags: "Tags",
+    };
+
+    Object.keys(meta).forEach((key) => {
+      const value = meta[key];
+      if (!value) return;
+
+      const label = keyLabels[key] || (key.charAt(0).toUpperCase() + key.slice(1));
+      let valueHtml = "";
+
+      if (key === "tags") {
+        const tagsList = value.split(",").map(t => t.trim()).filter(Boolean);
+        valueHtml = tagsList
+          .map(tag => `<span class="meta-tag-pill">${escapeHtml(tag)}</span>`)
+          .join(" ");
+      } else {
+        valueHtml = escapeHtml(value);
+      }
+
+      rows.push(`
+        <div class="meta-row">
+          <span class="meta-label">${escapeHtml(label)}</span>
+          <span class="meta-value">${valueHtml}</span>
+        </div>
+      `);
+    });
+
+    if (rows.length === 0) return "";
+
+    return `
+      <section class="doc-meta-container">
+        ${rows.join("")}
+      </section>
+    `;
+  }
+
 function renderMarkdownWebsitePage(relMdPath, rawContent, options = {}) {
   const markdown = buildWebsiteMarkdownRenderer();
   const normalizedContent = normalizeExcalidrawMetadataSuffix(rawContent || "");
@@ -324,9 +372,7 @@ function renderMarkdownWebsitePage(relMdPath, rawContent, options = {}) {
 
   let bodyHtml = `<div class="doc-hero"><h1>${escapeHtml(parsed.title || path.basename(relMdPath, ".md"))}</h1><p class="doc-breadcrumb">${escapeHtml(relMdPath)}</p></div><div class="doc-body prose">${markdown.render(normalizedContent, { relMdPath })}</div>`;
   if (hasTabbedSections) {
-    const headerHtml = parsed.header
-      ? `<section class="doc-meta prose">${markdown.render(parsed.header, { relMdPath })}</section>`
-      : "";
+    const headerHtml = buildMetadataHtml(parsed);
     const rawHtml = parsed.rawNotes
       ? markdown.render(parsed.rawNotes, { relMdPath })
       : `<p class="tab-empty">No raw notes captured yet.</p>`;

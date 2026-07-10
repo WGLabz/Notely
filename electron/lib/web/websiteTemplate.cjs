@@ -343,18 +343,53 @@ function buildWebsiteHtml({ title, bodyHtml, navigationHtml = "", scopeLabel = "
       }
 
       /* ── Meta block ────────────────────────────────────────── */
-      .doc-meta {
-        margin-bottom: 20px;
-        padding: 12px 16px;
+      .doc-meta-container {
+        margin-bottom: 24px;
+        padding: 16px 20px;
         border: 1px solid var(--border);
-        border-radius: 8px;
-        background: var(--surface2);
-        font-size: 13px;
-        color: var(--ink-2);
+        border-radius: 10px;
+        background: #fafbfc;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
       }
 
-      .doc-meta p { margin: 0 0 4px; }
-      .doc-meta p:last-child { margin: 0; }
+      .meta-row {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        font-size: 13.5px;
+        line-height: 1.5;
+      }
+
+      .meta-label {
+        font-weight: 600;
+        color: var(--ink-3);
+        width: 90px;
+        flex-shrink: 0;
+      }
+
+      .meta-value {
+        color: var(--ink-2);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+      }
+
+      .meta-tag-pill {
+        display: inline-block;
+        padding: 3px 10px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        border: 1px solid rgba(10, 107, 138, 0.15);
+        border-radius: 20px;
+        font-size: 11.5px;
+        font-weight: 550;
+        text-transform: capitalize;
+        box-shadow: 0 1px 2px rgba(10, 107, 138, 0.05);
+      }
 
       /* ── Section tabs ──────────────────────────────────────── */
       .section-tabs {
