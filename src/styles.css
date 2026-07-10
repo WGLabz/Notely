@@ -6905,7 +6905,7 @@ button {
 
 .preview .markdown-image-frame {
   position: relative;
-  display: block;
+  display: inline-block;
   max-width: 100%;
   margin: 12px 0;
   vertical-align: top;
