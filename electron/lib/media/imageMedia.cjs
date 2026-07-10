@@ -293,20 +293,29 @@ function collectImageUsage(basePath) {
       const resolvedAssetPath = resolveImageAssetPath(markdownFile, assetPath);
       if (!resolvedAssetPath) continue;
 
-      const rootImagesDir = path.resolve(getNotesRoot(), "images").toLowerCase();
-      const rootMediaImagesDir = path.resolve(getNotesRoot(), "media", "images").toLowerCase();
-      const rootMediaDocsDir = path.resolve(getNotesRoot(), "media", "docs").toLowerCase();
-      
-      const resolvedImageDir = path.dirname(path.resolve(resolvedAssetPath)).toLowerCase();
+      const resolved = path.resolve(resolvedAssetPath);
+      const baseDir = path.dirname(resolvedBasePath);
+      const root = getNotesRoot();
+
+      const localImagesDir = path.join(baseDir, "images").toLowerCase();
+      const rootImagesDir = path.join(root, "images").toLowerCase();
+      const rootMediaImagesDir = path.join(root, "media", "images").toLowerCase();
+      const rootMediaDocsDir = path.join(root, "media", "docs").toLowerCase();
+
+      const resolvedDir = path.dirname(resolved).toLowerCase();
+      const fileName = path.basename(resolved);
+
       let relativeAssetPath = "";
-      if (resolvedImageDir === rootMediaImagesDir) {
-        relativeAssetPath = `/media/images/${path.basename(resolvedAssetPath)}`;
-      } else if (resolvedImageDir === rootMediaDocsDir) {
-        relativeAssetPath = `/media/docs/${path.basename(resolvedAssetPath)}`;
-      } else if (resolvedImageDir === rootImagesDir) {
-        relativeAssetPath = `/images/${path.basename(resolvedAssetPath)}`;
+      if (resolvedDir === localImagesDir) {
+        relativeAssetPath = `./images/${fileName}`;
+      } else if (resolvedDir === rootImagesDir) {
+        relativeAssetPath = `/images/${fileName}`;
+      } else if (resolvedDir === rootMediaImagesDir) {
+        relativeAssetPath = `/media/images/${fileName}`;
+      } else if (resolvedDir === rootMediaDocsDir) {
+        relativeAssetPath = `/media/docs/${fileName}`;
       } else {
-        relativeAssetPath = `./images/${path.basename(resolvedAssetPath)}`;
+        relativeAssetPath = normalizeToPosix(path.relative(baseDir, resolved));
       }
 
       if (seenInDocument.has(relativeAssetPath)) continue;
