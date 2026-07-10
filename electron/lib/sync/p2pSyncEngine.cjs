@@ -148,11 +148,13 @@ function createP2PSyncEngine(deps) {
       }
     };
 
-    for (const filePath of walkFiles(notesRoot, { excludeDirs: [".notes-app", "removed", "images", "excali-diagrams"] })) {
+    for (const filePath of walkFiles(notesRoot, { excludeDirs: [".notes-app", "removed", "images", "excali-diagrams", "media"] })) {
       addIfFile(filePath);
     }
 
     collectRecursively(path.join(notesRoot, "images"));
+    collectRecursively(path.join(notesRoot, "media", "images"));
+    collectRecursively(path.join(notesRoot, "media", "docs"));
     collectRecursively(path.join(notesRoot, "excali-diagrams"));
     collectRecursively(path.join(notesRoot, ".notes-app", "excali-diagrams"));
     collectNestedNotesAppDiagrams(notesRoot);

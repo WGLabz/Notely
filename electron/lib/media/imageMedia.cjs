@@ -294,10 +294,21 @@ function collectImageUsage(basePath) {
       if (!resolvedAssetPath) continue;
 
       const rootImagesDir = path.resolve(getNotesRoot(), "images").toLowerCase();
+      const rootMediaImagesDir = path.resolve(getNotesRoot(), "media", "images").toLowerCase();
+      const rootMediaDocsDir = path.resolve(getNotesRoot(), "media", "docs").toLowerCase();
+      
       const resolvedImageDir = path.dirname(path.resolve(resolvedAssetPath)).toLowerCase();
-      const relativeAssetPath = resolvedImageDir === rootImagesDir
-        ? `/images/${path.basename(resolvedAssetPath)}`
-        : `./images/${path.basename(resolvedAssetPath)}`;
+      let relativeAssetPath = "";
+      if (resolvedImageDir === rootMediaImagesDir) {
+        relativeAssetPath = `/media/images/${path.basename(resolvedAssetPath)}`;
+      } else if (resolvedImageDir === rootMediaDocsDir) {
+        relativeAssetPath = `/media/docs/${path.basename(resolvedAssetPath)}`;
+      } else if (resolvedImageDir === rootImagesDir) {
+        relativeAssetPath = `/images/${path.basename(resolvedAssetPath)}`;
+      } else {
+        relativeAssetPath = `./images/${path.basename(resolvedAssetPath)}`;
+      }
+
       if (seenInDocument.has(relativeAssetPath)) continue;
       seenInDocument.add(relativeAssetPath);
 
@@ -336,7 +347,7 @@ function resolveImageAssetPath(basePath, assetPath) {
           break;
         }
       }
-      if (/^\/images\//i.test(localPath)) {
+      if (/^\/(images|media)\//i.test(localPath)) {
         resolvedAssetPath = path.resolve(getNotesRoot(), `.${localPath}`);
       } else {
         return null;
@@ -366,10 +377,10 @@ function resolveImageAssetPath(basePath, assetPath) {
       }
     }
     const baseDir = path.dirname(path.resolve(basePath));
-    const isWorkspaceImageLink = /^[/\\]+images[/\\]/i.test(decodedAsset);
+    const isWorkspaceImageLink = /^[/\\]+(images|media)[/\\]/i.test(decodedAsset);
     const normalizedAsset = decodedAsset
       .replace(/^\.\//, "")
-      .replace(/^[/\\]+images[/\\]/i, "images/");
+      .replace(/^[/\\]+(images|media)[/\\]/i, "$1/");
     const legacyDiagramMatch = normalizedAsset.match(/^(?:\.notes-app[\\/])?excali-diagrams[\\/]([^\\/]+)[\\/]([^\\/]+)[\\/]diagram\.png$/i);
     const sluglessDiagramMatch = normalizedAsset.match(/^(?:\.notes-app[\\/])?excali-diagrams[\\/]([^\\/]+)[\\/]diagram\.png$/i);
 
@@ -380,7 +391,7 @@ function resolveImageAssetPath(basePath, assetPath) {
     const candidates = [];
     if (isWorkspaceImageLink) {
       candidates.push(path.resolve(getNotesRoot(), normalizedAsset));
-    } else if (/^images[\\/]/i.test(normalizedAsset)) {
+    } else if (/^(images|media)[\\/]/i.test(normalizedAsset)) {
       candidates.push(path.resolve(baseDir, normalizedAsset));
       candidates.push(path.resolve(getNotesRoot(), normalizedAsset));
     } else {
@@ -582,7 +593,7 @@ function registerTrustedHandler(channel, handler) {
 }
 
 registerTrustedHandler("images:save", (_event, payload) => {
-  const { fileName, base64Data, basePath, storageTarget } = payload || {};
+  const { fileName, base64Data } = payload || {};
   if (!fileName || typeof fileName !== "string") {
     throw new Error("Invalid media filename.");
   }
@@ -590,47 +601,39 @@ registerTrustedHandler("images:save", (_event, payload) => {
     throw new Error("Invalid media payload.");
   }
 
-  // Prefer saving next to the active note (per-note images/), with an explicit
-  // workspace target for shared media library uploads.
-  let imagesDir;
-  const saveToWorkspace = storageTarget === "workspace";
-  let savedToWorkspace = saveToWorkspace;
-  if (!saveToWorkspace && basePath && typeof basePath === "string") {
-    const resolvedBase = path.resolve(basePath);
-    if (filePathWithin(getNotesRoot(), resolvedBase)) {
-      imagesDir = path.join(path.dirname(resolvedBase), "images");
-    }
-  }
-  if (!imagesDir) {
-    imagesDir = path.join(getNotesRoot(), "images");
-    savedToWorkspace = true;
-  }
-  ensureDir(imagesDir);
-
-  // Generate unique filename if it already exists
   const safeFileName = path.basename(fileName).replace(/[<>:"/\\|?*]+/g, "-");
-  const ext = path.extname(safeFileName);
+  const ext = path.extname(safeFileName).toLowerCase();
   const baseName = path.basename(safeFileName, ext) || "file";
   const finalExt = ext || ".bin";
+
+  const imageExtensions = new Set([".png", ".jpg", ".jpeg", ".webp", ".bmp", ".ico", ".gif", ".svg"]);
+  const isImage = imageExtensions.has(finalExt);
+  
+  const subFolder = isImage ? "images" : "docs";
+  const mediaDir = path.join(getNotesRoot(), "media", subFolder);
+  ensureDir(mediaDir);
+
   let finalName = `${baseName}${finalExt}`;
   let counter = 1;
 
-  while (fs.existsSync(path.join(imagesDir, finalName))) {
+  while (fs.existsSync(path.join(mediaDir, finalName))) {
     finalName = `${baseName}-${counter}${finalExt}`;
     counter++;
   }
 
-  const imagePath = path.join(imagesDir, finalName);
+  const mediaFilePath = path.join(mediaDir, finalName);
   const buffer = Buffer.from(base64Data.split(",")[1], "base64");
   if (!buffer.length) {
     throw new Error("File data is empty.");
   }
-  fs.writeFileSync(imagePath, buffer);
-  ensureImageThumbnail(imagePath);
-  emitImageSyncFromDisk(imagePath, { op: "create" });
+  fs.writeFileSync(mediaFilePath, buffer);
+  
+  if (isImage) {
+    ensureImageThumbnail(mediaFilePath);
+  }
+  emitImageSyncFromDisk(mediaFilePath, { op: "create" });
 
-  // Return relative path for markdown insertion
-  return savedToWorkspace ? `/images/${finalName}` : `./images/${finalName}`;
+  return `/media/${subFolder}/${finalName}`;
 });
 
 registerTrustedHandler("images:list", (_event, payload) => {
@@ -679,19 +682,28 @@ registerTrustedHandler("images:list", (_event, payload) => {
     return files;
   };
 
-  // Scan both the note's own sibling images/ folder and the workspace-level
-  // getNotesRoot()/images. Names from the note-local folder win when duplicated.
   const baseDir = path.dirname(path.resolve(basePath));
   const localImagesDir = path.join(baseDir, "images");
   const rootImagesDir = path.join(getNotesRoot(), "images");
+  const mediaImagesDir = path.join(getNotesRoot(), "media", "images");
+  const mediaDocsDir = path.join(getNotesRoot(), "media", "docs");
 
   const localNames = readImagesIn(localImagesDir);
   const seen = new Set(localNames.map((name) => name.toLowerCase()));
+  
   const rootNames = readImagesIn(rootImagesDir).filter((name) => !seen.has(name.toLowerCase()));
+  rootNames.forEach(name => seen.add(name.toLowerCase()));
+
+  const mediaImagesNames = readImagesIn(mediaImagesDir).filter((name) => !seen.has(name.toLowerCase()));
+  mediaImagesNames.forEach(name => seen.add(name.toLowerCase()));
+
+  const mediaDocsNames = readImagesIn(mediaDocsDir).filter((name) => !seen.has(name.toLowerCase()));
 
   const paths = [
     ...localNames.map((name) => `./images/${name}`),
     ...rootNames.map((name) => `/images/${name}`),
+    ...mediaImagesNames.map((name) => `/media/images/${name}`),
+    ...mediaDocsNames.map((name) => `/media/docs/${name}`),
   ];
 
   if (!includeAnnotations && !includeOriginalStatus) return paths;

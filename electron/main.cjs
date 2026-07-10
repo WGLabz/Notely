@@ -181,13 +181,31 @@ function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
 }
 
+function findGitRepositoryRoot(dir) {
+  let current = path.resolve(String(dir || ""));
+  while (true) {
+    const gitPath = path.join(current, ".git");
+    if (fs.existsSync(gitPath)) {
+      return current;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      break;
+    }
+    current = parent;
+  }
+  return null;
+}
+
 function isWorkspaceGitRoot(workspaceDir) {
-  const gitPath = path.join(path.resolve(String(workspaceDir || "")), ".git");
-  return fs.existsSync(gitPath);
+  return findGitRepositoryRoot(workspaceDir) !== null;
 }
 
 function getGitDirForWorkspace(workspaceDir) {
-  const gitPath = path.join(path.resolve(String(workspaceDir || "")), ".git");
+  const gitRoot = findGitRepositoryRoot(workspaceDir);
+  if (!gitRoot) return "";
+
+  const gitPath = path.join(gitRoot, ".git");
   if (!fs.existsSync(gitPath)) return "";
 
   const stat = fs.statSync(gitPath);
@@ -223,12 +241,15 @@ function getAutoIgnoreMetadataInGitSetting() {
 }
 
 function hasNotesAppGitignoreEntry(workspaceDir) {
-  const resolvedWorkspace = path.resolve(String(workspaceDir || ""));
-  const gitignorePath = path.join(resolvedWorkspace, ".gitignore");
+  const resolvedNotesDir = path.resolve(String(workspaceDir || ""));
+  const gitRoot = findGitRepositoryRoot(resolvedNotesDir);
+  if (!gitRoot) return false;
+
+  const gitignorePath = path.join(gitRoot, ".gitignore");
   if (!fs.existsSync(gitignorePath)) return false;
 
-  const notesAppPath = path.join(resolvedWorkspace, ".notes-app");
-  const relativeNotesAppPath = normalizeToPosix(path.relative(resolvedWorkspace, notesAppPath)).replace(/\/+$/, "");
+  const notesAppPath = path.join(resolvedNotesDir, ".notes-app");
+  const relativeNotesAppPath = normalizeToPosix(path.relative(gitRoot, notesAppPath)).replace(/\/+$/, "");
   const ignoreEntry = `${relativeNotesAppPath || ".notes-app"}/`;
   const existing = String(fs.readFileSync(gitignorePath, "utf8") || "");
 
@@ -239,12 +260,15 @@ function hasNotesAppGitignoreEntry(workspaceDir) {
 }
 
 function removeNotesAppGitignoreEntry(workspaceDir) {
-  const resolvedWorkspace = path.resolve(String(workspaceDir || ""));
-  const gitignorePath = path.join(resolvedWorkspace, ".gitignore");
+  const resolvedNotesDir = path.resolve(String(workspaceDir || ""));
+  const gitRoot = findGitRepositoryRoot(resolvedNotesDir);
+  if (!gitRoot) return false;
+
+  const gitignorePath = path.join(gitRoot, ".gitignore");
   if (!fs.existsSync(gitignorePath)) return false;
 
-  const notesAppPath = path.join(resolvedWorkspace, ".notes-app");
-  const relativeNotesAppPath = normalizeToPosix(path.relative(resolvedWorkspace, notesAppPath)).replace(/\/+$/, "");
+  const notesAppPath = path.join(resolvedNotesDir, ".notes-app");
+  const relativeNotesAppPath = normalizeToPosix(path.relative(gitRoot, notesAppPath)).replace(/\/+$/, "");
   const ignoreEntry = `${relativeNotesAppPath || ".notes-app"}/`;
   const ignoreEntryAlt = ignoreEntry.slice(0, -1);
 
@@ -264,12 +288,13 @@ function removeNotesAppGitignoreEntry(workspaceDir) {
 }
 
 function ensureNotesAppIgnoredInGit(notesDir) {
-  const resolvedWorkspace = path.resolve(String(notesDir || ""));
-  if (!isWorkspaceGitRoot(resolvedWorkspace)) return false;
+  const resolvedNotesDir = path.resolve(String(notesDir || ""));
+  const gitRoot = findGitRepositoryRoot(resolvedNotesDir);
+  if (!gitRoot) return false;
 
-  const gitignorePath = path.join(resolvedWorkspace, ".gitignore");
-  const notesAppPath = path.join(resolvedWorkspace, ".notes-app");
-  const relativeNotesAppPath = normalizeToPosix(path.relative(resolvedWorkspace, notesAppPath)).replace(/\/+$/, "");
+  const gitignorePath = path.join(gitRoot, ".gitignore");
+  const notesAppPath = path.join(resolvedNotesDir, ".notes-app");
+  const relativeNotesAppPath = normalizeToPosix(path.relative(gitRoot, notesAppPath)).replace(/\/+$/, "");
   const ignoreEntry = `${relativeNotesAppPath || ".notes-app"}/`;
 
   const existing = fs.existsSync(gitignorePath)
@@ -291,10 +316,11 @@ function ensureNotesAppIgnoredInGit(notesDir) {
 
 function getGitWorkspaceMetadata() {
   const workspaceRoot = path.resolve(String(notesRoot || ""));
-  const isGitRoot = isWorkspaceGitRoot(workspaceRoot);
+  const gitRoot = findGitRepositoryRoot(workspaceRoot);
+  const isGitRoot = gitRoot !== null;
 
   return {
-    workspaceRoot,
+    workspaceRoot: gitRoot || workspaceRoot,
     isGitRoot,
     branch: isGitRoot ? getGitBranchForWorkspace(workspaceRoot) : "",
     autoIgnoreMetadataInGit: getAutoIgnoreMetadataInGitSetting(),
