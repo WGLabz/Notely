@@ -504,32 +504,6 @@ function buildAppMenu(win, context = {}) {
         },
         { type: "separator" },
         {
-          label: "Branches",
-          submenu: [
-            {
-              label: "Create Branch",
-              click: () => sendMenuAction(win, "git-create-branch")
-            },
-            {
-              label: "Switch Branch",
-              click: () => sendMenuAction(win, "git-switch-branch")
-            },
-            {
-              label: "Merge Branch",
-              click: () => sendMenuAction(win, "git-merge-branch")
-            }
-          ]
-        },
-        {
-          label: "Tags\u2026",
-          click: () => sendMenuAction(win, "git-tags")
-        },
-        {
-          label: "Stash\u2026",
-          click: () => sendMenuAction(win, "git-stash")
-        },
-        { type: "separator" },
-        {
           label: "Push",
           accelerator: "CmdOrCtrl+Shift+U",
           click: () => sendMenuAction(win, "git-push")
@@ -553,15 +527,7 @@ function buildAppMenu(win, context = {}) {
           checked: Boolean(context?.autoIgnoreMetadataInGit !== false),
           click: () => sendMenuAction(win, "toggle-auto-ignore-git-metadata")
         },
-        { type: "separator" },
-        {
-          label: "Open Repository in Explorer",
-          click: () => sendMenuAction(win, "git-reveal-repo")
-        },
-        {
-          label: "Reveal .git Folder",
-          click: () => sendMenuAction(win, "git-reveal-git-dir")
-        }
+
       ]
     },
     {

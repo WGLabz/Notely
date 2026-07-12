@@ -255,15 +255,95 @@ function HistoryTab({ commits, loading, error, workspacePath, onNotify, onRefres
 
 // ── Compare Tab ───────────────────────────────────────────────────────────────
 
-function CompareTab({ commits, workspacePath, currentFilePath }) {
+function CompareTab({ commits, workspacePath, currentFilePath, documents = [], repoRoot }) {
   const [hashA, setHashA] = useState("");
   const [hashB, setHashB] = useState("");
-  const [filePathFilter, setFilePathFilter] = useState(currentFilePath || "");
+  const [filePathFilter, setFilePathFilter] = useState("");
+  const [fileCommits, setFileCommits] = useState([]);
+  const [loadingCommits, setLoadingCommits] = useState(false);
   const [contentA, setContentA] = useState("");
   const [contentB, setContentB] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [compared, setCompared] = useState(false);
+
+  // List of workspace markdown documents relative to repoRoot
+  const workspaceFiles = useMemo(() => {
+    const root = (repoRoot || workspacePath).replace(/\\/g, "/").replace(/\/$/, "");
+    return documents
+      .filter((doc) => doc.entryType === "file" && doc.filePath?.endsWith(".md"))
+      .map((doc) => {
+        const target = doc.filePath.replace(/\\/g, "/");
+        const rel = target.startsWith(root)
+          ? target.slice(root.length).replace(/^\//, "")
+          : target;
+        return {
+          absolutePath: doc.filePath,
+          relativePath: rel,
+        };
+      })
+      .sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+  }, [documents, repoRoot, workspacePath]);
+
+  // Set initial selected file if currentFilePath is provided
+  useEffect(() => {
+    if (currentFilePath && workspaceFiles.length > 0) {
+      const found = workspaceFiles.find(
+        (f) => f.absolutePath.toLowerCase() === currentFilePath.toLowerCase()
+      );
+      if (found) {
+        setFilePathFilter(found.absolutePath);
+      } else {
+        setFilePathFilter(workspaceFiles[0].absolutePath);
+      }
+    } else if (workspaceFiles.length > 0 && !filePathFilter) {
+      setFilePathFilter(workspaceFiles[0].absolutePath);
+    }
+  }, [currentFilePath, workspaceFiles]);
+
+  // Load commits when selected file changes
+  useEffect(() => {
+    if (!filePathFilter) {
+      setFileCommits([]);
+      return;
+    }
+
+    let active = true;
+    setLoadingCommits(true);
+    setError(null);
+    setCompared(false);
+
+    gitGetLog({ workspacePath, filePath: filePathFilter, limit: 100 })
+      .then((res) => {
+        if (!active) return;
+        if (res?.ok) {
+          const list = res.data || [];
+          setFileCommits(list);
+          if (list.length > 0) {
+            setHashA(list[0]?.hash || "");
+            setHashB("WORKING");
+          } else {
+            setHashA("");
+            setHashB("");
+          }
+        } else {
+          setFileCommits([]);
+          setHashA("");
+          setHashB("");
+        }
+      })
+      .catch((err) => {
+        if (!active) return;
+        setError(err?.message || "Failed to load file history.");
+      })
+      .finally(() => {
+        if (active) setLoadingCommits(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [filePathFilter, workspacePath]);
 
   async function handleCompare() {
     if (!hashA || !hashB || !filePathFilter.trim()) return;
@@ -291,33 +371,25 @@ function CompareTab({ commits, workspacePath, currentFilePath }) {
     }
   }
 
-  const availableFiles = useMemo(() => {
-    const paths = new Set();
-    if (currentFilePath) {
-      // If currentFilePath is absolute, make it relative to display it nicely
-      paths.add(currentFilePath);
-    }
-    const commitA = commits.find((c) => c.hash === hashA);
-    const commitB = commits.find((c) => c.hash === hashB);
-    if (commitA?.files) {
-      commitA.files.forEach((f) => paths.add(f.path));
-    }
-    if (commitB?.files) {
-      commitB.files.forEach((f) => paths.add(f.path));
-    }
-    return Array.from(paths);
-  }, [hashA, hashB, commits, currentFilePath]);
-
-  // Pre-select the first available file if filter is empty
-  useEffect(() => {
-    if (!filePathFilter && availableFiles.length > 0) {
-      setFilePathFilter(availableFiles[0]);
-    }
-  }, [availableFiles, filePathFilter]);
-
   return (
     <div className="git-vc-compare">
       <div className="git-vc-compare__controls">
+        <div className="git-vc-compare__file-filter" style={{ flex: 1.2 }}>
+          <label className="git-vc-compare__label" htmlFor="compare-file">Note</label>
+          <select
+            id="compare-file"
+            className="git-vc-compare__input"
+            value={filePathFilter}
+            onChange={(e) => setFilePathFilter(e.target.value)}
+          >
+            {workspaceFiles.map((file) => (
+              <option key={file.absolutePath} value={file.absolutePath}>
+                {file.relativePath}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div className="git-vc-compare__picker">
           <label className="git-vc-compare__label" htmlFor="compare-hash-a">From (older)</label>
           <select
@@ -325,16 +397,27 @@ function CompareTab({ commits, workspacePath, currentFilePath }) {
             className="git-vc-compare__input"
             value={hashA}
             onChange={(e) => setHashA(e.target.value)}
+            disabled={loadingCommits || fileCommits.length === 0}
           >
-            <option value="">Select older commit...</option>
-            {commits.map((c) => (
-              <option key={c.hash} value={c.hash}>
-                {c.shortHash} — {c.message?.slice(0, 50)}
-              </option>
-            ))}
+            {loadingCommits ? (
+              <option value="">Loading history...</option>
+            ) : fileCommits.length === 0 ? (
+              <option value="">No history for this file</option>
+            ) : (
+              <>
+                <option value="WORKING">Working Directory (Uncommitted changes)</option>
+                {fileCommits.map((c) => (
+                  <option key={c.hash} value={c.hash}>
+                    {c.shortHash} — {c.message?.slice(0, 50)}
+                  </option>
+                ))}
+              </>
+            )}
           </select>
         </div>
+
         <span className="git-vc-compare__arrow" aria-hidden="true">→</span>
+
         <div className="git-vc-compare__picker">
           <label className="git-vc-compare__label" htmlFor="compare-hash-b">To (newer)</label>
           <select
@@ -342,34 +425,19 @@ function CompareTab({ commits, workspacePath, currentFilePath }) {
             className="git-vc-compare__input"
             value={hashB}
             onChange={(e) => setHashB(e.target.value)}
+            disabled={loadingCommits || fileCommits.length === 0}
           >
-            <option value="">Select newer commit...</option>
-            {commits.map((c) => (
-              <option key={c.hash} value={c.hash}>
-                {c.shortHash} — {c.message?.slice(0, 50)}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="git-vc-compare__file-filter">
-          <label className="git-vc-compare__label" htmlFor="compare-file">
-            File path (required for note comparison)
-          </label>
-          <select
-            id="compare-file"
-            className="git-vc-compare__input"
-            value={filePathFilter}
-            onChange={(e) => setFilePathFilter(e.target.value)}
-            disabled={availableFiles.length === 0}
-          >
-            {availableFiles.length === 0 ? (
-              <option value="">Select two commits first...</option>
+            {loadingCommits ? (
+              <option value="">Loading history...</option>
+            ) : fileCommits.length === 0 ? (
+              <option value="">No history for this file</option>
             ) : (
               <>
-                <option value="">Select a file to compare...</option>
-                {availableFiles.map((path) => (
-                  <option key={path} value={path}>{path}</option>
+                <option value="WORKING">Working Directory (Uncommitted changes)</option>
+                {fileCommits.map((c) => (
+                  <option key={c.hash} value={c.hash}>
+                    {c.shortHash} — {c.message?.slice(0, 50)}
+                  </option>
                 ))}
               </>
             )}
@@ -379,7 +447,7 @@ function CompareTab({ commits, workspacePath, currentFilePath }) {
         <AppButton
           variant="primary"
           onClick={handleCompare}
-          disabled={!hashA || !hashB || !filePathFilter.trim() || loading}
+          disabled={!hashA || !hashB || !filePathFilter.trim() || loading || loadingCommits}
           aria-busy={loading}
           style={{ height: "32px" }}
         >
@@ -944,8 +1012,12 @@ export function GitVersionControlPage({
   initialTab = "status",
   onGitStateChange,
   currentFilePath = null,
+  documents = [],
 }) {
   const [activeTab, setActiveTab] = useState(initialTab);
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
   const [gitAvailable, setGitAvailable] = useState(null); // null = checking
   const [isRepo, setIsRepo] = useState(null);
   const [repoRoot, setRepoRoot] = useState(null);
@@ -1181,7 +1253,7 @@ export function GitVersionControlPage({
               />
             )}
             {activeTab === "compare" && (
-              <CompareTab commits={commits} workspacePath={workspacePath} currentFilePath={currentFilePath} />
+              <CompareTab commits={commits} workspacePath={workspacePath} currentFilePath={currentFilePath} documents={documents} repoRoot={repoRoot} />
             )}
             {activeTab === "branches" && (
               <BranchesTab

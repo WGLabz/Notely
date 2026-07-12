@@ -303,6 +303,13 @@ async function getFileAtCommit(workspacePath, commitHash, filePath) {
     }
 
     const g = git(repoRoot);
+    if (commitHash === "WORKING" || !commitHash) {
+      if (fs.existsSync(resolvedPath)) {
+        const content = fs.readFileSync(resolvedPath, "utf8");
+        return ok(String(content || ""));
+      }
+      return ok("");
+    }
     const content = await g.show([`${commitHash}:${relPath}`]);
     return ok(String(content || ""));
   } catch (err) {

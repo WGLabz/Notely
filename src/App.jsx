@@ -310,6 +310,7 @@ export default function App() {
   const [markdownGuideOpen, setMarkdownGuideOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [gitVCOpen, setGitVCOpen] = useState(false);
+  const [gitVCInitialTab, setGitVCInitialTab] = useState("status");
   const [globalCommitDialogOpen, setGlobalCommitDialogOpen] = useState(false);
   const [tasksPanelOpen, setTasksPanelOpen] = useState(false);
   const [allTasksPanelOpen, setAllTasksPanelOpen] = useState(false);
@@ -1058,6 +1059,7 @@ export default function App() {
       }
 
       if (action === "open-git-version-control") {
+        setGitVCInitialTab("status");
         setGitVCOpen(true);
         return;
       }
@@ -1086,8 +1088,32 @@ export default function App() {
       }
 
       if (action === "git-compare") {
+        setGitVCInitialTab("compare");
         setGitVCOpen(true);
-        // Switch tab to compare after mounting if possible (we default to status, compare can be chosen)
+        return;
+      }
+
+      if (action === "git-create-branch" || action === "git-switch-branch" || action === "git-merge-branch") {
+        setGitVCInitialTab("branches");
+        setGitVCOpen(true);
+        return;
+      }
+
+      if (action === "git-tags") {
+        setGitVCInitialTab("tags");
+        setGitVCOpen(true);
+        return;
+      }
+
+      if (action === "git-stash") {
+        setGitVCInitialTab("stashes");
+        setGitVCOpen(true);
+        return;
+      }
+
+      if (action === "git-push" || action === "git-pull" || action === "git-fetch" || action === "git-sync") {
+        setGitVCInitialTab("remotes");
+        setGitVCOpen(true);
         return;
       }
 
@@ -1096,17 +1122,7 @@ export default function App() {
         return;
       }
 
-      if (action === "git-reveal-repo" || action === "git-reveal-git-dir") {
-        if (gitWorkspaceMeta.isGitRoot && gitWorkspaceMeta.workspaceRoot) {
-          const targetPath = action === "git-reveal-git-dir" 
-            ? `${gitWorkspaceMeta.workspaceRoot}/.git`
-            : gitWorkspaceMeta.workspaceRoot;
-          revealWorkspaceInExplorer({ folderPath: targetPath });
-        } else {
-          notify("Workspace is not a Git repository.", "warning");
-        }
-        return;
-      }
+
 
 
       if (action === "open-p2p-sync-help") {
@@ -3003,6 +3019,8 @@ export default function App() {
               onNotify={notify}
               onGitStateChange={handleGitStateChange}
               currentFilePath={current?.filePath}
+              initialTab={gitVCInitialTab}
+              documents={documents}
             />
           </Suspense>
         </div>
