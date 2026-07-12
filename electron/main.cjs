@@ -813,7 +813,24 @@ if (canRunApp) {
       // Decode path
       urlPath = decodeURIComponent(urlPath);
       // Map to docs-site-dist
-      const fullPath = path.join(app.getAppPath(), "docs-site-dist", urlPath);
+      let fullPath = path.join(app.getAppPath(), "docs-site-dist", urlPath);
+
+      // Resolve directories and paths without extensions to files
+      const fs = require("node:fs");
+      try {
+        if (fs.existsSync(fullPath) && fs.statSync(fullPath).isDirectory()) {
+          fullPath = path.join(fullPath, "index.html");
+        } else if (!path.extname(fullPath)) {
+          if (fs.existsSync(fullPath + ".html")) {
+            fullPath = fullPath + ".html";
+          } else if (fs.existsSync(path.join(fullPath, "index.html"))) {
+            fullPath = path.join(fullPath, "index.html");
+          }
+        }
+      } catch (e) {
+        console.error("[help-doc protocol] Error checking path stats:", e);
+      }
+
       const mime = contentTypeForFile(fullPath);
       console.log("[help-doc protocol] Resolved File Path:", fullPath, "Mime:", mime);
       
