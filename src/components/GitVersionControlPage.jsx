@@ -466,6 +466,7 @@ function CompareTab({ commits, workspacePath, currentFilePath, documents = [], r
           toLabel={hashB}
           loading={loading}
           error={error}
+          basePath={repoRoot}
         />
       )}
     </div>

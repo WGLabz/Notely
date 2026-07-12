@@ -11104,14 +11104,19 @@ button {
 }
 
 .git-diff-lines {
-  font-family: monospace;
-  font-size: var(--font-size-body-sm, 13px);
+  font-family: inherit;
+  font-size: var(--font-size-body, 14px);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md, 8px);
   background: var(--surface-bg);
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.git-diff-lines--code {
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-size-body-sm, 13px);
 }
 
 .git-diff-no-changes {
@@ -11125,35 +11130,56 @@ button {
 .git-diff-row {
   display: flex;
   align-items: stretch;
-  border-bottom: 1px solid var(--border-subtle);
   line-height: 1.6;
 }
 
-.git-diff-row:last-child {
+.git-diff-lines--code .git-diff-row {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.git-diff-lines--code .git-diff-row:last-child {
   border-bottom: none;
 }
 
 .git-diff-row__gutter {
   width: 45px;
   min-width: 45px;
-  background: var(--surface-muted);
   color: var(--text-muted);
   text-align: right;
   padding: 0 var(--space-3, 0.75rem);
   user-select: none;
-  border-right: 1px solid var(--border-default);
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  opacity: 0.5;
+}
+
+.git-diff-lines--code .git-diff-row__gutter {
+  background: var(--surface-muted);
+  border-right: 1px solid var(--border-default);
+  opacity: 1;
 }
 
 .git-diff-row__content {
-  padding: 0 var(--space-4, 1rem);
+  padding: var(--space-1, 0.25rem) var(--space-4, 1rem);
   white-space: pre-wrap;
   word-break: break-all;
   flex: 1;
   display: flex;
   align-items: center;
+  min-height: 28px;
+}
+
+.git-diff-row__content.markdown-body p {
+  margin: 0 !important;
+  padding: 0 !important;
+  display: inline;
+}
+
+.git-diff-row__content.markdown-body {
+  font-family: inherit;
+  font-size: var(--font-size-body, 14px);
+  line-height: 1.6;
 }
 
 /* Row states */
@@ -11221,6 +11247,33 @@ button {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2, 0.5rem);
+}
+
+.git-diff-viewer .markdown-image-actions,
+.git-diff-viewer .markdown-image-name {
+  display: none !important;
+}
+
+.git-diff-viewer img {
+  max-width: 100%;
+  max-height: 250px;
+  object-fit: contain;
+  border-radius: var(--radius-md, 8px);
+}
+
+.git-diff-row--empty {
+  line-height: 1;
+}
+
+.git-diff-row--empty .git-diff-row__content {
+  min-height: 12px;
+  height: 12px;
+  padding: 0 var(--space-4, 1rem) !important;
+}
+
+.git-diff-row--empty .git-diff-row__gutter {
+  color: transparent !important;
+  user-select: none;
 }
 
 
