@@ -40,7 +40,7 @@ jobs:
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: docs-site-dist
-          repository-name: WGLabz/lekha.github.io
+          repository-name: WGLabz/notely.github.io
           branch: main
           token: ${{ secrets.DEPLOY_DOCS_TOKEN || secrets.GITHUB_TOKEN }}
           clean: true
