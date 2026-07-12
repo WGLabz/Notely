@@ -13,7 +13,9 @@ import {
   X,
   Github,
   User,
-  ExternalLink
+  ExternalLink,
+  Table,
+  Palette
 } from "lucide-react";
 import { pickFolder } from "../services/electronService";
 import notelyMark from "../assets/branding/notely-mark.png";
@@ -173,31 +175,45 @@ export function OnboardingFlow({
               </p>
               <div className="onboarding-features-list">
                 <div className="onboarding-feature-item">
-                  <BookOpen className="onboarding-feature-icon" size={20} />
+                  <Table className="onboarding-feature-icon" size={20} />
                   <div className="onboarding-feature-text">
-                    <h4>Rich Markdown</h4>
-                    <p>Edit in raw, split, preview, or web modes with live diagram rendering.</p>
+                    <h4>Markdown & Inline Tables</h4>
+                    <p>Format styled text and edit complex tables using a focused visual grid editor.</p>
+                  </div>
+                </div>
+                <div className="onboarding-feature-item">
+                  <Palette className="onboarding-feature-icon" size={20} />
+                  <div className="onboarding-feature-text">
+                    <h4>Excalidraw & Mermaid</h4>
+                    <p>Sketch quick drawings with Excalidraw, and render diagrams instantly with Mermaid.</p>
                   </div>
                 </div>
                 <div className="onboarding-feature-item">
                   <History className="onboarding-feature-icon" size={20} />
                   <div className="onboarding-feature-text">
-                    <h4>Revision History</h4>
-                    <p>Compare versions and restore context from older note revisions.</p>
+                    <h4>Git Version Control</h4>
+                    <p>Track history, manage branches, and tag commits directly inside your workspace.</p>
                   </div>
                 </div>
                 <div className="onboarding-feature-item">
                   <Share2 className="onboarding-feature-icon" size={20} />
                   <div className="onboarding-feature-text">
                     <h4>P2P Note Sync</h4>
-                    <p>Discover, pair, and synchronize notes with peers on your local network.</p>
+                    <p>Discover, pair, and synchronize notes securely with peers on your local network.</p>
                   </div>
                 </div>
                 <div className="onboarding-feature-item">
                   <Sparkles className="onboarding-feature-icon" size={20} />
                   <div className="onboarding-feature-text">
                     <h4>Workspace AI</h4>
-                    <p>In-app chat assistance, query search, and semantic graph views.</p>
+                    <p>Query semantic search, ask questions, and chat with local context integration.</p>
+                  </div>
+                </div>
+                <div className="onboarding-feature-item">
+                  <CheckCircle className="onboarding-feature-icon" size={20} />
+                  <div className="onboarding-feature-text">
+                    <h4>Tasks & Workspace Exports</h4>
+                    <p>Track checklists across project files and export workspaces as PDF, HTML, or Zip.</p>
                   </div>
                 </div>
               </div>

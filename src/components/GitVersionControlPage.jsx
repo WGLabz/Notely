@@ -28,6 +28,7 @@ import AppIconButton from "./AppIconButton";
 import { GitCommitTimeline } from "./GitCommitTimeline";
 import { GitDiffViewer } from "./GitDiffViewer";
 import { GitCommitDialog } from "./GitCommitDialog";
+import OverlayDialog from "./OverlayDialog";
 import {
   gitDetect,
   gitGetRepoInfo,
@@ -205,36 +206,13 @@ function StatusTab({ status, workspacePath, onRefresh, onNotify, onCommitSuccess
 
 // ── History Tab ───────────────────────────────────────────────────────────────
 
-function HistoryTab({ commits, loading, error, workspacePath, onNotify, onRefresh }) {
+function HistoryTab({ commits, loading, error, workspacePath, onNotify, onRefresh, onCreateTag }) {
   async function handleRestore(commit) {
     onNotify?.(`Restore from History tab is not supported here — use the note's History button.`, "info");
   }
 
   async function handleCompare(commit) {
     onNotify?.("Switch to the Compare tab to compare commits.", "info");
-  }
-
-  async function handleCreateBranch(commit) {
-    const name = window.prompt(`Create branch from commit ${commit.shortHash}:\nEnter branch name:`);
-    if (!name?.trim()) return;
-    const result = await gitCreateBranch({ workspacePath, name: name.trim(), from: commit.hash });
-    if (result?.ok) {
-      onNotify?.(`Branch "${name.trim()}" created from ${commit.shortHash}.`, "success");
-    } else {
-      onNotify?.(result?.error || "Failed to create branch.", "error");
-    }
-  }
-
-  async function handleCreateTag(commit) {
-    const name = window.prompt(`Tag commit ${commit.shortHash}:\nEnter tag name:`);
-    if (!name?.trim()) return;
-    const result = await gitCreateTag({ workspacePath, name: name.trim(), commitHash: commit.hash });
-    if (result?.ok) {
-      onNotify?.(`Tag "${name.trim()}" created.`, "success");
-      onRefresh?.();
-    } else {
-      onNotify?.(result?.error || "Failed to create tag.", "error");
-    }
   }
 
   return (
@@ -244,8 +222,7 @@ function HistoryTab({ commits, loading, error, workspacePath, onNotify, onRefres
         loading={loading}
         error={error}
         onCompare={handleCompare}
-        onCreateBranch={handleCreateBranch}
-        onCreateTag={handleCreateTag}
+        onCreateTag={onCreateTag}
         searchable
         emptyMessage="No commits yet. Use the Status tab to make your first commit."
       />
@@ -1028,6 +1005,28 @@ export function GitVersionControlPage({
   const [commitsLoading, setCommitsLoading] = useState(false);
   const [commitsError, setCommitsError] = useState(null);
   const [commitDialogOpen, setCommitDialogOpen] = useState(false);
+  const [tagDialogOpen, setTagDialogOpen] = useState(false);
+  const [tagCommit, setTagCommit] = useState(null);
+  const [tagName, setTagName] = useState("");
+
+  async function handleConfirmTag() {
+    if (!tagCommit || !tagName.trim()) return;
+    const targetPath = repoRoot || workspacePath;
+    const result = await gitCreateTag({
+      workspacePath: targetPath,
+      name: tagName.trim(),
+      commitHash: tagCommit.hash,
+    });
+    if (result?.ok) {
+      onNotify?.(`Tag "${tagName.trim()}" created successfully.`, "success");
+      setTagDialogOpen(false);
+      setTagName("");
+      setTagCommit(null);
+      refreshCommits();
+    } else {
+      onNotify?.(result?.error || "Failed to create tag.", "error");
+    }
+  }
 
   const refreshStatus = useCallback(async () => {
     if (!workspacePath) return;
@@ -1248,9 +1247,14 @@ export function GitVersionControlPage({
                 commits={commits}
                 loading={commitsLoading}
                 error={commitsError}
-                workspacePath={workspacePath}
+                workspacePath={repoRoot}
                 onNotify={onNotify}
                 onRefresh={handleRefresh}
+                onCreateTag={(commit) => {
+                  setTagCommit(commit);
+                  setTagName("");
+                  setTagDialogOpen(true);
+                }}
               />
             )}
             {activeTab === "compare" && (
@@ -1295,6 +1299,49 @@ export function GitVersionControlPage({
           stagedFiles={status?.files || []}
           workspacePath={workspacePath}
         />
+      )}
+
+      {/* Tag creation dialog */}
+      {tagDialogOpen && tagCommit && (
+        <OverlayDialog
+          open={tagDialogOpen}
+          onClose={() => {
+            setTagDialogOpen(false);
+            setTagCommit(null);
+          }}
+          ariaLabel="Tag Commit"
+        >
+          <div className="overlay-dialog-header">
+            <h2>Tag Commit</h2>
+          </div>
+          <div className="overlay-dialog-body" style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", padding: "var(--space-4) 0" }}>
+            <p style={{ margin: 0, fontSize: "var(--font-size-body-sm)", color: "var(--text-muted)" }}>
+              Add a tag to commit <code style={{ background: "var(--surface-muted)", padding: "2px 4px", borderRadius: "4px" }}>{tagCommit.shortHash}</code>:
+            </p>
+            <label htmlFor="git-tag-dialog-input" style={{ fontSize: "var(--font-size-label)", color: "var(--text-muted)", fontWeight: 600 }}>Tag Name</label>
+            <AppInput
+              id="git-tag-dialog-input"
+              value={tagName}
+              onChange={(e) => setTagName(e.target.value)}
+              placeholder="e.g. v1.0.0"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleConfirmTag();
+                }
+              }}
+            />
+          </div>
+          <div className="overlay-dialog-actions">
+            <AppButton variant="secondary" onClick={() => {
+              setTagDialogOpen(false);
+              setTagCommit(null);
+            }}>Cancel</AppButton>
+            <AppButton variant="primary" onClick={handleConfirmTag} disabled={!tagName.trim()}>
+              Create Tag
+            </AppButton>
+          </div>
+        </OverlayDialog>
       )}
     </div>
   );

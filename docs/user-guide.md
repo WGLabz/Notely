@@ -38,14 +38,16 @@ Helpful actions:
 - Format code blocks automatically and use the dedicated code editor popup.
 - Fix issues shown by markdown validation and typo checks.
 
-## 4. Recover Changes with Version History
+## 4. Recover Changes with Git Version Control
 
-1. Open **File -> Versions** (`Ctrl/Cmd + Shift + H`).
-2. Select an older version.
-3. Compare it with your current note.
-4. Restore if needed.
+Notely tracks your document history with a native Git-backed system:
 
-Use this when content was accidentally changed or removed.
+1. Open **Version Control -> History** (`Ctrl/Cmd + Shift + H`) or click the **History** button in the top menu of an open note.
+2. Select a commit from the timeline list to inspect its details.
+3. Compare commits or restore a note to that version.
+4. Add tags directly to commits to bookmark key milestones.
+
+Use this to track changes chronologically and recover older revisions of any note.
 
 ## 5. Work with Images and Files
 

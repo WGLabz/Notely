@@ -75,9 +75,9 @@ Use this page when you want quick, direct steps.
 
 ## 12. View or restore note history
 
-1. Open **File -> Versions** (`Ctrl/Cmd + Shift + H`).
-2. Select a version.
-3. Compare or restore.
+1. Click the **History** button in the note's top-right toolbar or press `Ctrl/Cmd + Shift + H`.
+2. Select a commit from the history timeline sidebar.
+3. Compare revisions or click **Restore** to revert changes.
 
 ## 13. Search across all notes
 

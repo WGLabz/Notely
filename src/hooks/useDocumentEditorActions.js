@@ -71,7 +71,11 @@ export function useDocumentEditorActions({
       return;
     }
 
-    if (menuAction.action === "manage-versions") {
+    if (
+      menuAction.action === "manage-versions" ||
+      menuAction.action === "git-history" ||
+      menuAction.action === "git-diff-current"
+    ) {
       openHistoryVersions();
     }
   }, [

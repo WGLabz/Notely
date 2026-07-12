@@ -36,7 +36,11 @@ Notely is built with Electron + React and is designed for project notes, meeting
 - Open the current workspace folder in VS Code directly from **File -> Open Workspace in VS Code** (`Ctrl/Cmd + Shift + O`) on the landing screen.
 - Reveal the workspace folder in the system File Explorer from **File -> Reveal Workspace in File Explorer** (`Ctrl/Cmd + Shift + J`) on the landing screen.
 - Open the project website or the current note's website view from the **Web** menu (`Ctrl/Cmd + Shift + W`).
-- Compare note history versions and restore context from older revisions.
+- Track note history and changes with native **Git Version Control**.
+  - Interactive Git tab strip displaying Status, Commit History, Diff Comparison, Branch/Tag lists, Stash management, Syncing, and Config Settings.
+  - Side-by-side note differences comparing "Quick Notes" and "Formal Notes" sections independently.
+  - Toggle between rich visual **Markdown Preview Mode** (with correct pathing for local images/Excalidraw diagrams) and standard raw **Code View** for line differences.
+  - Word-level inline diff highlights, automatic legacy history-to-commit migrations on startup, and direct commit tagging.
 - Preview Mermaid diagrams and rendered Markdown content.
 - Visualize the workspace as an interactive note graph.
 - Use built-in AI features powered by Gemini or Groq for chat, queries, and semantic search.

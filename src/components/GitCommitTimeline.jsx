@@ -77,34 +77,18 @@ function CommitItem({
       onKeyDown={compareMode ? (e) => { if (e.key === "Enter" || e.key === " ") onSelect?.(commit.hash); } : undefined}
       aria-pressed={compareMode ? selected : undefined}
     >
-      <div className="git-commit-item__header">
+      <div className="git-commit-item__row">
         <span className="git-commit-item__icon" aria-hidden="true">
           <GitCommit size={14} />
         </span>
 
-        <div className="git-commit-item__meta">
-          <span
-            className="git-commit-item__hash"
-            title={commit.hash}
-            aria-label={`Commit ${commit.shortHash}`}
-          >
-            {commit.shortHash || commit.hash?.slice(0, 7)}
-          </span>
-
-          {commit.branches?.length > 0 && commit.branches.map((b) => (
-            <span key={b} className="git-commit-item__ref git-commit-item__ref--branch">
-              <GitBranch size={10} />
-              {b}
-            </span>
-          ))}
-
-          {commit.tags?.length > 0 && commit.tags.map((t) => (
-            <span key={t} className="git-commit-item__ref git-commit-item__ref--tag">
-              <Tag size={10} />
-              {t}
-            </span>
-          ))}
-        </div>
+        <span
+          className="git-commit-item__hash"
+          title={commit.hash}
+          aria-label={`Commit ${commit.shortHash}`}
+        >
+          {commit.shortHash || commit.hash?.slice(0, 7)}
+        </span>
 
         <time
           className="git-commit-item__date"
@@ -113,14 +97,90 @@ function CommitItem({
         >
           {formatRelativeDate(commit.date)}
         </time>
-      </div>
 
-      <div className="git-commit-item__message" title={commit.message}>
-        {commit.message}
-      </div>
+        <span className="git-commit-item__separator">·</span>
 
-      <div className="git-commit-item__author">
-        {commit.author}
+        <span className="git-commit-item__message" title={commit.message}>
+          {commit.message}
+        </span>
+
+        <span className="git-commit-item__separator">·</span>
+
+        <span className="git-commit-item__author">
+          {commit.author}
+        </span>
+
+        {commit.branches?.length > 0 && commit.branches.map((b) => (
+          <span key={b} className="git-commit-item__ref git-commit-item__ref--branch">
+            <GitBranch size={10} />
+            {b}
+          </span>
+        ))}
+
+        {commit.tags?.length > 0 && commit.tags.map((t) => (
+          <span key={t} className="git-commit-item__ref git-commit-item__ref--tag">
+            <Tag size={10} />
+            {t}
+          </span>
+        ))}
+
+        {!compareMode && (
+          <div className="git-commit-item__actions">
+            {onCompare && (
+              <AppButton
+                variant="small"
+                onClick={(e) => { e.stopPropagation(); onCompare(commit); }}
+                data-tooltip="Compare with another commit"
+                aria-label="Compare"
+              >
+                <GitCompare size={13} />
+                Compare
+              </AppButton>
+            )}
+            {onRestore && (
+              <AppButton
+                variant="small"
+                onClick={(e) => { e.stopPropagation(); onRestore(commit); }}
+                data-tooltip="Restore this version (creates a new commit)"
+                aria-label="Restore"
+              >
+                <RotateCcw size={13} />
+                Restore
+              </AppButton>
+            )}
+            {onCreateBranch && (
+              <AppButton
+                variant="small"
+                onClick={(e) => { e.stopPropagation(); onCreateBranch(commit); }}
+                data-tooltip="Create a branch from this commit"
+                aria-label="Branch from here"
+              >
+                <GitBranchPlus size={13} />
+                Branch
+              </AppButton>
+            )}
+            {onCreateTag && (
+              <AppButton
+                variant="small"
+                onClick={(e) => { e.stopPropagation(); onCreateTag(commit); }}
+                data-tooltip="Tag this commit"
+                aria-label="Tag"
+              >
+                <Tag size={13} />
+                Tag
+              </AppButton>
+            )}
+            <AppButton
+              variant="small"
+              onClick={(e) => { e.stopPropagation(); handleCopy(); }}
+              data-tooltip={copied ? "Copied!" : "Copy hash"}
+              aria-label="Copy hash"
+            >
+              <Copy size={13} />
+              {copied ? "Copied" : "Hash"}
+            </AppButton>
+          </div>
+        )}
       </div>
 
       {commit.files?.length > 0 && (
@@ -144,64 +204,6 @@ function CommitItem({
             </li>
           ))}
         </ul>
-      )}
-
-      {!compareMode && (
-        <div className="git-commit-item__actions">
-          {onCompare && (
-            <AppButton
-              variant="small"
-              onClick={(e) => { e.stopPropagation(); onCompare(commit); }}
-              data-tooltip="Compare with another commit"
-              aria-label="Compare"
-            >
-              <GitCompare size={13} />
-              Compare
-            </AppButton>
-          )}
-          {onRestore && (
-            <AppButton
-              variant="small"
-              onClick={(e) => { e.stopPropagation(); onRestore(commit); }}
-              data-tooltip="Restore this version (creates a new commit)"
-              aria-label="Restore"
-            >
-              <RotateCcw size={13} />
-              Restore
-            </AppButton>
-          )}
-          {onCreateBranch && (
-            <AppButton
-              variant="small"
-              onClick={(e) => { e.stopPropagation(); onCreateBranch(commit); }}
-              data-tooltip="Create a branch from this commit"
-              aria-label="Branch from here"
-            >
-              <GitBranchPlus size={13} />
-              Branch
-            </AppButton>
-          )}
-          {onCreateTag && (
-            <AppButton
-              variant="small"
-              onClick={(e) => { e.stopPropagation(); onCreateTag(commit); }}
-              data-tooltip="Tag this commit"
-              aria-label="Tag"
-            >
-              <Tag size={13} />
-              Tag
-            </AppButton>
-          )}
-          <AppButton
-            variant="small"
-            onClick={(e) => { e.stopPropagation(); handleCopy(); }}
-            data-tooltip={copied ? "Copied!" : "Copy full commit hash"}
-            aria-label="Copy hash"
-          >
-            <Copy size={13} />
-            {copied ? "Copied" : "Hash"}
-          </AppButton>
-        </div>
       )}
     </div>
   );

@@ -242,15 +242,20 @@ Use All Tasks when you need both open and completed work in one place.
 - Find tasks by keyword without opening individual notes
 - Maintain accountability in team workspaces
 
-## 6. Version History and Recovery
+## 6. Git Version Control and History
 
-### Version snapshots
+### Native Git Repository
+Notely integrates native Git versioning to track your document history. Workspaces can be initialized as Git repositories directly from the Version Control panel.
 
-Notely keeps older copies of notes so you can recover changes.
+### Compare, Restore, and Tagging
+Open **Version Control -> History** (`Ctrl/Cmd + Shift + H`) or click the **History** button in the note top bar to:
+- Compare commits with word-level difference highlighting.
+- Toggle between rich **Markdown Preview Mode** and raw **Code View** for line differences.
+- Restore the active note to an older revision.
+- Add tag references to commits directly from the history timeline.
 
-### Compare and restore
-
-Open **File -> Versions** (`Ctrl/Cmd + Shift + H`) to compare current and previous versions, then restore when needed.
+### Branch, Stash, and Sync Management
+The full **Version Control Page** includes tabs to switch branches, create tags, push/pull changes to remote repositories, and stash unstaged changes to keep your workspace tidy.
 
 ## 7. Media Management
 
