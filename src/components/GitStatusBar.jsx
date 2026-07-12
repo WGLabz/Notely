@@ -1,4 +1,4 @@
-import { GitBranch, GitCommit } from "lucide-react";
+import { GitBranch } from "lucide-react";
 
 /**
  * GitStatusBar — shown in the bottom terminal-status-bar right section.
@@ -16,7 +16,7 @@ export function GitStatusBar({ gitState, onClick }) {
         disabled
         aria-label="Git loading"
       >
-        <GitBranch size={13} />
+        <GitBranch size={12} />
         <span>Git…</span>
       </button>
     );
@@ -31,7 +31,7 @@ export function GitStatusBar({ gitState, onClick }) {
         data-tooltip="Git not detected — click to install"
         aria-label="Git not detected"
       >
-        <GitBranch size={13} />
+        <GitBranch size={12} />
         <span>Git not found</span>
       </button>
     );
@@ -46,7 +46,7 @@ export function GitStatusBar({ gitState, onClick }) {
         data-tooltip="Workspace is not a Git repository — click to initialize"
         aria-label="Not a Git repository"
       >
-        <GitBranch size={13} />
+        <GitBranch size={12} />
         <span>No repo</span>
       </button>
     );
@@ -66,7 +66,7 @@ export function GitStatusBar({ gitState, onClick }) {
       }
       aria-label={`Git: ${branch || "unknown"}${hasChanges ? `, ${pendingCount} changes` : ""}`}
     >
-      <GitBranch size={13} />
+      <GitBranch size={12} />
       <span className="git-status-bar__branch">{branch || "unknown"}</span>
       {hasChanges && (
         <span className="git-status-bar__badge" aria-hidden="true">

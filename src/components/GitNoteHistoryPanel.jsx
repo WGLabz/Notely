@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { GitBranch, GitCommit, X, RotateCcw, GitCompare } from "lucide-react";
+import { GitBranch, GitCommit, X, GitCompare } from "lucide-react";
 import OverlayDialog from "./OverlayDialog";
 import AppButton from "./AppButton";
 import { GitCommitTimeline } from "./GitCommitTimeline";
@@ -190,7 +190,7 @@ export function GitNoteHistoryPanel({
         <div className="git-history-panel__header-meta">
           {branch && (
             <span className="git-history-panel__branch" aria-label={`Current branch: ${branch}`}>
-              <GitBranch size={13} aria-hidden="true" />
+              <GitBranch size={12} aria-hidden="true" />
               {branch}
             </span>
           )}

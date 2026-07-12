@@ -141,9 +141,8 @@ describe("DocumentDetail popup and panel toggles", () => {
       });
     });
 
-    const popup = view.host.querySelector('[aria-label="Versions"]');
-    expect(popup).toBeTruthy();
-    expect(popup.textContent).toContain("manual-save");
+    const closeBtn = view.host.querySelector('[aria-label="Close history panel"]');
+    expect(closeBtn).toBeTruthy();
 
     view.unmount();
   });

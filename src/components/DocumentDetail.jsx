@@ -1,7 +1,6 @@
 import { memo, useRef, useState, useEffect, useMemo } from "react";
 import {
   Save,
-  RotateCcw,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -17,11 +16,7 @@ import {
   User,
   Tag,
   Images,
-  GitCompare,
-  Trash2,
   X,
-  Filter,
-  Sparkles,
   ListTree,
   Clipboard,
   Code2,
@@ -36,7 +31,7 @@ import { EditorPane } from "./EditorPane";
 import { MediaTab } from "./MediaTab";
 import OverlayDialog from "./OverlayDialog";
 import DialogSelectField from "./DialogSelectField";
-import { formatDate } from "../utils/dateUtils";
+
 import { downloadPdf } from "../services/electronService";
 import { GitNoteHistoryPanel } from "./GitNoteHistoryPanel";
 import { useDocumentEditorActions } from "../hooks/useDocumentEditorActions";
@@ -89,88 +84,7 @@ function getBlockRange(value, anchorIndex) {
   };
 }
 
-function buildDiffRows(latest, previous, options = {}) {
-  const { ignoreWhitespace = false } = options;
-  const latestLines = (latest || "").replace(/\r\n/g, "\n").split("\n");
-  const previousLines = (previous || "").replace(/\r\n/g, "\n").split("\n");
-  const max = Math.max(latestLines.length, previousLines.length);
-  const rows = [];
 
-  for (let index = 0; index < max; index += 1) {
-    const latestLine = latestLines[index] ?? "";
-    const previousLine = previousLines[index] ?? "";
-    const normalizedLatest = ignoreWhitespace ? latestLine.replace(/\s+/g, " ").trim() : latestLine;
-    const normalizedPrevious = ignoreWhitespace ? previousLine.replace(/\s+/g, " ").trim() : previousLine;
-    let status = "same";
-    if (index >= previousLines.length) status = "added";
-    else if (index >= latestLines.length) status = "removed";
-    else if (normalizedLatest !== normalizedPrevious) status = "changed";
-
-    rows.push({ line: index + 1, latestLine, previousLine, status });
-  }
-
-  return rows;
-}
-
-function buildVisibleRows(rows, options = {}) {
-  const { showOnlyChanges = false, smartMode = false, contextLines = 2 } = options;
-
-  if (showOnlyChanges) {
-    return rows.filter((row) => row.status !== "same");
-  }
-
-  if (!smartMode) {
-    return rows;
-  }
-
-  const changeIndexes = rows
-    .map((row, index) => (row.status === "same" ? -1 : index))
-    .filter((index) => index >= 0);
-
-  if (!changeIndexes.length) {
-    return rows;
-  }
-
-  const ranges = [];
-  for (const index of changeIndexes) {
-    const start = Math.max(0, index - contextLines);
-    const end = Math.min(rows.length - 1, index + contextLines);
-
-    const last = ranges[ranges.length - 1];
-    if (!last || start > last.end + 1) {
-      ranges.push({ start, end });
-    } else {
-      last.end = Math.max(last.end, end);
-    }
-  }
-
-  const output = [];
-  let cursor = 0;
-  for (const range of ranges) {
-    if (range.start > cursor) {
-      output.push({
-        kind: "separator",
-        id: `sep-${cursor}-${range.start}`,
-        omitted: range.start - cursor,
-      });
-    }
-
-    for (let i = range.start; i <= range.end; i += 1) {
-      output.push(rows[i]);
-    }
-    cursor = range.end + 1;
-  }
-
-  if (cursor < rows.length) {
-    output.push({
-      kind: "separator",
-      id: `sep-${cursor}-${rows.length}`,
-      omitted: rows.length - cursor,
-    });
-  }
-
-  return output;
-}
 
 const AUTOSAVE_PREF_KEY = "notely:autosave-enabled";
 const AUTOSAVE_DELAY_MS = 1200;
@@ -432,33 +346,6 @@ function buildTimeRangeHeaderValue(fromValue, toValue) {
   if (fromLabel) return fromLabel;
   if (toLabel) return toLabel;
   return "";
-}
-
-function parseVersionDocumentContent(value, fallbackDocument = {}) {
-  const lines = String(value || "").split(/\r?\n/);
-  const rawIndex = lines.findIndex((line) => line.trim().toLowerCase() === "# rawnotes");
-  const cleansedIndex = lines.findIndex((line) => line.trim().toLowerCase() === "# cleansed");
-
-  if (rawIndex === -1 && cleansedIndex === -1) {
-    return {
-      header: fallbackDocument.header || "",
-      rawNotes: fallbackDocument.rawNotes || "",
-      cleansed: String(value || "").trim(),
-    };
-  }
-
-  const firstSectionIndex = Math.min(
-    rawIndex === -1 ? Number.POSITIVE_INFINITY : rawIndex,
-    cleansedIndex === -1 ? Number.POSITIVE_INFINITY : cleansedIndex
-  );
-  const header = lines.slice(0, firstSectionIndex).join("\n").trim();
-  const rawEnd = cleansedIndex > rawIndex && rawIndex !== -1 ? cleansedIndex : lines.length;
-
-  return {
-    header: header || fallbackDocument.header || "",
-    rawNotes: rawIndex === -1 ? fallbackDocument.rawNotes || "" : lines.slice(rawIndex + 1, rawEnd).join("\n").trim(),
-    cleansed: cleansedIndex === -1 ? fallbackDocument.cleansed || "" : lines.slice(cleansedIndex + 1).join("\n").trim(),
-  };
 }
 
 const MetadataPanel = memo(function MetadataPanel({
@@ -766,7 +653,7 @@ const OutlinePanel = memo(function OutlinePanel({
 
 export function DocumentDetail({
   document,
-  history,
+  _history,
   workspacePath,
   branch,
   activeTab,
@@ -815,13 +702,7 @@ export function DocumentDetail({
   });
   const applyingHistoryRef = useRef(false);
   const [showHistoryPopover, setShowHistoryPopover] = useState(false);
-  const [compareModalOpen, setCompareModalOpen] = useState(false);
-  const [compareLoading, setCompareLoading] = useState(false);
-  const [compareMeta, setCompareMeta] = useState(null);
-  const [compareLatestText, setCompareLatestText] = useState("");
-  const [comparePreviousText, setComparePreviousText] = useState("");
-  const [showOnlyChanges, setShowOnlyChanges] = useState(false);
-  const [smartMode, setSmartMode] = useState(true);
+
   const [pdfExporting, setPdfExporting] = useState(false);
   const [pdfOptionsOpen, setPdfOptionsOpen] = useState(false);
   const [pdfExportMode, setPdfExportMode] = useState("formal");
@@ -1681,94 +1562,7 @@ export function DocumentDetail({
     }
   };
 
-  const handleCompareVersion = async (entry) => {
-    setCompareLoading(true);
-    setCompareModalOpen(true);
-    setShowOnlyChanges(false);
-    setSmartMode(true);
-    setCompareMeta(entry);
-    setCompareLatestText("");
-    setComparePreviousText("");
 
-    try {
-      const latest = [
-        (document.header || "").trim(),
-        "# RawNotes",
-        (document.rawNotes || "").trim(),
-        "",
-        "# Cleansed",
-        (document.cleansed || "").trim(),
-      ].join("\n");
-
-      const previous = await readVersion(document.filePath, entry.versionPath);
-      setCompareLatestText(latest);
-      setComparePreviousText(previous || "");
-    } catch (error) {
-      onNotify?.(error?.message || "Unable to load version diff.", "error");
-      setCompareModalOpen(false);
-    } finally {
-      setCompareLoading(false);
-    }
-  };
-
-  const diffRows = useMemo(() => {
-    if (!compareLatestText && !comparePreviousText) {
-      return [];
-    }
-    return buildDiffRows(compareLatestText, comparePreviousText, { ignoreWhitespace: smartMode });
-  }, [compareLatestText, comparePreviousText, smartMode]);
-
-  const handleRestoreVersion = async (entry) => {
-    const confirmed = window.confirm("Restore this version into the editor? Review it, then save to keep the restored content.");
-    if (!confirmed) return;
-
-    try {
-      const previous = await readVersion(document.filePath, entry.versionPath);
-      const restored = parseVersionDocumentContent(previous, document);
-      onChange({
-        ...document,
-        header: restored.header,
-        rawNotes: restored.rawNotes,
-        cleansed: restored.cleansed,
-      });
-      setActiveTab("cleansed");
-      setShowHistoryPopover(false);
-      onNotify?.("Version restored to editor. Save to keep it.", "success");
-    } catch (error) {
-      onNotify?.(error?.message || "Unable to restore version.", "error");
-    }
-  };
-
-  const handleDeleteVersion = async (entry) => {
-    const confirmed = window.confirm("Delete this older version? This cannot be undone.");
-    if (!confirmed) return;
-
-    try {
-      await deleteVersion(document.filePath, entry.versionPath);
-      await onRefreshHistory();
-      onNotify?.("Older version deleted.", "success");
-    } catch (error) {
-      onNotify?.(error?.message || "Unable to delete version.", "error");
-    }
-  };
-
-  const diffSummary = diffRows.reduce(
-    (acc, row) => {
-      if (row.status === "added") acc.added += 1;
-      if (row.status === "removed") acc.removed += 1;
-      if (row.status === "changed") acc.changed += 1;
-      return acc;
-    },
-    { added: 0, removed: 0, changed: 0 }
-  );
-
-  const visibleRows = buildVisibleRows(diffRows, {
-    showOnlyChanges,
-    smartMode,
-    contextLines: 2,
-  });
-
-  const hasSeparators = visibleRows.some((row) => row?.kind === "separator");
 
   return (
     <div className="detail-shell">
@@ -2144,87 +1938,6 @@ export function DocumentDetail({
         ) : null}
       </div>
 
-      {compareModalOpen ? (
-        <OverlayDialog
-          onClose={() => setCompareModalOpen(false)}
-          ariaLabel="Version diff"
-          overlayClassName="diff-modal-overlay"
-          cardClassName="diff-modal"
-          useDefaultCardClass={false}
-        >
-            <div className="diff-modal-header">
-              <strong>
-                Compare Latest with {compareMeta?.createdAt ? formatDate(compareMeta.createdAt) : "Version"}
-              </strong>
-              <div className="diff-modal-controls">
-                <AppButton
-                  variant="small"
-                  className={smartMode ? "active" : ""}
-                  onClick={() => setSmartMode((value) => !value)}
-                  data-tooltip="Ignore whitespace and collapse unchanged blocks"
-                >
-                  <Sparkles size={14} />
-                  Smart
-                </AppButton>
-                <AppButton
-                  variant="small"
-                  className={showOnlyChanges ? "active" : ""}
-                  onClick={() => setShowOnlyChanges((value) => !value)}
-                  data-tooltip="Toggle changed lines only"
-                >
-                  <Filter size={14} />
-                  {showOnlyChanges ? "All lines" : "Changes only"}
-                </AppButton>
-                <AppButton variant="small" onClick={() => setCompareModalOpen(false)} data-tooltip="Close diff">
-                  <X size={14} />
-                </AppButton>
-              </div>
-            </div>
-
-            {compareLoading ? (
-              <p className="muted">Loading diff...</p>
-            ) : (
-              <div className="diff-table">
-                <div className="diff-summary">
-                  <span className="summary-pill added">+ {diffSummary.added} added</span>
-                  <span className="summary-pill removed">- {diffSummary.removed} removed</span>
-                  <span className="summary-pill changed">~ {diffSummary.changed} changed</span>
-                  <span className="summary-pill neutral">{visibleRows.length} rows shown</span>
-                  {smartMode ? <span className="summary-pill smart">Smart on</span> : null}
-                  {hasSeparators ? <span className="summary-pill neutral">Context collapsed</span> : null}
-                </div>
-                <div className="diff-table-head">
-                  <span>Line</span>
-                  <span>Latest</span>
-                  <span>Selected Version</span>
-                </div>
-                <div className="diff-table-body">
-                  {visibleRows.map((row) => {
-                    if (row?.kind === "separator") {
-                      return (
-                        <div className="diff-separator" key={row.id}>
-                          ... {row.omitted} unchanged lines hidden ...
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div className={`diff-row ${row.status}`} key={`diff-${row.line}`}>
-                        <span>{row.line}</span>
-                        <pre className="diff-cell latest" data-prefix={row.status === "added" ? "+" : row.status === "changed" ? "~" : ""}>
-                          {row.latestLine || " "}
-                        </pre>
-                        <pre className="diff-cell previous" data-prefix={row.status === "removed" ? "-" : row.status === "changed" ? "~" : ""}>
-                          {row.previousLine || " "}
-                        </pre>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-        </OverlayDialog>
-      ) : null}
 
       {showHistoryPopover ? (
         <GitNoteHistoryPanel

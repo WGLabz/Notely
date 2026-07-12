@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { GitCompare, ChevronDown, Filter, Code2, Type } from "lucide-react";
+import { GitCompare, Filter, Code2, Type } from "lucide-react";
 import AppButton from "./AppButton";
 import { renderMarkdown } from "../utils/renderUtils";
 import { readImage } from "../services/electronService";
@@ -246,8 +246,8 @@ function DiffSection({ title, latestText, previousText, showOnlyChanges, isCodeV
 export function GitDiffViewer({
   latestContent,
   previousContent,
-  fromLabel = "Previous",
-  toLabel = "Current",
+  _fromLabel = "Previous",
+  _toLabel = "Current",
   loading = false,
   error = null,
   basePath = null,
@@ -287,7 +287,7 @@ export function GitDiffViewer({
           img.setAttribute("data-asset-path", assetPath);
           img.src = dataUrl;
         }
-      } catch (err) {
+      } catch {
         // Fall back gracefully
       }
     };
@@ -336,7 +336,7 @@ export function GitDiffViewer({
   if (!latestContent && !previousContent) {
     return (
       <div className="git-diff-viewer git-diff-viewer--empty">
-        <GitCompare size={32} className="git-diff-viewer__empty-icon" aria-hidden="true" />
+        <GitCompare size={20} className="git-diff-viewer__empty-icon" aria-hidden="true" />
         <p>Select two commits to compare.</p>
       </div>
     );
@@ -372,7 +372,7 @@ export function GitDiffViewer({
               aria-pressed={isCodeView}
               data-tooltip={isCodeView ? "Switch to Preview mode" : "Switch to Code view"}
             >
-              {isCodeView ? <Type size={13} style={{ marginRight: 4 }} /> : <Code2 size={13} style={{ marginRight: 4 }} />}
+              {isCodeView ? <Type size={12} style={{ marginRight: 4 }} /> : <Code2 size={12} style={{ marginRight: 4 }} />}
               {isCodeView ? "Preview mode" : "Code view"}
             </AppButton>
 
@@ -382,7 +382,7 @@ export function GitDiffViewer({
               aria-pressed={showOnlyChanges}
               data-tooltip="Toggle between showing all lines and only changed lines"
             >
-              <Filter size={13} style={{ marginRight: 4 }} />
+              <Filter size={12} style={{ marginRight: 4 }} />
               {showOnlyChanges ? "Show all" : "Changes only"}
             </AppButton>
           </div>

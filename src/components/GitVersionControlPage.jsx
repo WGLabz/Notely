@@ -3,17 +3,13 @@ import {
   GitBranch,
   GitCommit,
   GitCompare,
-  GitMerge,
   Tag,
-  Package,
   Cloud,
   Settings,
-  ChevronLeft,
   RefreshCw,
   Plus,
   Trash2,
   Check,
-  X,
   AlertTriangle,
   ExternalLink,
   RotateCcw,
@@ -24,7 +20,6 @@ import {
 } from "lucide-react";
 import AppButton from "./AppButton";
 import AppInput from "./AppInput";
-import AppIconButton from "./AppIconButton";
 import { GitCommitTimeline } from "./GitCommitTimeline";
 import { GitDiffViewer } from "./GitDiffViewer";
 import { GitCommitDialog } from "./GitCommitDialog";
@@ -39,10 +34,8 @@ import {
   gitGetFileAtCommit,
   gitListBranches,
   gitCreateBranch,
-  gitRenameBranch,
   gitDeleteBranch,
   gitSwitchBranch,
-  gitMergeBranch,
   gitListTags,
   gitCreateTag,
   gitDeleteTag,
@@ -56,7 +49,6 @@ import {
   gitPush,
   gitPull,
   gitFetch,
-  gitGetWorkspaceStats,
   gitGetCommitFiles,
 } from "../services/electronService";
 
@@ -75,10 +67,10 @@ const TABS = [
 
 // ── Empty states ──────────────────────────────────────────────────────────────
 
-function NoGitState({ onInstallLink }) {
+function NoGitState({ _onInstallLink }) {
   return (
     <div className="git-vc-empty">
-      <AlertTriangle size={40} className="git-vc-empty__icon git-vc-empty__icon--warn" aria-hidden="true" />
+      <AlertTriangle size={20} className="git-vc-empty__icon git-vc-empty__icon--warn" aria-hidden="true" />
       <h2 className="git-vc-empty__title">Git not detected</h2>
       <p className="git-vc-empty__desc">
         Git is not installed or not found on your system PATH.
@@ -96,10 +88,10 @@ function NoGitState({ onInstallLink }) {
   );
 }
 
-function NoRepoState({ workspacePath, onInit, initializing }) {
+function NoRepoState({ _workspacePath, onInit, initializing }) {
   return (
     <div className="git-vc-empty">
-      <GitBranch size={40} className="git-vc-empty__icon" aria-hidden="true" />
+      <GitBranch size={20} className="git-vc-empty__icon" aria-hidden="true" />
       <h2 className="git-vc-empty__title">Not a Git repository</h2>
       <p className="git-vc-empty__desc">
         This workspace is not initialized as a Git repository.
@@ -157,7 +149,7 @@ function StatusTab({ status, workspacePath, onRefresh, onNotify, onCommitSuccess
 
       {files.length === 0 ? (
         <div className="git-vc-empty git-vc-empty--inline">
-          <Check size={24} className="git-vc-empty__icon git-vc-empty__icon--success" />
+          <Check size={20} className="git-vc-empty__icon git-vc-empty__icon--success" />
           <p>Working tree is clean. No changes to commit.</p>
         </div>
       ) : (
@@ -206,12 +198,8 @@ function StatusTab({ status, workspacePath, onRefresh, onNotify, onCommitSuccess
 
 // ── History Tab ───────────────────────────────────────────────────────────────
 
-function HistoryTab({ commits, loading, error, workspacePath, onNotify, onRefresh, onCreateTag }) {
-  async function handleRestore(commit) {
-    onNotify?.(`Restore from History tab is not supported here — use the note's History button.`, "info");
-  }
-
-  async function handleCompare(commit) {
+function HistoryTab({ commits, loading, error, _workspacePath, onNotify, _onRefresh, onCreateTag }) {
+  async function handleCompare(_commit) {
     onNotify?.("Switch to the Compare tab to compare commits.", "info");
   }
 
@@ -232,7 +220,7 @@ function HistoryTab({ commits, loading, error, workspacePath, onNotify, onRefres
 
 // ── Compare Tab ───────────────────────────────────────────────────────────────
 
-function CompareTab({ commits, workspacePath, currentFilePath, documents = [], repoRoot }) {
+function CompareTab({ _commits, workspacePath, currentFilePath, documents = [], repoRoot }) {
   const [hashA, setHashA] = useState("");
   const [hashB, setHashB] = useState("");
   const [filePathFilter, setFilePathFilter] = useState("");
@@ -276,7 +264,7 @@ function CompareTab({ commits, workspacePath, currentFilePath, documents = [], r
     } else if (workspaceFiles.length > 0 && !filePathFilter) {
       setFilePathFilter(workspaceFiles[0].absolutePath);
     }
-  }, [currentFilePath, workspaceFiles]);
+  }, [currentFilePath, workspaceFiles, filePathFilter]);
 
   // Load commits when selected file changes
   useEffect(() => {
@@ -452,12 +440,12 @@ function CompareTab({ commits, workspacePath, currentFilePath, documents = [], r
 
 // ── Branches Tab ──────────────────────────────────────────────────────────────
 
-function BranchesTab({ workspacePath, onNotify, onRefresh, currentBranch }) {
+function BranchesTab({ workspacePath, onNotify, onRefresh, _currentBranch }) {
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(false);
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
-  const [error, setError] = useState(null);
+  const [, setError] = useState(null);
 
   const loadBranches = useCallback(async () => {
     setLoading(true);
@@ -942,11 +930,7 @@ function RemotesTab({ workspacePath, onNotify, status }) {
 
 // ── Settings Tab ──────────────────────────────────────────────────────────────
 
-function SettingsTab({ workspacePath }) {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [saved, setSaved] = useState(false);
+function SettingsTab({ _workspacePath }) {
 
   return (
     <div className="git-vc-settings">
@@ -964,7 +948,7 @@ git config --global user.email "you@example.com"`}
         Gitignore
       </h3>
       <p className="git-vc-settings__desc">
-        The "Ignore App Data in Git" toggle is in the <strong>Version Control</strong> menu bar.
+        The &ldquo;Ignore App Data in Git&rdquo; toggle is in the <strong>Version Control</strong> menu bar.
         It controls whether <code>.notes-app/</code> is automatically excluded from your repository.
       </p>
     </div>

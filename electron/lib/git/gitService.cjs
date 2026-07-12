@@ -717,19 +717,7 @@ async function removeRemote(workspacePath, name) {
   }
 }
 
-/**
- * Build env vars for PAT auth on HTTPS remotes.
- * We embed the token into the URL via a credential helper.
- */
-function buildAuthEnv(auth) {
-  if (!auth || auth.type === "ssh") return {};
-  if (auth.type === "pat" && auth.token) {
-    // Git credential helper approach: set GIT_ASKPASS to a script that returns the token
-    // Simpler: pass via URL rewrite in the caller
-    return { GIT_TERMINAL_PROMPT: "0" };
-  }
-  return {};
-}
+
 
 /**
  * Inject PAT into HTTPS URL if provided.

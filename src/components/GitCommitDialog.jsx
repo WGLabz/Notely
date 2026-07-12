@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from "react";
 import { GitCommit, X, FilePlus2, FileEdit, FileMinus2, FileQuestion } from "lucide-react";
 import OverlayDialog from "./OverlayDialog";
 import AppButton from "./AppButton";
-import AppInput from "./AppInput";
 
 const MAX_MESSAGE_LENGTH = 72;
 
@@ -15,7 +14,7 @@ const MAX_MESSAGE_LENGTH = 72;
  *  onClose      — () => void
  *  onCommit     — ({ message, filePaths }) => Promise<void>
  *  stagedFiles  — [{ path, status }] — pre-selected files from git status
- *  workspacePath — string
+ *  _workspacePath — string
  *  currentFilePath — string|null — pre-select the active note's file
  */
 export function GitCommitDialog({
@@ -23,7 +22,7 @@ export function GitCommitDialog({
   onClose,
   onCommit,
   stagedFiles = [],
-  workspacePath,
+  _workspacePath,
   currentFilePath = null,
 }) {
   const [message, setMessage] = useState("");

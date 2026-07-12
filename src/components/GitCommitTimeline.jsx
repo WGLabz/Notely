@@ -112,14 +112,14 @@ function CommitItem({
 
         {commit.branches?.length > 0 && commit.branches.map((b) => (
           <span key={b} className="git-commit-item__ref git-commit-item__ref--branch">
-            <GitBranch size={10} />
+            <GitBranch size={12} />
             {b}
           </span>
         ))}
 
         {commit.tags?.length > 0 && commit.tags.map((t) => (
           <span key={t} className="git-commit-item__ref git-commit-item__ref--tag">
-            <Tag size={10} />
+            <Tag size={12} />
             {t}
           </span>
         ))}
@@ -133,7 +133,7 @@ function CommitItem({
                 data-tooltip="Compare with another commit"
                 aria-label="Compare"
               >
-                <GitCompare size={13} />
+                <GitCompare size={12} />
                 Compare
               </AppButton>
             )}
@@ -144,7 +144,7 @@ function CommitItem({
                 data-tooltip="Restore this version (creates a new commit)"
                 aria-label="Restore"
               >
-                <RotateCcw size={13} />
+                <RotateCcw size={12} />
                 Restore
               </AppButton>
             )}
@@ -155,7 +155,7 @@ function CommitItem({
                 data-tooltip="Create a branch from this commit"
                 aria-label="Branch from here"
               >
-                <GitBranchPlus size={13} />
+                <GitBranchPlus size={12} />
                 Branch
               </AppButton>
             )}
@@ -166,7 +166,7 @@ function CommitItem({
                 data-tooltip="Tag this commit"
                 aria-label="Tag"
               >
-                <Tag size={13} />
+                <Tag size={12} />
                 Tag
               </AppButton>
             )}
@@ -176,7 +176,7 @@ function CommitItem({
               data-tooltip={copied ? "Copied!" : "Copy hash"}
               aria-label="Copy hash"
             >
-              <Copy size={13} />
+              <Copy size={12} />
               {copied ? "Copied" : "Hash"}
             </AppButton>
           </div>
@@ -285,7 +285,7 @@ export function GitCommitTimeline({
 
       {filtered.length === 0 ? (
         <div className="git-timeline-empty">
-          <GitCommit size={32} className="git-timeline-empty__icon" aria-hidden="true" />
+          <GitCommit size={20} className="git-timeline-empty__icon" aria-hidden="true" />
           <p className="git-timeline-empty__text">
             {query ? `No commits matching "${query}".` : emptyMessage}
           </p>

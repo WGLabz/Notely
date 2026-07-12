@@ -6,7 +6,6 @@ import {
   Moon, 
   Monitor, 
   CheckCircle, 
-  BookOpen, 
   Share2, 
   Sparkles, 
   History,

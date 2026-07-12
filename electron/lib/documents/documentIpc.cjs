@@ -12,14 +12,12 @@ function registerDocumentIpcHandlers(ipcMain, deps) {
     path,
     pathToFileURL,
     slugify,
-    nowStamp,
     hashContent,
     filePathWithin,
     listRootEntries,
     listDirectoryEntries,
     listWorkspaceFileEntries,
     getNotesRoot,
-    getVersionsRoot,
     getActiveProject,
     createDocumentInProject,
     createFolderInProject,
@@ -30,12 +28,7 @@ function registerDocumentIpcHandlers(ipcMain, deps) {
     buildDocumentContent,
     emitLocalP2PSyncEvent,
     buildNoteDelta,
-    hasMatchingFileBackedVersion,
-    createVersionSnapshot,
-    getMetadataStore,
-    metadataStore,
     dashboardCache,
-    ensureDir,
     ensureWebPreviewServer,
     prepareDocumentPreview,
     syncWebPreviewScope,
@@ -72,14 +65,6 @@ function registerDocumentIpcHandlers(ipcMain, deps) {
       }
     }
     throw lastError;
-  }
-
-  function resolveMetadataStore() {
-    const store = typeof getMetadataStore === "function" ? getMetadataStore() : metadataStore;
-    if (!store) {
-      throw new Error("Metadata store is not initialized yet.");
-    }
-    return store;
   }
 
   function registerTrustedHandler(channel, handler) {
@@ -317,9 +302,6 @@ function registerDocumentIpcHandlers(ipcMain, deps) {
     if (!filePathWithin(notesRoot, resolved) || path.extname(resolved).toLowerCase() !== ".md") {
       throw new Error("Invalid document path.");
     }
-
-    const saveReason = String(payload?.reason || "manual-save");
-    const isAutoSave = saveReason === "autosave";
 
     const previous = fs.readFileSync(resolved, "utf8");
 

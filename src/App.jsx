@@ -96,6 +96,7 @@ import {
   getNotesRootSetting,
   setNotesRootSetting,
   gitGetStatus,
+  gitCommit,
 } from "./services/electronService";
 import { useToast } from "./hooks/useToast";
 import { useP2PSync } from "./hooks/useP2PSync";
@@ -674,7 +675,7 @@ export default function App() {
     setLandingAssetsOpen(false);
   }
 
-  async function refreshGitWorkspaceMeta() {
+  const refreshGitWorkspaceMeta = useCallback(async function refreshGitWorkspaceMeta() {
     try {
       const meta = await getGitWorkspaceMetadata();
       let pendingCount = 0;
@@ -703,7 +704,7 @@ export default function App() {
         files: [],
       }));
     }
-  }
+  }, [notesFolderPath]);
 
   async function handleToggleAutoIgnoreGitMetadata() {
     try {
@@ -738,7 +739,7 @@ export default function App() {
 
   useEffect(() => {
     void refreshGitWorkspaceMeta();
-  }, [notesFolderPath, currentFilePath, dirty]);
+  }, [notesFolderPath, currentFilePath, dirty, refreshGitWorkspaceMeta]);
 
   useEffect(() => {
     function onGlobalKeyDown(event) {

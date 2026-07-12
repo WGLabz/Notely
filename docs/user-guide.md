@@ -32,9 +32,9 @@ Helpful actions:
 - Find text: `Ctrl/Cmd + F`
 - Use toolbar buttons for headings, lists, links, tables, and diagrams.
 - Edit markdown tables inline by placing the cursor inside a table and using the popup grid controls.
-   - Add/remove rows and columns from compact action chips.
-   - Adjust column alignment from header controls.
-   - Save with **Save**, or close/cancel with **Cancel** or `Esc`.
+  - Add/remove rows and columns from compact action chips.
+  - Adjust column alignment from header controls.
+  - Save with **Save**, or close/cancel with **Cancel** or `Esc`.
 - Format code blocks automatically and use the dedicated code editor popup.
 - Fix issues shown by markdown validation and typo checks.
 
