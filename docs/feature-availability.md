@@ -1,70 +1,32 @@
+---
+title: Feature Availability Matrix
+description: View offline compatibility and network requirements for Notely features.
+keywords: internet required, offline support, offline setup, capabilities
+category: Reference
+---
+
 # Feature Availability
 
-This page helps you decide what works offline, what needs optional setup, and what depends on external services.
+The matrix below details which features run entirely offline, which require local network settings, and which require internet access.
 
-## Core Feature Matrix
-
-| Feature | Available by default | Needs setup | Internet required |
-|---|---|---|---|
-| Notes create/edit | Yes | No | No |
-| Folder organization | Yes | No | No |
-| Edit/Split/Preview modes | Yes | No | No |
-| Markdown validation | Yes | No | No |
-| Typo checking | Yes | No | No |
-| Global search | Yes | No | No |
-| Help Center and shortcut guide | Yes | No | No |
-| Recent workspaces | Yes | No | No |
-| Tasks dashboard and panels | Yes | No | No |
-| Version history | Yes | No | No |
-| Media insert/manage | Yes | No | No |
-| Embedded terminal | Yes | No | No |
-| Theme, zoom, and density controls | Yes | No | No |
-| Screen area capture (Windows) | Yes | No | No |
-| Mermaid diagrams | Yes | No | No |
-| Excalidraw diagrams | Yes | No | No |
-| Workspace graph | Yes | No | No |
-| Smarter graph grouping | No | Turn on AI search data | Usually yes |
-| Workspace Health media checks | Yes | No | No |
-| Image annotation overlays | Yes | No | No |
-| Original image restore | Yes | No | No |
-| PDF export | Yes | No | No |
-| Workspace zip export (raw/pdf/web) | Yes | No | No |
-| Workspace activity timeline | Yes | No | No |
-| Website-style preview/export rendering | Yes | No | No |
-| Sync with other devices | No | Pair trusted devices | Usually local network |
-| AI chat | No | Sign in to an AI service | Yes |
-| AI palette actions | No | Sign in to an AI service | Yes |
-| Meaning-based search | No | Turn on AI search data | Yes |
-| Pattern detection | No | Set up a supported AI service | Usually yes |
-
-## Setup-Dependent Features
-
-### P2P Sync
-
-Requires you to connect and trust the other device first.
-
-### AI Features
-
-Need setup in **AI -> AI Settings** before they can work.
-
-- AI Chat: sign in to a supported AI service
-- AI palette actions: sign in to a supported AI service
-- Meaning-based search: add the HuggingFace token used for smarter search
-- Pattern features: use an AI service that supports them
-
-### Semantic Graph Features
-
-The smarter graph grouping depends on AI search data being available and up to date.
-
-## Practical Guidance
-
-- If you work fully offline, core note authoring features are fully available.
-- If you collaborate across devices, configure P2P sync.
-- If you need semantic and AI features, complete AI setup first.
-
-In plain terms: most everyday note-writing features work without the internet. AI features need extra setup.
-
-## Platform Notes
-
-- Screen area capture uses Windows snip integration and is currently Windows-focused.
-- Packaged release artifacts are currently prepared for Windows x64 portable builds.
+<FeatureMatrix :features="[
+  { feature: 'Notes Create/Edit', available: true, setup: 'No', internet: false },
+  { feature: 'Folder Organization', available: true, setup: 'No', internet: false },
+  { feature: 'Edit/Split/Preview Modes', available: true, setup: 'No', internet: false },
+  { feature: 'Markdown Validation', available: true, setup: 'No', internet: false },
+  { feature: 'Typo Checking', available: true, setup: 'No', internet: false },
+  { feature: 'Global Search', available: true, setup: 'No', internet: false },
+  { feature: 'Help Center', available: true, setup: 'No', internet: false },
+  { feature: 'Tasks Dashboard', available: true, setup: 'No', internet: false },
+  { feature: 'Version History (Git)', available: true, setup: 'No', internet: false },
+  { feature: 'Media Library', available: true, setup: 'No', internet: false },
+  { feature: 'Embedded Terminal', available: true, setup: 'No', internet: false },
+  { feature: 'Screen Capture (Windows)', available: true, setup: 'No', internet: false },
+  { feature: 'Mermaid Diagrams', available: true, setup: 'No', internet: false },
+  { feature: 'Excalidraw Diagrams', available: true, setup: 'No', internet: false },
+  { feature: 'Workspace Graph', available: true, setup: 'No', internet: false },
+  { feature: 'Sync with other devices', available: false, setup: 'Pair Trusted Devices', internet: 'Local network' },
+  { feature: 'AI Chat & Rewriting', available: false, setup: 'Setup AI Provider', internet: true },
+  { feature: 'Meaning-based Search', available: false, setup: 'Setup AI Provider', internet: true },
+  { feature: 'Graph Clustering', available: false, setup: 'Setup AI Provider', internet: true }
+]" />

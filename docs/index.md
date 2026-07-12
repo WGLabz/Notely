@@ -1,39 +1,43 @@
-# Notely Documentation
+---
+layout: home
+title: Notely — Desktop Markdown Notes
+description: Notely is a desktop Markdown notes app with Git version control, AI writing assistance, and peer-to-peer sync. Works offline. Runs on Windows.
 
-Welcome to the in-app help for Notely. This guide is written for everyday users who create, organize, and review notes.
+hero:
+  name: Notely
+  text: Write. Organize. Remember.
+  tagline: A desktop Markdown notes app with Git version control, AI assistance, and offline-first sync.
+  image:
+    src: /logo.png
+    alt: Notely
+  actions:
+    - theme: brand
+      text: Download for Windows
+      link: https://github.com/WGLabz/notely/releases/latest
+    - theme: alt
+      text: Getting Started
+      link: /getting-started/
+    - theme: alt
+      text: All Documentation
+      link: /getting-started/
 
-## Start Here
-
-If you are new to Notely, follow this order:
-
-1. Open your workspace.
-2. Create your first note.
-3. Learn editing modes (Edit, Split, Preview).
-4. Scan the full feature list.
-5. Learn how to find notes quickly.
-6. Learn how to recover from mistakes using note history.
-
-## Documentation Map
-
-- [User Guide](./user-guide.md): day-to-day note creation, editing, search, media, and diagrams.
-- [Feature Reference](./feature-reference.md): complete feature-by-feature explanation in one place.
-- [Top Tasks](./top-tasks.md): fast click-by-click steps for frequent actions, including task dashboards and workspace zip export.
-- [Feature Availability](./feature-availability.md): what works offline, what needs setup, and what needs internet.
-- [Settings Reference](./settings-reference.md): themes, AI controls, terminal options, layout settings, and behavioral preferences.
-- [FAQ](./faq.md): common questions about storage, sync, AI, and workspace behavior.
-- [Release Notes](./release-notes.md): current release highlights and documentation-impacting changes.
-- [Data & Sync](./data-sync-security.md): how your data is stored, synced, and protected.
-- [Troubleshooting](./troubleshooting.md): common issues and quick fixes.
-
-## Keyboard and Help Shortcuts
-
-- Open Help Center: `F1`
-- Open Keyboard Shortcuts: `Ctrl/Cmd + /`
-- Open Workspace: `Ctrl/Cmd + Shift + N`
-- Open Command Palette: `Ctrl/Cmd + K`
-- Search all notes: `Ctrl/Cmd + Shift + F`
-- Find in current note: `Ctrl/Cmd + F`
-
-## About This Help
-
-This Help Center shows the same markdown files stored in the project `docs/` folder, so in-app guidance and repository guidance stay aligned.
+features:
+  - icon: 📝
+    title: Markdown Editor
+    details: Edit, Split, and Preview modes. Toolbar shortcuts, inline table editor, code block formatting, Mermaid and Excalidraw diagrams.
+  - icon: 🌿
+    title: Git Version Control
+    details: Native Git integration. Commit, browse history, compare diffs, restore notes, manage branches — all from inside the app.
+  - icon: 🤖
+    title: AI Writing Assistant
+    details: AI chat, AI palette actions, semantic search, and relationship graph powered by your choice of AI provider.
+  - icon: 🔍
+    title: Powerful Search
+    details: Global search across all notes with regex support, code-block filtering, and meaning-based results when AI is configured.
+  - icon: 🔒
+    title: Works Offline
+    details: All core features work without internet. Your notes stay on your device in plain Markdown files.
+  - icon: 🔄
+    title: P2P Sync
+    details: Sync notes across devices over your local network using encrypted peer-to-peer pairing — no cloud required.
+---
