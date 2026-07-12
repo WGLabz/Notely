@@ -11,7 +11,7 @@ export default withMermaid(
     srcDir: "../docs",
     outDir: "../docs-site-dist",
 
-    appearance: true,
+    appearance: false,
 
     head: [
       [
@@ -40,8 +40,12 @@ export default withMermaid(
     ],
 
     themeConfig: {
-      logo: "/logo.png",
+      logo: "/assets/icon.png",
       siteTitle: "Notely",
+
+      socialLinks: [
+        { icon: "github", link: "https://github.com/WGLabz/notely" },
+      ],
 
       nav: [
         { text: "Home", link: "/" },
@@ -147,12 +151,7 @@ export default withMermaid(
         },
       ],
 
-      socialLinks: [
-        {
-          icon: "github",
-          link: "https://github.com/WGLabz/notely",
-        },
-      ],
+
 
       search: {
         provider: "local",

@@ -800,16 +800,31 @@ if (canRunApp) {
       }
     });
 
+    const { contentTypeForFile } = require("./lib/shared/utils.cjs");
+
     // Register custom protocol to handle docs absolute paths (e.g. /assets/...) cleanly
     protocol.registerFileProtocol("help-doc", (request, callback) => {
+      console.log("[help-doc protocol] Request URL:", request.url);
       let urlPath = request.url.replace(/^help-doc:\/\/docs\//, "");
+      // Also strip root help-doc:// if docs/ was bypassed
+      urlPath = urlPath.replace(/^help-doc:\/\//, "");
       // Remove query parameters or hash anchors
       urlPath = urlPath.split(/[?#]/)[0];
       // Decode path
       urlPath = decodeURIComponent(urlPath);
       // Map to docs-site-dist
       const fullPath = path.join(app.getAppPath(), "docs-site-dist", urlPath);
-      callback({ path: fullPath });
+      const mime = contentTypeForFile(fullPath);
+      console.log("[help-doc protocol] Resolved File Path:", fullPath, "Mime:", mime);
+      
+      const response = { path: fullPath };
+      if (mime && mime !== "application/octet-stream") {
+        response.headers = {
+          "content-type": mime,
+          "cache-control": "no-cache"
+        };
+      }
+      callback(response);
     });
 
     // Register AI IPC handlers in the ready phase so renderer calls never race missing handlers.

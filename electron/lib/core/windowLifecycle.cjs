@@ -352,7 +352,7 @@ function createWindowLifecycle(deps) {
     return [
       "default-src 'self' help-doc:",
       scriptSrc,
-      "style-src 'self' 'unsafe-inline' help-doc:",
+      "style-src 'self' 'unsafe-inline' help-doc: data:",
       "img-src 'self' data: blob: file: help-doc:",
       "media-src 'self' data: blob: file: help-doc:",
       "font-src 'self' data: help-doc:",

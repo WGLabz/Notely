@@ -435,3 +435,29 @@
   color: var(--text-muted);
   font-size: var(--font-size-body-sm);
 }
+
+/* Remove separator in navigation bar menu */
+.VPNavBarMenu > * {
+  border-left: none !important;
+}
+
+/* Remove separator between navbar menu and social links */
+.VPNavBar .content-body .menu + .social-links::before {
+  display: none !important;
+}
+
+/* Prevent hero action buttons from wrapping on desktop */
+@media (min-width: 768px) {
+  .VPHero .actions {
+    flex-wrap: nowrap !important;
+  }
+}
+
+/* Optimize navbar menu spacing on medium screens to prevent overflow */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .VPNavBarMenuLink {
+    padding: 0 8px !important;
+    font-size: 13px !important;
+  }
+}
+

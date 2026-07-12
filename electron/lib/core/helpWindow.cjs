@@ -21,6 +21,22 @@ function createHelpWindow(parentWindow) {
   // Detect which theme is current in the parent context
   const systemIsDark = nativeTheme.shouldUseDarkColors;
 
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const { app } = require("electron");
+
+  // Resolve branding icon path
+  const projectRoot = app.getAppPath();
+  const iconCandidates = [
+    path.join(process.resourcesPath || "", "icon.ico"),
+    path.join(process.resourcesPath || "", "icon.png"),
+    path.join(projectRoot, "build", "icon.ico"),
+    path.join(projectRoot, "build", "icon.png"),
+    path.join(projectRoot, "assets", "icon.png"),
+    path.join(projectRoot, "assets", "icon.ico")
+  ];
+  const windowIconPath = iconCandidates.find((candidate) => candidate && fs.existsSync(candidate));
+
   helpWindowInstance = new BrowserWindow({
     width: 1024,
     height: 768,
@@ -31,6 +47,7 @@ function createHelpWindow(parentWindow) {
     title: "Notely Documentation",
     autoHideMenuBar: true,
     backgroundColor: systemIsDark ? "#141b1d" : "#f2f4f3",
+    ...(windowIconPath ? { icon: windowIconPath } : {}),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,

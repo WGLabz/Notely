@@ -8,17 +8,17 @@ hero:
   text: Write. Organize. Remember.
   tagline: A desktop Markdown notes app with Git version control, AI assistance, and offline-first sync.
   image:
-    src: /logo.png
+    src: /assets/icon.png
     alt: Notely
   actions:
     - theme: brand
-      text: Download for Windows
+      text: 💻 Download for Windows
       link: https://github.com/WGLabz/notely/releases/latest
     - theme: alt
-      text: Getting Started
+      text: 🚀 Getting Started
       link: /getting-started/
     - theme: alt
-      text: All Documentation
+      text: 📚 All Documentation
       link: /getting-started/
 
 features:
