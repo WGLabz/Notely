@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Save, Search, X } from "lucide-react";
 import {
   Excalidraw,
@@ -168,7 +168,7 @@ const ExcalidrawComponent = ({
     }
   }, [initialData]);
 
-  const hasUnsavedChanges = () => {
+  const hasUnsavedChanges = useCallback(() => {
     if (!excalidrawAPIRef.current) return false;
     const currentElements = excalidrawAPIRef.current.getSceneElements().filter((el) => !el.isDeleted);
     const savedElements = (lastSavedElementsRef.current || []).filter((el) => !el.isDeleted);
@@ -181,15 +181,15 @@ const ExcalidrawComponent = ({
       if (curr.version !== saved.version) return true;
     }
     return false;
-  };
+  }, []);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     if (hasUnsavedChanges()) {
       const confirmClose = window.confirm("You have unsaved changes. Are you sure you want to discard them?");
       if (!confirmClose) return;
     }
     onClose?.();
-  };
+  }, [hasUnsavedChanges, onClose]);
 
   const saveButtonRef = useRef(null);
   const librarySearchRef = useRef(null);

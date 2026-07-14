@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Download } from "lucide-react";
-import { readDrawioImage, readDrawioSource, writeDrawioSource, writeDrawioImage } from "../services/drawioService";
+import { readDrawioImage, readDrawioSource, writeDrawioSource } from "../services/drawioService";
 import { downloadImage } from "../services/electronService";
 import DrawioEditor from "./DrawioEditor";
 import "./ExcalidrawBlock.css"; // Reuse block styles

@@ -39,6 +39,19 @@ export function DrawioEditor({
     return () => document.removeEventListener("keydown", handleEscape);
   }, [handleClose]);
 
+  const triggerSave = useCallback(() => {
+    if (!iframeRef.current || isSaving) return;
+    setIsSaving(true);
+    iframeRef.current.contentWindow.postMessage(
+      JSON.stringify({
+        action: "export",
+        format: "png",
+        spin: "Exporting PNG...",
+      }),
+      "*"
+    );
+  }, [isSaving]);
+
   // Handle postMessage communication with Draw.io iframe
   useEffect(() => {
     const handleMessage = async (event) => {
@@ -49,7 +62,7 @@ export function DrawioEditor({
       let msg;
       try {
         msg = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
-      } catch (err) {
+      } catch {
         return; // Non-JSON message, ignore
       }
 
@@ -109,20 +122,7 @@ export function DrawioEditor({
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [diagramId, hasUnsavedChanges, onSave]);
-
-  const triggerSave = () => {
-    if (!iframeRef.current || isSaving) return;
-    setIsSaving(true);
-    iframeRef.current.contentWindow.postMessage(
-      JSON.stringify({
-        action: "export",
-        format: "png",
-        spin: "Exporting PNG...",
-      }),
-      "*"
-    );
-  };
+  }, [diagramId, hasUnsavedChanges, onSave, handleClose, triggerSave]);
 
   return (
     <OverlayDialog
