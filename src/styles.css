@@ -226,21 +226,36 @@ button {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  z-index: 1200;
+  z-index: 9999;
   pointer-events: none;
 }
 
 .toast-item {
-  min-width: 220px;
-  max-width: 360px;
-  padding: 9px 12px;
+  min-width: 240px;
+  max-width: 380px;
+  padding: 10px 14px;
   border-radius: 8px;
   border: 1px solid #cad7d3;
   background: var(--surface-elevated);
   color: var(--text-strong);
-  box-shadow: 0 10px 20px rgba(15, 35, 40, 0.12);
-  font-size: 12px;
-  line-height: 1.35;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  font-size: 13px;
+  line-height: 1.4;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: toastSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .toast-item.success {
