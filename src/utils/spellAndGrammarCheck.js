@@ -96,7 +96,7 @@ function scoreSuggestion(sourceWord, candidateWord) {
 function isValidWord(word) {
   const cleanWord = word.replace(/[^\w'-]/g, "").toLowerCase();
 
-  if (cleanWord.length === 0 || cleanWord.length <= 2 || /^\d+/.test(cleanWord)) return true;
+  if (cleanWord.length === 0 || cleanWord.length <= 2 || /\d/.test(cleanWord)) return true;
   if (cleanWord.includes("-")) return true;
   
   // Check cache first
@@ -262,6 +262,14 @@ function extractVisibleTextWithMap(sourceLine) {
       const closeParen = openParen >= 0 ? source.indexOf(")", openParen) : -1;
       if (closeBracket >= 0 && openParen === closeBracket + 1 && closeParen >= 0) {
         index = closeParen + 1;
+        continue;
+      }
+    }
+
+    if (source[index] === "{") {
+      const closeCurly = source.indexOf("}", index + 1);
+      if (closeCurly >= 0) {
+        index = closeCurly + 1;
         continue;
       }
     }

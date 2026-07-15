@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, memo } from "react";
 import CodeMirror from "@uiw/react-codemirror";
-import { Search, Copy, Sparkles, MessageSquare, RefreshCcw, FileSearch, List, Wand2, EyeOff, Settings } from "lucide-react";
+import { Search, Copy, Sparkles, MessageSquare, RefreshCcw, FileSearch, List, Wand2, EyeOff, Settings, BookPlus } from "lucide-react";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorSelection, RangeSetBuilder } from "@codemirror/state";
 import { Decoration, EditorView, keymap, WidgetType } from "@codemirror/view";
@@ -1006,8 +1006,8 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
                           setContextMenu(null);
                         }}
                       >
-                        <EyeOff size={16} />
-                        Ignore word: {issue.word}
+                        <BookPlus size={16} />
+                        Add to dictionary: {issue.word}
                       </button>
                     ) : null}
                   </div>
