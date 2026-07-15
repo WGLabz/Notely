@@ -61,6 +61,17 @@ export function EditorPane({
   const [editorReadyTick, setEditorReadyTick] = useState(0);
   const [selectedMediaPreview, setSelectedMediaPreview] = useState(null);
   const [scrollSyncEnabled, setScrollSyncEnabled] = useState(true);
+
+  useEffect(() => {
+    if (textareaRef?.current) return undefined;
+    const interval = setInterval(() => {
+      if (textareaRef?.current) {
+        setEditorReadyTick((prev) => prev + 1);
+        clearInterval(interval);
+      }
+    }, 100);
+    return () => clearInterval(interval);
+  }, [textareaRef]);
   const deferredValue = useDeferredValue(value);
   const [ignoredSpellingWords, setIgnoredSpellingWords] = useWorkspaceScopedStorage({
     workspaceScope: workspaceStorageScope,

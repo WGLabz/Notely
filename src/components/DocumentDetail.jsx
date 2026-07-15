@@ -23,6 +23,8 @@ import {
   CheckSquare,
   Square,
   Type,
+  Maximize,
+  Minimize,
 } from "lucide-react";
 import AppButton from "./AppButton";
 import AppIconButton from "./AppIconButton";
@@ -38,6 +40,7 @@ import { useDocumentEditorActions } from "../hooks/useDocumentEditorActions";
 import { useWorkspaceScopedStorage } from "../hooks/useWorkspaceScopedStorage";
 import { renderMarkdown } from "../utils/renderUtils";
 import { extractTasksFromText, getTaskCountsFromText } from "../utils/taskUtils";
+import useConfirm from "../hooks/useConfirm";
 
 function getBlockRange(value, anchorIndex) {
   const text = String(value || "");
@@ -694,6 +697,7 @@ export function DocumentDetail({
   onFocusModeChange,
   aiSidebar = null,
 }) {
+  const { confirm } = useConfirm();
   const MAX_EDITOR_HISTORY = 200;
   const textareaRef = useRef(null);
   const historyStateRef = useRef({
@@ -1315,7 +1319,7 @@ export function DocumentDetail({
     }
   };
 
-  const handleTitleBlur = () => {
+  const handleTitleBlur = async () => {
     const nextTitle = String(titleDraft || "").trim();
     const currentTitle = String(document.title || "").trim();
     if (!nextTitle) {
@@ -1326,7 +1330,13 @@ export function DocumentDetail({
       return;
     }
 
-    const confirmed = window.confirm(`Rename note to "${nextTitle}"?`);
+    const confirmed = await confirm({
+      title: "Rename Note?",
+      message: `Rename note to "${nextTitle}"?`,
+      confirmLabel: "Rename",
+      cancelLabel: "Cancel",
+      variant: "primary"
+    });
     if (!confirmed) {
       setTitleDraft(document.title || "");
       return;
@@ -1654,6 +1664,18 @@ export function DocumentDetail({
           <div className={`save-status ${dirty ? "dirty" : "clean"}`} aria-live="polite">
             {dirty ? "Unsaved" : "Saved"}
           </div>
+          {!autosaveEnabled && (
+            <AppButton
+              variant="small"
+              onClick={handleManualSave}
+              disabled={!dirty || changedOnDisk}
+              data-tooltip="Save note (Ctrl+S)"
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+            >
+              <Save size={14} />
+              <span>Save</span>
+            </AppButton>
+          )}
           <AppButton
             variant="small"
             className={`autosave-toggle-btn ${autosaveEnabled ? "active" : ""}`}
@@ -1662,6 +1684,15 @@ export function DocumentDetail({
           >
             <Save size={18} />
             {autosaveEnabled ? "Autosave On" : "Autosave Off"}
+          </AppButton>
+          <AppButton
+            variant="small"
+            onClick={toggleFocusMode}
+            data-tooltip={isFocusMode ? "Exit Full Screen" : "Enter Full Screen"}
+            style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+          >
+            {isFocusMode ? <Minimize size={14} /> : <Maximize size={14} />}
+            <span>{isFocusMode ? "Exit Full Screen" : "Full Screen"}</span>
           </AppButton>
         </div>
       )}

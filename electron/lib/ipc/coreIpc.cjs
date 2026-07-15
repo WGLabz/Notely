@@ -453,23 +453,34 @@ function registerCoreIpcHandlers(ipcMain, deps) {
     const { folderPath, relativeTo } = payload || {};
     if (typeof folderPath !== "string") return false;
     try {
-      let targetPath = folderPath;
+      let decodedPath = decodeURIComponent(folderPath);
       // Clean up file:// prefix
-      if (targetPath.startsWith("file:///")) {
-        targetPath = targetPath.substring(8);
-      } else if (targetPath.startsWith("file://")) {
-        targetPath = targetPath.substring(7);
+      if (decodedPath.startsWith("file:///")) {
+        decodedPath = decodedPath.substring(8);
+      } else if (decodedPath.startsWith("file://")) {
+        decodedPath = decodedPath.substring(7);
       }
 
-      // Replace forward/backward slashes based on platform
-      targetPath = targetPath.replace(/\\/g, "/");
+      // Replace slashes for normalization
+      decodedPath = decodedPath.replace(/\\/g, "/");
 
-      if (relativeTo && typeof relativeTo === "string" && !path.isAbsolute(targetPath)) {
-        const parentDir = path.dirname(relativeTo);
-        targetPath = path.resolve(parentDir, targetPath);
+      let targetPath;
+      if (relativeTo && typeof relativeTo === "string" && !path.isAbsolute(decodedPath)) {
+        // Decode relativeTo just in case it contains spaces/encoded characters
+        let decodedRelativeTo = decodeURIComponent(relativeTo);
+        if (decodedRelativeTo.startsWith("file:///")) {
+          decodedRelativeTo = decodedRelativeTo.substring(8);
+        } else if (decodedRelativeTo.startsWith("file://")) {
+          decodedRelativeTo = decodedRelativeTo.substring(7);
+        }
+        const parentDir = path.dirname(decodedRelativeTo);
+        targetPath = path.resolve(parentDir, decodedPath);
       } else {
-        targetPath = path.resolve(targetPath);
+        targetPath = path.resolve(decodedPath);
       }
+
+      // Ensure platform-specific path formatting (especially backslashes on Windows)
+      targetPath = path.normalize(targetPath);
 
       const stats = fs.statSync(targetPath);
       return stats.isDirectory() ? targetPath : false;
@@ -483,7 +494,7 @@ function registerCoreIpcHandlers(ipcMain, deps) {
     if (typeof folderPath !== "string") {
       throw new Error("Invalid folderPath payload");
     }
-    const resolved = path.resolve(folderPath);
+    const resolved = path.normalize(path.resolve(folderPath));
     const openResult = await shell.openPath(resolved);
     if (openResult) {
       throw new Error(openResult);

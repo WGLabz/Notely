@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import OverlayDialog from "./OverlayDialog";
 import AppButton from "./AppButton";
+import useConfirm from "../hooks/useConfirm";
 import { executeCodeBlock } from "../services/electronService";
 import { Check, X, ChevronDown, Search, Copy, Wand2, Play } from "lucide-react";
 import CodeMirror from "@uiw/react-codemirror";
@@ -117,6 +118,7 @@ export function CodeBlockModal({ open, onClose, onSave, initialLanguage = "", in
   const [copying, setCopying] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [execResult, setExecResult] = useState(null);
+  const { confirm } = useConfirm();
 
   useEffect(() => {
     if (open) {
@@ -234,16 +236,33 @@ export function CodeBlockModal({ open, onClose, onSave, initialLanguage = "", in
   const runnableLangs = ["javascript", "js", "python", "py", "bash", "sh", "powershell", "ps1", "html"];
   const canRun = runnableLangs.includes(lowerLang);
 
+  const hasChanges = code !== initialCode || langSearch !== normalizeLanguage(initialLanguage);
+
+  const handleCloseAttempt = async () => {
+    if (hasChanges) {
+      const confirmed = await confirm({
+        title: "Unsaved Changes",
+        message: "You have unsaved changes. Are you sure you want to close?",
+        confirmLabel: "Close",
+        cancelLabel: "Cancel",
+        variant: "danger"
+      });
+      if (!confirmed) return;
+    }
+    onClose();
+  };
+
   return (
     <OverlayDialog 
       open={open} 
-      onClose={onClose} 
+      onClose={handleCloseAttempt} 
+      closeOnClickOutside={false}
       ariaLabel="Code Block Editor" 
       cardClassName="code-block-modal-card"
     >
       <div className="overlay-dialog-header">
         <h2>Edit Code Block</h2>
-        <button className="icon-button" onClick={onClose} aria-label="Close code editor">
+        <button className="icon-button" onClick={handleCloseAttempt} aria-label="Close code editor">
           <X size={16} />
         </button>
       </div>
@@ -371,7 +390,7 @@ export function CodeBlockModal({ open, onClose, onSave, initialLanguage = "", in
       )}
 
       <div className="overlay-dialog-actions">
-        <AppButton variant="small" onClick={onClose}>
+        <AppButton variant="small" onClick={handleCloseAttempt}>
           <X size={14} />
           <span>Cancel</span>
         </AppButton>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import useConfirm from "./useConfirm";
 import {
   createFolder,
   createDocument,
@@ -51,6 +52,7 @@ function normalizeWorkspacePathList(entries) {
 }
 
 export function useDocumentManager({ notify }) {
+  const { confirm } = useConfirm();
   const [documents, setDocuments] = useState([]);
   const [current, setCurrent] = useState(null);
   const [savedHash, setSavedHash] = useState("");
@@ -198,9 +200,13 @@ export function useDocumentManager({ notify }) {
     if (!current?.filePath) return;
 
     if (dirty) {
-      const confirmed = window.confirm(
-        "Reload this note from disk and discard unsaved changes?"
-      );
+      const confirmed = await confirm({
+        title: "Discard Changes?",
+        message: "Reload this note from disk and discard unsaved changes?",
+        confirmLabel: "Reload",
+        cancelLabel: "Cancel",
+        variant: "danger"
+      });
       if (!confirmed) return;
     }
 
@@ -250,11 +256,15 @@ export function useDocumentManager({ notify }) {
   async function handleDeleteCurrentDocument() {
     if (!current?.filePath) return false;
 
-    const confirmed = window.confirm(
-      dirty
+    const confirmed = await confirm({
+      title: "Remove Note?",
+      message: dirty
         ? `Move "${current.title}" to the removed folder and discard unsaved changes?`
-        : `Move "${current.title}" to the removed folder?`
-    );
+        : `Move "${current.title}" to the removed folder?`,
+      confirmLabel: "Remove",
+      cancelLabel: "Cancel",
+      variant: "danger"
+    });
     if (!confirmed) return false;
 
     try {
@@ -281,7 +291,13 @@ export function useDocumentManager({ notify }) {
     }
 
     const folderName = currentFolder.replace(/^.*[\\/]/, "") || "current folder";
-    const confirmed = window.confirm(`Move folder "${folderName}" to the removed folder?`);
+    const confirmed = await confirm({
+      title: "Remove Folder?",
+      message: `Move folder "${folderName}" to the removed folder?`,
+      confirmLabel: "Remove",
+      cancelLabel: "Cancel",
+      variant: "danger"
+    });
     if (!confirmed) return false;
 
     const parentPath = currentFolder.replace(/[\\/][^\\/]+$/, "") || projectRoot;
@@ -317,7 +333,13 @@ export function useDocumentManager({ notify }) {
         return false;
       }
 
-      const confirmed = window.confirm(`Move folder "${entry.title}" to the removed folder?`);
+      const confirmed = await confirm({
+        title: "Remove Folder?",
+        message: `Move folder "${entry.title}" to the removed folder?`,
+        confirmLabel: "Remove",
+        cancelLabel: "Cancel",
+        variant: "danger"
+      });
       if (!confirmed) return false;
 
       try {
@@ -334,7 +356,13 @@ export function useDocumentManager({ notify }) {
     }
 
     if (entry.entryType === "file") {
-      const confirmed = window.confirm(`Move note "${entry.title}" to the removed folder?`);
+      const confirmed = await confirm({
+        title: "Remove Note?",
+        message: `Move note "${entry.title}" to the removed folder?`,
+        confirmLabel: "Remove",
+        cancelLabel: "Cancel",
+        variant: "danger"
+      });
       if (!confirmed) return false;
 
       try {
@@ -365,7 +393,13 @@ export function useDocumentManager({ notify }) {
     }
 
     if (current && dirty) {
-      const confirmed = window.confirm("You have unsaved changes. Create and open a new note anyway?");
+      const confirmed = await confirm({
+        title: "Discard Changes?",
+        message: "You have unsaved changes. Create and open a new note anyway?",
+        confirmLabel: "Discard",
+        cancelLabel: "Cancel",
+        variant: "danger"
+      });
       if (!confirmed) return;
     }
 
@@ -470,9 +504,15 @@ export function useDocumentManager({ notify }) {
     await handleSaveNotesFolder(nextPath);
   }
 
-  function handleGoHome() {
+  async function handleGoHome() {
     if (current && dirty) {
-      const confirmed = window.confirm("You have unsaved changes. Go back to notes and discard unsaved changes?");
+      const confirmed = await confirm({
+        title: "Discard Changes?",
+        message: "You have unsaved changes. Go back to notes and discard unsaved changes?",
+        confirmLabel: "Discard",
+        cancelLabel: "Cancel",
+        variant: "danger"
+      });
       if (!confirmed) return false;
     }
 
@@ -561,7 +601,13 @@ export function useDocumentManager({ notify }) {
   async function handleOpenReferencedDocument(filePath) {
     if (!filePath) return;
     if (current && dirty && current.filePath !== filePath) {
-      const confirmed = window.confirm("You have unsaved changes. Open the referenced note and discard unsaved changes?");
+      const confirmed = await confirm({
+        title: "Discard Changes?",
+        message: "You have unsaved changes. Open the referenced note and discard unsaved changes?",
+        confirmLabel: "Discard",
+        cancelLabel: "Cancel",
+        variant: "danger"
+      });
       if (!confirmed) return;
     }
     await openDocument(filePath);

@@ -10,6 +10,7 @@ import "@excalidraw/excalidraw/index.css";
 import { writeDiagramImage } from "../services/diagramService";
 import AppButton from "./AppButton";
 import OverlayDialog from "./OverlayDialog";
+import useConfirm from "../hooks/useConfirm";
 import "./ExcalidrawEditor.css";
 
 const BUNDLED_EXCALIDRAW_LIBRARY_URLS = Object.values(
@@ -161,6 +162,7 @@ const ExcalidrawComponent = ({
 }) => {
   const excalidrawAPIRef = useRef(null);
   const lastSavedElementsRef = useRef(initialData?.elements || []);
+  const { confirm } = useConfirm();
 
   useEffect(() => {
     if (initialData?.elements) {
@@ -183,13 +185,19 @@ const ExcalidrawComponent = ({
     return false;
   }, []);
 
-  const handleClose = useCallback(() => {
+  const handleClose = useCallback(async () => {
     if (hasUnsavedChanges()) {
-      const confirmClose = window.confirm("You have unsaved changes. Are you sure you want to discard them?");
-      if (!confirmClose) return;
+      const confirmed = await confirm({
+        title: "Discard Changes?",
+        message: "You have unsaved changes. Are you sure you want to discard them?",
+        confirmLabel: "Discard",
+        cancelLabel: "Cancel",
+        variant: "danger"
+      });
+      if (!confirmed) return;
     }
     onClose?.();
-  }, [hasUnsavedChanges, onClose]);
+  }, [hasUnsavedChanges, onClose, confirm]);
 
   const saveButtonRef = useRef(null);
   const librarySearchRef = useRef(null);

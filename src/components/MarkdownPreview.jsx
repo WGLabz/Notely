@@ -14,6 +14,7 @@ import { writeDiagramSource } from "../services/diagramService";
 import { getMediaTypeFromExtension } from "../utils/mediaUtils";
 import { formatImageDeleteResult } from "../utils/imageDeleteResult";
 import { removeImageReferenceFromMarkdown } from "../utils/imageMarkdownReferences";
+import useConfirm from "../hooks/useConfirm";
 import { MermaidBlock } from "./MermaidBlock";
 import { ExcalidrawBlock } from "./ExcalidrawBlock";
 import ExcalidrawComponent from "./ExcalidrawEditor";
@@ -424,6 +425,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
   const menuSourceRef = useRef(null);
   const replaceInputRef = useRef(null);
   const imageResolveCacheRef = useRef(new Map());
+  const { confirm } = useConfirm();
   const [cropState, setCropState] = useState({
     open: false,
     src: "",
@@ -874,7 +876,13 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
             if (resolvedDirPath) {
               event.preventDefault();
               event.stopPropagation();
-              const confirmed = window.confirm(`Are you sure you want to open this folder in File Explorer?\n\nPath: ${resolvedDirPath}`);
+              const confirmed = await confirm({
+                title: "Open Folder?",
+                message: `Are you sure you want to open this folder in File Explorer?\n\nPath: ${resolvedDirPath}`,
+                confirmLabel: "Open",
+                cancelLabel: "Cancel",
+                variant: "primary"
+              });
               if (confirmed) {
                 await openFolder(resolvedDirPath);
               }
@@ -929,7 +937,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
     return () => {
       previewElement.removeEventListener("click", handleMediaClick);
     };
-  }, [basePath, inlineLinkedMarkdown, onMediaClick, onNotify, content, onContentChange]);
+  }, [basePath, inlineLinkedMarkdown, onMediaClick, onNotify, content, onContentChange, confirm]);
 
   useEffect(() => {
     if (!contextMenu) return undefined;
@@ -1315,7 +1323,13 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
       return;
     }
 
-    const approved = window.confirm("Remove this image? Links are removed first; the image file is kept if it is referenced elsewhere.");
+    const approved = await confirm({
+      title: "Remove Image?",
+      message: "Remove this image? Links are removed first; the image file is kept if it is referenced elsewhere.",
+      confirmLabel: "Remove",
+      cancelLabel: "Cancel",
+      variant: "danger"
+    });
     if (!approved) {
       closeContextMenu();
       return;
@@ -1565,7 +1579,13 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
 
   const handleRestoreOriginal = async () => {
     if (!basePath || !cropState.assetPath || !cropState.hasOriginal) return "";
-    const approved = window.confirm("Restore the original image from .notes-app backup? This will overwrite the current edited image.");
+    const approved = await confirm({
+      title: "Restore Original?",
+      message: "Restore the original image from .notes-app backup? This will overwrite the current edited image.",
+      confirmLabel: "Restore",
+      cancelLabel: "Cancel",
+      variant: "danger"
+    });
     if (!approved) return "";
 
     try {
@@ -1753,7 +1773,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
         open={codeEditState.open}
         initialLanguage={codeEditState.language}
         initialCode={codeEditState.code}
-        onClose={() => setCodeEditState((prev) => ({ ...prev, open: false }))}
+        onClose={() => setCodeEditState({ open: false, language: "", code: "", sourceLine: null })}
         onSave={({ language, code }) => {
           if (!onContentChange || !codeEditState.sourceLine) return;
           const nextContent = replaceCodeBlockAtLine(content, codeEditState.sourceLine, language, code);

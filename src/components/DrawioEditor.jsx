@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { Save, X } from "lucide-react";
 import AppButton from "./AppButton";
 import OverlayDialog from "./OverlayDialog";
+import useConfirm from "../hooks/useConfirm";
 import { writeDrawioSource, writeDrawioImage } from "../services/drawioService";
 import "./ExcalidrawEditor.css"; // Reuse modal styling
 
@@ -13,21 +14,26 @@ export function DrawioEditor({
 }) {
   const iframeRef = useRef(null);
   const saveButtonRef = useRef(null);
+  const { confirm } = useConfirm();
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [iframeLoading, setIframeLoading] = useState(true);
   const lastSavedXmlRef = useRef(initialData || "");
 
   // Intercept close attempt if there are unsaved changes
-  const handleClose = useCallback(() => {
+  const handleClose = useCallback(async () => {
     if (hasUnsavedChanges) {
-      const confirmClose = window.confirm(
-        "You have unsaved changes. Are you sure you want to discard them?"
-      );
-      if (!confirmClose) return;
+      const confirmed = await confirm({
+        title: "Discard Changes?",
+        message: "You have unsaved changes. Are you sure you want to discard them?",
+        confirmLabel: "Discard",
+        cancelLabel: "Cancel",
+        variant: "danger"
+      });
+      if (!confirmed) return;
     }
     onClose?.();
-  }, [hasUnsavedChanges, onClose]);
+  }, [hasUnsavedChanges, onClose, confirm]);
 
   useEffect(() => {
     const handleEscape = (event) => {

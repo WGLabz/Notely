@@ -2027,7 +2027,7 @@ export default function App() {
         notify("Current note is outside the active workspace path.", "info");
         return;
       }
-      const canLeaveCurrent = handleGoHome();
+      const canLeaveCurrent = await handleGoHome();
       if (!canLeaveCurrent) return;
       await handleLandingNavigateTo(currentNoteParentPath);
       return;
@@ -2038,7 +2038,7 @@ export default function App() {
         notify("Current note is outside the active workspace path.", "info");
         return;
       }
-      const canLeaveCurrent = handleGoHome();
+      const canLeaveCurrent = await handleGoHome();
       if (!canLeaveCurrent) return;
       await handleLandingNavigateTo(currentNoteParentPath);
     }
@@ -2493,7 +2493,7 @@ export default function App() {
             onBack={handleGoHome}
             breadcrumbs={noteBreadcrumbSegments}
             onNavigateBreadcrumb={async (targetPath) => {
-              const didLeave = handleGoHome();
+              const didLeave = await handleGoHome();
               if (!didLeave) return;
               await handleLandingNavigateTo(targetPath);
             }}

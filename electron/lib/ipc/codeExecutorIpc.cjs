@@ -115,7 +115,7 @@ function registerCodeExecutorIpcHandlers(ipcMain, deps) {
 
         try {
           child = spawn(command, args, { env: safeEnv });
-        } catch (spawnError) {
+        } catch {
           currentIdx++;
           tryNext();
           return;
@@ -138,7 +138,7 @@ function registerCodeExecutorIpcHandlers(ipcMain, deps) {
         child.stdout.on("data", (data) => {
           if (stdoutData.length + data.length > maxBufferSize) {
             stdoutData = stdoutData.substring(0, maxBufferSize) + "\n[Output Truncated: Max Buffer Limit Reached]";
-            try { child.kill("SIGKILL"); } catch {}
+            try { child.kill("SIGKILL"); } catch { /* ignore */ }
           } else {
             stdoutData += data.toString();
           }
@@ -147,7 +147,7 @@ function registerCodeExecutorIpcHandlers(ipcMain, deps) {
         child.stderr.on("data", (data) => {
           if (stderrData.length + data.length > maxBufferSize) {
             stderrData = stderrData.substring(0, maxBufferSize) + "\n[Output Truncated: Max Buffer Limit Reached]";
-            try { child.kill("SIGKILL"); } catch {}
+            try { child.kill("SIGKILL"); } catch { /* ignore */ }
           } else {
             stderrData += data.toString();
           }
@@ -158,7 +158,9 @@ function registerCodeExecutorIpcHandlers(ipcMain, deps) {
           if (child && !child.killed) {
             try {
               child.kill("SIGKILL");
-            } catch {}
+            } catch {
+              /* ignore */
+            }
             finish({
               success: false,
               stdout: stdoutData,
