@@ -91,10 +91,45 @@ async function main() {
     process.stdout.write(`Using existing icon asset ${path.relative(process.cwd(), pngPath)}\n`);
   }
 
-  const icoBuffer = await pngToIco([pngPath]);
+  // Build a proper multi-size ICO: Windows needs 16, 32, 48, and 256px sizes
+  // for correct display in Explorer, taskbar, shortcuts, and the Start Menu.
+  const src = PNG.sync.read(fs.readFileSync(pngPath));
+  const sizes = [16, 32, 48, 256];
+  const resizedPaths = [];
+
+  for (const s of sizes) {
+    if (s === 256 && src.width === 256 && src.height === 256) {
+      resizedPaths.push(pngPath);
+      continue;
+    }
+    const dst = new PNG({ width: s, height: s });
+    const scale = src.width / s;
+    for (let dy = 0; dy < s; dy++) {
+      for (let dx = 0; dx < s; dx++) {
+        const sx = Math.min(Math.floor(dx * scale), src.width - 1);
+        const sy = Math.min(Math.floor(dy * scale), src.height - 1);
+        const si = (sy * src.width + sx) << 2;
+        const di = (dy * s + dx) << 2;
+        dst.data[di] = src.data[si];
+        dst.data[di + 1] = src.data[si + 1];
+        dst.data[di + 2] = src.data[si + 2];
+        dst.data[di + 3] = src.data[si + 3];
+      }
+    }
+    const tmpPath = path.join(outDir, `icon-${s}.png`);
+    fs.writeFileSync(tmpPath, PNG.sync.write(dst));
+    resizedPaths.push(tmpPath);
+  }
+
+  const icoBuffer = await pngToIco(resizedPaths);
   fs.writeFileSync(icoPath, icoBuffer);
 
-  process.stdout.write(`Created ${path.relative(process.cwd(), pngPath)} and ${path.relative(process.cwd(), icoPath)}\n`);
+  // Clean up temp sized PNGs
+  for (const p of resizedPaths) {
+    if (p !== pngPath) fs.unlinkSync(p);
+  }
+
+  process.stdout.write(`Created ${path.relative(process.cwd(), pngPath)} and ${path.relative(process.cwd(), icoPath)} (${sizes.join(", ")}px)\n`);
 }
 
 main().catch((error) => {

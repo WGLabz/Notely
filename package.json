@@ -22,7 +22,7 @@
     "start": "node scripts/launch-electron.cjs",
     "release:collect": "node scripts/copy-exe-to-release.cjs",
     "pack:win": "npm run release:clean && npm run assets:icon && npm run notices && npm run build && node scripts/run-electron-builder.cjs --win --dir",
-    "dist:win": "npm run release:clean && npm run assets:icon && npm run notices && npm run build && node scripts/run-electron-builder.cjs --win portable && npm run release:collect",
+    "dist:win": "npm run release:clean && npm run assets:icon && npm run notices && npm run build && node scripts/run-electron-builder.cjs --win && npm run release:collect",
     "lint:markdown": "node ./node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs",
     "lint": "node ./node_modules/eslint/bin/eslint.js . --max-warnings=0",
     "lint:fix": "node ./node_modules/eslint/bin/eslint.js . --fix --max-warnings=0",
@@ -78,6 +78,7 @@
     "png-to-ico": "^2.1.8",
     "pngjs": "^7.0.0",
     "prettier": "^3.4.0",
+    "rcedit": "^5.0.2",
     "vite": "^6.3.5",
     "vitepress": "^1.6.4",
     "vitepress-plugin-mermaid": "^2.0.17",
@@ -87,6 +88,7 @@
   "build": {
     "appId": "app.notely.desktop",
     "productName": "Notely",
+    "afterPack": "scripts/afterPack.cjs",
     "directories": {
       "output": ".artifacts",
       "buildResources": "build"
@@ -118,18 +120,38 @@
       "node_modules/node-pty/**/*"
     ],
     "win": {
-      "signAndEditExecutable": true,
+      "signAndEditExecutable": false,
       "icon": "build/icon.ico",
       "publisherName": "Notely",
-      "verifyUpdateCodeSignature": true,
+      "verifyUpdateCodeSignature": false,
       "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
         {
           "target": "portable",
           "arch": [
             "x64"
           ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
         }
       ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Notely"
     },
     "copyright": "Copyright (c) 2026 Notely"
   }

@@ -59,6 +59,9 @@ if (process.platform === "win32") {
 
 // Register protocols here if needed
 
+// Skip separate GPU process — reduces cold-start overhead by ~150-200ms on Windows.
+app.commandLine.appendSwitch("in-process-gpu");
+
 try {
   fs.mkdirSync(chromiumCachePath, { recursive: true });
   app.setPath("sessionData", sessionDataPath);
@@ -803,10 +806,10 @@ if (canRunApp) {
     windowLifecycle.focusOrCreateWindow();
     broadcastThemeChange();
 
-    // Defer workspace and AI initialization so splash/main window can appear quickly.
-    setImmediate(() => {
+    // Defer workspace init so splash window has time to paint before sync FS/git work starts.
+    setTimeout(() => {
       applyNotesRoot(resolveInitialNotesRoot());
-    });
+    }, 150);
 
     // Fallback: ensure AI eventually initializes even if renderer boot-ready IPC is missed.
     setTimeout(() => {

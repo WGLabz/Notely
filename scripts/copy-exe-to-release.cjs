@@ -11,13 +11,13 @@ function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
 }
 
-function listTopLevelExeFiles(dirPath) {
+function listTopLevelArtifacts(dirPath) {
   if (!fs.existsSync(dirPath)) {
     return [];
   }
 
   return fs.readdirSync(dirPath, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".exe"))
+    .filter((entry) => entry.isFile() && /\.(exe|zip)$/i.test(entry.name))
     .map((entry) => entry.name);
 }
 
@@ -55,16 +55,16 @@ async function copyWithRetry(sourcePath, targetPath) {
 }
 
 async function main() {
-  const exeFiles = listTopLevelExeFiles(sourceDir);
-  if (!exeFiles.length) {
-    process.stdout.write("No .exe files found in .artifacts folder.\n");
+  const artifacts = listTopLevelArtifacts(sourceDir);
+  if (!artifacts.length) {
+    process.stdout.write("No .exe or .zip files found in .artifacts folder.\n");
     return;
   }
 
   ensureDir(targetDir);
 
   let copied = 0;
-  for (const fileName of exeFiles) {
+  for (const fileName of artifacts) {
     const sourcePath = path.join(sourceDir, fileName);
     const targetPath = path.join(targetDir, fileName);
     const result = await copyWithRetry(sourcePath, targetPath);
@@ -77,7 +77,7 @@ async function main() {
     process.stderr.write(`Skipped ${fileName} after ${result.attempts} attempts: ${message}\n`);
   }
 
-  process.stdout.write(`Copied ${copied} .exe file(s) to release\n`);
+  process.stdout.write(`Copied ${copied} artifact(s) to release\n`);
 }
 
 main().catch((error) => {
