@@ -16,8 +16,6 @@ import {
   ImagePlus,
   Zap,
   Scan,
-  Maximize,
-  Minimize,
   Workflow,
   PenTool,
   Grid,
@@ -163,13 +161,8 @@ export function MarkdownToolbar({
   onRedo,
   canUndo = false,
   canRedo = false,
-  ignoredSpellingWords = [],
   onIgnoreSpellingWord,
-  onRemoveIgnoredSpellingWord,
-  onClearIgnoredSpellingWords,
   screenCaptureMode = "auto",
-  isFocusMode,
-  onToggleFocusMode,
 }) {
   const imageInputRef = useRef(null);
   const mermaidPopoverRef = useRef(null);
@@ -905,14 +898,6 @@ export function MarkdownToolbar({
   return (
     <>
       <div className="editor-toolbar" aria-label="Markdown formatting toolbar">
-        <button
-          onClick={() => onToggleFocusMode?.()}
-          data-tooltip={isFocusMode ? "Exit Full Screen (Focus Mode)" : "Enter Full Screen (Focus Mode)"}
-          className={isFocusMode ? "active" : ""}
-        >
-          {isFocusMode ? <Minimize size={18} /> : <Maximize size={18} />}
-        </button>
-        <div className="toolbar-separator" aria-hidden="true" />
         <button onClick={() => onUndo?.()} data-tooltip="Undo (Ctrl/Cmd+Z)" disabled={!canUndo}>
         <Undo2 size={18} />
       </button>
@@ -992,30 +977,7 @@ export function MarkdownToolbar({
             <p className="toolbar-inline-error">Validation service unavailable.</p>
           ) : (
             <div className="validation-list">
-              {ignoredSpellingWords.length ? (
-                <div className="validation-item">
-                  <div className="validation-item-head">
-                    <span className="validation-kind-badge info">Ignored words</span>
-                  </div>
-                  <p>{ignoredSpellingWords.length} word{ignoredSpellingWords.length === 1 ? "" : "s"} ignored in this workspace.</p>
-                  <div className="validation-item-actions">
-                    <button type="button" onClick={() => onClearIgnoredSpellingWords?.()}>
-                      Clear all
-                    </button>
-                  </div>
-                  <div className="validation-item-actions">
-                    {ignoredSpellingWords.map((word) => (
-                      <button
-                        key={`ignored-${word}`}
-                        type="button"
-                        onClick={() => onRemoveIgnoredSpellingWord?.(word)}
-                      >
-                        Remove &quot;{word}&quot;
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
+
               {validationIssues.map((issue, index) => (
                 <div className="validation-item" key={`${issue.line}-${index}`}>
                   <div className="validation-item-head">

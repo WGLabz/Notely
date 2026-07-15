@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { NotebookPen, Terminal, X, Eye } from "lucide-react";
+import { NotebookPen, Terminal, X, Eye, CheckCircle2, AlertCircle, Info, AlertTriangle } from "lucide-react";
 import { DocumentList } from "./components/DocumentList";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { DashboardPanels } from "./components/DashboardPanels";
@@ -70,6 +70,7 @@ const HelpConfirmationModal = lazy(() =>
 const WorkspaceExportDialog = lazy(() =>
   import("./components/WorkspaceExportDialog").then((m) => ({ default: m.WorkspaceExportDialog }))
 );
+const DictionaryModal = lazy(() => import("./components/DictionaryModal"));
 import {
   onMenuAction,
   notifyBootReady,
@@ -233,6 +234,19 @@ function normalizePreviewImageMode(rawValue) {
 
 function normalizeEmbeddedMarkdownMode(rawValue) {
   return rawValue === "inline" ? "inline" : "open";
+}
+
+function normalizeIgnoredWords(rawValue) {
+  if (!Array.isArray(rawValue)) return [];
+  const seen = new Set();
+  const output = [];
+  for (const entry of rawValue) {
+    const word = String(entry || "").trim().toLowerCase();
+    if (!word || seen.has(word)) continue;
+    seen.add(word);
+    output.push(word);
+  }
+  return output;
 }
 
 function normalizePathLikeValue(value) {
@@ -553,6 +567,50 @@ export default function App() {
     defaultValue: "open",
     normalize: normalizeEmbeddedMarkdownMode,
   });
+
+  const [ignoredSpellingWords, setIgnoredSpellingWords] = useWorkspaceScopedStorage({
+    workspaceScope: workspaceStorageScope,
+    key: "notes:ignored-spelling-words",
+    defaultValue: EMPTY_ARRAY,
+    normalize: normalizeIgnoredWords,
+  });
+  const [autosaveEnabled, setAutosaveEnabled] = useWorkspaceScopedStorage({
+    workspaceScope: workspaceStorageScope,
+    key: "notes:autosave-enabled",
+    defaultValue: false,
+    normalize: (value) => value === true,
+    fallbackKey: "notely:autosave-enabled",
+  });
+  const [dictionaryOpen, setDictionaryOpen] = useState(false);
+
+  const handleAddDictionaryWord = (word) => {
+    const normalized = String(word || "").trim().toLowerCase();
+    if (!normalized) return;
+    if (ignoredSpellingWords.includes(normalized)) {
+      notify(`"${normalized}" is already in the dictionary.`, "info");
+      return;
+    }
+    setIgnoredSpellingWords((current) => {
+      const next = normalizeIgnoredWords(current);
+      return [...next, normalized];
+    });
+    notify(`Added "${normalized}" to dictionary.`, "success");
+  };
+
+  const handleRemoveDictionaryWord = (word) => {
+    const normalized = String(word || "").trim().toLowerCase();
+    if (!normalized) return;
+    setIgnoredSpellingWords((current) => {
+      const next = normalizeIgnoredWords(current);
+      return next.filter((item) => item !== normalized);
+    });
+    notify(`Removed "${word}" from dictionary.`, "success");
+  };
+
+  const handleClearDictionary = () => {
+    setIgnoredSpellingWords([]);
+    notify("Cleared spelling dictionary.", "success");
+  };
 
   const syncStateRef = useRef({ current: null, dirty: false, openDocument: null });
   syncStateRef.current = { doc: current, dirty, openDocument };
@@ -999,11 +1057,22 @@ export default function App() {
       canRemoveFolder,
       currentFolderLabel: currentPath ? currentPath.replace(/^.*[\\/]/, "") : "",
       recentWorkspacePaths: normalizePathLikeList(recentWorkspacePaths),
+      autosaveEnabled,
     });
-  }, [current, notesViewMode, notesDensityMode, typoCheckEnabled, previewImageMode, embeddedMarkdownMode, screenCaptureMode, themePreference, dirty, activeDocumentChangedOnDisk, activeProject, notesFolderPath, landingFolderPath, showTerminal, terminalShellPreference, outlineEnabled, mode, focusModeEnabled, recentWorkspacePaths]);
+  }, [current, notesViewMode, notesDensityMode, typoCheckEnabled, previewImageMode, embeddedMarkdownMode, screenCaptureMode, themePreference, dirty, activeDocumentChangedOnDisk, activeProject, notesFolderPath, landingFolderPath, showTerminal, terminalShellPreference, outlineEnabled, mode, focusModeEnabled, recentWorkspacePaths, autosaveEnabled]);
 
   useEffect(() => {
     return onMenuAction((action) => {
+      if (action === "toggle-autosave") {
+        setAutosaveEnabled((prev) => !prev);
+        return;
+      }
+
+      if (action === "open-dictionary") {
+        setDictionaryOpen(true);
+        return;
+      }
+
       if (action === "new-note") {
         setNoteDialogOpen(true);
         return;
@@ -2204,11 +2273,19 @@ export default function App() {
   return (
     <div className={`app-shell${showTerminal ? " terminal-open" : ""}${current ? " document-screen" : " landing-screen"}${focusModeEnabled && current ? " focus-mode-active" : ""}`}>
       <div className="toast-stack" aria-live="polite" aria-atomic="true">
-        {toasts.map((toast) => (
-          <div className={`toast-item ${toast.type}`} key={toast.id}>
-            {toast.message}
-          </div>
-        ))}
+        {toasts.map((toast) => {
+          let IconComponent = Info;
+          if (toast.type === "success") IconComponent = CheckCircle2;
+          else if (toast.type === "error") IconComponent = AlertCircle;
+          else if (toast.type === "warning") IconComponent = AlertTriangle;
+
+          return (
+            <div className={`toast-item ${toast.type}`} key={toast.id}>
+              <IconComponent size={16} style={{ flexShrink: 0 }} />
+              <span>{toast.message}</span>
+            </div>
+          );
+        })}
       </div>
       {error && <div className="error-banner">{error}</div>}
       {!showTerminal && !(focusModeEnabled && current) ? (
@@ -2485,6 +2562,24 @@ export default function App() {
             onChange={setCurrent}
             onSave={saveDocument}
             onRenameTitle={handleRenameCurrentDocument}
+            ignoredSpellingWords={ignoredSpellingWords}
+            onIgnoreSpellingWord={(word) => {
+              const normalized = String(word || "").trim().toLowerCase();
+              if (!normalized) return;
+              setIgnoredSpellingWords((current) => {
+                const next = normalizeIgnoredWords(current);
+                if (next.includes(normalized)) return next;
+                return [...next, normalized];
+              });
+              notify?.(`Added "${word}" to dictionary.`, "success");
+            }}
+            onRemoveIgnoredSpellingWord={handleRemoveDictionaryWord}
+            onClearIgnoredSpellingWords={handleClearDictionary}
+            onForceSaveDocument={async () => {
+              await saveDocument({ reason: "diagram-or-code-save", silent: true });
+            }}
+            autosaveEnabled={autosaveEnabled}
+            setAutosaveEnabled={setAutosaveEnabled}
             onRefreshHistory={async () => setHistory([])}
             saving={saving}
             dirty={dirty}
@@ -3035,6 +3130,18 @@ export default function App() {
           <MarkdownGuideModal
             open={markdownGuideOpen}
             onClose={() => setMarkdownGuideOpen(false)}
+          />
+        </Suspense>
+      ) : null}
+
+      {dictionaryOpen ? (
+        <Suspense fallback={null}>
+          <DictionaryModal
+            open={dictionaryOpen}
+            onClose={() => setDictionaryOpen(false)}
+            ignoredSpellingWords={ignoredSpellingWords}
+            onAddWord={handleAddDictionaryWord}
+            onRemoveWord={handleRemoveDictionaryWord}
           />
         </Suspense>
       ) : null}

@@ -418,6 +418,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
   showOriginalImages = false,
   inlineLinkedMarkdown = false,
   onSearchRequest,
+  onForceSaveDocument,
 }) {
   const previewRef = useRef(null);
   const menuRef = useRef(null);
@@ -1238,6 +1239,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
       }
 
       onNotify?.("Image converted to Excalidraw diagram.", "success");
+      onForceSaveDocument?.();
       void previewImageData;
     } catch (error) {
       onNotify?.(error?.message || "Unable to save Excalidraw diagram.", "error");
@@ -1652,6 +1654,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
       }
 
       onNotify?.(editedDataUrl ? "Image edit saved." : "Image annotation saved.", "success");
+      onForceSaveDocument?.();
       setCropState({ open: false, src: "", assetPath: "", imageLabel: "", annotation: null, hasOriginal: false, annotationOnly: false });
     } catch (error) {
       imageResolveCacheRef.current.delete(imageCacheKey(targetAssetPath));
@@ -1687,6 +1690,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
               onNotify={onNotify}
               index={index}
               key={`${part.type}-${index}`}
+              onForceSaveNote={onForceSaveDocument}
             />
           ) : part.type === "drawio" ? (
             <DrawioBlock
@@ -1694,6 +1698,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
               diagramId={part.diagramId}
               onNotify={onNotify}
               key={`${part.type}-${index}`}
+              onForceSaveNote={onForceSaveDocument}
             />
           ) : (
             <div
@@ -1779,6 +1784,9 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
           const nextContent = replaceCodeBlockAtLine(content, codeEditState.sourceLine, language, code);
           if (nextContent !== null) {
             onContentChange(nextContent);
+            setTimeout(() => {
+              onForceSaveDocument?.();
+            }, 50);
           } else {
             onNotify?.("Failed to update code block. Source line might have shifted.", "error");
           }

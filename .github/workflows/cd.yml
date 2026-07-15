@@ -11,30 +11,41 @@ permissions:
 jobs:
   release:
     runs-on: windows-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '22'
         cache: 'npm'
-        
+
     - name: Install dependencies
       run: npm ci
-      
-    - name: Build Windows Executable
+
+    - name: Build Windows Executables
       shell: bash
       env:
         CSC_LINK: ${{ secrets.CSC_LINK }}
         CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
       run: ./build-windows-exe.sh
-      
-    - name: Create Release
+
+    - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        files: release/*.exe
+        generate_release_notes: true
+        body: |
+          ## Download
+
+          | File | Type | Notes |
+          |------|------|-------|
+          | `Notely Setup *.exe` | **Installer** (recommended) | Installs to your system, fast launch every time |
+          | `Notely *.exe` | **Portable** | Single file, no install — extracts on every launch |
+          | `Notely-*-win.zip` | **Portable ZIP** | Extract once, run directly — portable + fast |
+        files: |
+          release/*.exe
+          release/*.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

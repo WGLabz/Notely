@@ -6,7 +6,7 @@ const electronBuilderCliPath = path.join(__dirname, "..", "node_modules", "elect
 const generatedVersionPath = path.join(__dirname, "..", "electron", "app-version.generated.json");
 const args = process.argv.slice(2);
 
-const isWindowsBuild = args.some((arg) => /^--win$/i.test(String(arg || ""))) || args.includes("nsis") || args.includes("portable");
+const isWindowsBuild = args.some((arg) => /^--win$/i.test(String(arg || ""))) || args.includes("nsis") || args.includes("portable") || args.includes("zip");
 const hasSigningMaterial = Boolean(
   process.env.CSC_LINK
   || process.env.WIN_CSC_LINK
@@ -44,13 +44,15 @@ try {
 if (isWindowsBuild && !hasSigningMaterial) {
   console.warn("[packaging] Windows signing material not found.");
   console.warn("[packaging] Provide CSC_LINK/CSC_KEY_PASSWORD (PFX) or Azure Trusted Signing variables before distributing binaries.");
-
-  // Unsigned local build: skip signing/code-sign verification hooks entirely.
-  nextArgs.push(
-    "--config.win.signAndEditExecutable=false",
-    "--config.win.verifyUpdateCodeSignature=false"
-  );
   childEnv.CSC_IDENTITY_AUTO_DISCOVERY = "false";
+}
+
+if (isWindowsBuild && hasSigningMaterial) {
+  // Signing cert present — enable rcedit icon stamping + signature verification.
+  nextArgs.push(
+    "--config.win.signAndEditExecutable=true",
+    "--config.win.verifyUpdateCodeSignature=true"
+  );
 }
 
 const child = spawn(process.execPath, [electronBuilderCliPath, ...nextArgs], {

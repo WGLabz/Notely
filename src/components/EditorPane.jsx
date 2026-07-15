@@ -7,21 +7,8 @@ import { WebViewPreview } from "./WebViewPreview";
 import { MediaPreviewPane } from "./MediaPreviewPane";
 import OverlayDialog from "./OverlayDialog";
 import { useMarkdownValidation } from "../hooks/useMarkdownValidation";
-import { useWorkspaceScopedStorage } from "../hooks/useWorkspaceScopedStorage";
 import { Link2, Unlink } from "lucide-react";
 
-function normalizeIgnoredWords(rawValue) {
-  if (!Array.isArray(rawValue)) return [];
-  const seen = new Set();
-  const output = [];
-  for (const entry of rawValue) {
-    const word = String(entry || "").trim().toLowerCase();
-    if (!word || seen.has(word)) continue;
-    seen.add(word);
-    output.push(word);
-  }
-  return output;
-}
 
 export function EditorPane({
   value,
@@ -48,11 +35,11 @@ export function EditorPane({
   activeFindMatchIndex = -1,
   showOriginalImages = false,
   inlineLinkedMarkdown = false,
-  workspaceStorageScope = "default",
   typoCheckEnabled = true,
   screenCaptureMode = "auto",
-  isFocusMode,
-  onToggleFocusMode,
+  ignoredSpellingWords = [],
+  onIgnoreSpellingWord,
+  onForceSaveDocument,
 }) {
   const previewRef = useRef(null);
   const splitPaneRef = useRef(null);
@@ -73,12 +60,6 @@ export function EditorPane({
     return () => clearInterval(interval);
   }, [textareaRef]);
   const deferredValue = useDeferredValue(value);
-  const [ignoredSpellingWords, setIgnoredSpellingWords] = useWorkspaceScopedStorage({
-    workspaceScope: workspaceStorageScope,
-    key: "notes:ignored-spelling-words",
-    defaultValue: [],
-    normalize: normalizeIgnoredWords,
-  });
   const isSplitMode = mode === "split";
   const { issues: validationIssues, status: validationStatus } = useMarkdownValidation(value, {
     spellCheck: typoCheckEnabled,
@@ -121,18 +102,14 @@ export function EditorPane({
     const editorElement = textareaRef?.current;
     const previewElement = previewRef.current;
     if (!editorElement || !previewElement) return undefined;
-    let editorInteractionTime = 1;
-    let previewInteractionTime = 0;
-    let lastScrollSource = "editor";
+    
+    let activeScrollSource = null;
     let editorRaf = 0;
     let previewRaf = 0;
     let resizeRaf = 0;
     let resizeObserver = null;
     let mutationObserver = null;
     let cachedAnchors = null;
-
-    const markEditorActive = () => { editorInteractionTime = Date.now(); };
-    const markPreviewActive = () => { previewInteractionTime = Date.now(); };
 
     const getScrollRatio = (element) => {
       const scrollable = Math.max(0, element.scrollHeight - element.clientHeight);
@@ -262,23 +239,34 @@ export function EditorPane({
     };
 
     const handleEditorScroll = () => {
-      if (previewInteractionTime > editorInteractionTime) return;
-      lastScrollSource = "editor";
+      if (activeScrollSource === "preview") return;
+      activeScrollSource = "editor";
       cancelAnimationFrame(editorRaf);
-      editorRaf = requestAnimationFrame(syncPreviewFromEditor);
+      editorRaf = requestAnimationFrame(() => {
+        syncPreviewFromEditor();
+        requestAnimationFrame(() => {
+          activeScrollSource = null;
+        });
+      });
     };
 
     const handlePreviewScroll = () => {
-      if (editorInteractionTime > previewInteractionTime) return;
-      lastScrollSource = "preview";
+      if (activeScrollSource === "editor") return;
+      activeScrollSource = "preview";
       cancelAnimationFrame(previewRaf);
-      previewRaf = requestAnimationFrame(syncEditorFromPreview);
+      previewRaf = requestAnimationFrame(() => {
+        syncEditorFromPreview();
+        requestAnimationFrame(() => {
+          activeScrollSource = null;
+        });
+      });
     };
 
     const syncAfterPreviewResize = () => {
       cancelAnimationFrame(resizeRaf);
       resizeRaf = requestAnimationFrame(() => {
-        if (lastScrollSource === "preview") {
+        cachedAnchors = null;
+        if (activeScrollSource === "preview") {
           syncEditorFromPreview();
         } else {
           syncPreviewFromEditor();
@@ -308,16 +296,7 @@ export function EditorPane({
 
     previewElement.addEventListener("load", syncAfterPreviewResize, true);
 
-    editorElement.addEventListener("pointerdown", markEditorActive);
-    editorElement.addEventListener("touchstart", markEditorActive);
-    editorElement.addEventListener("wheel", markEditorActive);
-    editorElement.addEventListener("keydown", markEditorActive);
     editorElement.addEventListener("scroll", handleEditorScroll, { passive: true });
-
-    previewElement.addEventListener("pointerdown", markPreviewActive);
-    previewElement.addEventListener("touchstart", markPreviewActive);
-    previewElement.addEventListener("wheel", markPreviewActive);
-    previewElement.addEventListener("keydown", markPreviewActive);
     previewElement.addEventListener("scroll", handlePreviewScroll, { passive: true });
 
     syncPreviewFromEditor();
@@ -330,16 +309,7 @@ export function EditorPane({
       mutationObserver?.disconnect();
       previewElement.removeEventListener("load", syncAfterPreviewResize, true);
       
-      editorElement.removeEventListener("pointerdown", markEditorActive);
-      editorElement.removeEventListener("touchstart", markEditorActive);
-      editorElement.removeEventListener("wheel", markEditorActive);
-      editorElement.removeEventListener("keydown", markEditorActive);
       editorElement.removeEventListener("scroll", handleEditorScroll);
-
-      previewElement.removeEventListener("pointerdown", markPreviewActive);
-      previewElement.removeEventListener("touchstart", markPreviewActive);
-      previewElement.removeEventListener("wheel", markPreviewActive);
-      previewElement.removeEventListener("keydown", markPreviewActive);
       previewElement.removeEventListener("scroll", handlePreviewScroll);
     };
   }, [mode, textareaRef, editorReadyTick, scrollSyncEnabled]);
@@ -400,16 +370,7 @@ export function EditorPane({
       textareaRef={textareaRef}
       onNotify={onNotify}
       validationIssues={validationIssues}
-      onIgnoreSpellingWord={(word) => {
-        const normalized = String(word || "").trim().toLowerCase();
-        if (!normalized) return;
-        setIgnoredSpellingWords((current) => {
-          const next = normalizeIgnoredWords(current);
-          if (next.includes(normalized)) return next;
-          return [...next, normalized];
-        });
-        onNotify?.(`Ignored "${word}" for this workspace.`, "success");
-      }}
+      onIgnoreSpellingWord={onIgnoreSpellingWord}
       onJumpToLine={jumpToLine}
       focusedLine={focusedLine}
       onUndo={onUndo}
@@ -446,29 +407,8 @@ export function EditorPane({
     canUndo,
     canRedo,
     ignoredSpellingWords,
-    onIgnoreSpellingWord: (word) => {
-      const normalized = String(word || "").trim().toLowerCase();
-      if (!normalized) return;
-      setIgnoredSpellingWords((current) => {
-        const next = normalizeIgnoredWords(current);
-        if (next.includes(normalized)) return next;
-        return [...next, normalized];
-      });
-      onNotify?.(`Ignored "${word}" for this workspace.`, "success");
-    },
-    onRemoveIgnoredSpellingWord: (word) => {
-      const normalized = String(word || "").trim().toLowerCase();
-      if (!normalized) return;
-      setIgnoredSpellingWords((current) => normalizeIgnoredWords(current).filter((item) => item !== normalized));
-      onNotify?.(`Removed "${word}" from ignored words.`, "info");
-    },
-    onClearIgnoredSpellingWords: () => {
-      setIgnoredSpellingWords([]);
-      onNotify?.("Cleared ignored spelling words.", "info");
-    },
+    onIgnoreSpellingWord: onIgnoreSpellingWord,
     screenCaptureMode,
-    isFocusMode,
-    onToggleFocusMode,
   };
 
   const renderToolbar = () => (
@@ -584,6 +524,7 @@ export function EditorPane({
               onMediaClick={setSelectedMediaPreview}
               showOriginalImages={showOriginalImages}
               inlineLinkedMarkdown={inlineLinkedMarkdown}
+              onForceSaveDocument={onForceSaveDocument}
               onSearchRequest={(query) => {
                 window.dispatchEvent(new CustomEvent("open-global-search-query", { detail: { query } }));
               }}

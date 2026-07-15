@@ -5,7 +5,7 @@ import { downloadImage } from "../services/electronService";
 import ExcalidrawComponent from "./ExcalidrawEditor";
 import "./ExcalidrawBlock.css";
 
-export function ExcalidrawBlock({ imagePath, diagramId, documentPath, originAssetPath, originAltText, onUpdate, onNotify }) {
+export function ExcalidrawBlock({ imagePath, diagramId, documentPath, originAssetPath, originAltText, onUpdate, onNotify, onForceSaveNote }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [thumbnail, setThumbnail] = useState(null);
   const [error, setError] = useState("");
@@ -89,6 +89,7 @@ export function ExcalidrawBlock({ imagePath, diagramId, documentPath, originAsse
       
       setError("");
       onNotify?.("Diagram saved successfully.", "success");
+      onForceSaveNote?.();
     } catch (err) {
       console.error("Failed to save diagram:", err);
       setError("Failed to save diagram");

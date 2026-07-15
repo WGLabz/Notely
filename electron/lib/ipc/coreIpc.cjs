@@ -410,8 +410,8 @@ function registerCoreIpcHandlers(ipcMain, deps) {
   }
 
   function isNewerVersion(current, latest) {
-    const cleanCurr = String(current || "0.0.0").replace(/^v/, "");
-    const cleanLat = String(latest || "0.0.0").replace(/^v/, "");
+    const cleanCurr = String(current || "0.0.0").replace(/^v/, "").split("-")[0].split("+")[0];
+    const cleanLat = String(latest || "0.0.0").replace(/^v/, "").split("-")[0].split("+")[0];
 
     const currParts = cleanCurr.split(".").map(Number);
     const latParts = cleanLat.split(".").map(Number);
@@ -419,6 +419,7 @@ function registerCoreIpcHandlers(ipcMain, deps) {
     for (let i = 0; i < Math.max(currParts.length, latParts.length); i++) {
       const currPart = currParts[i] || 0;
       const latPart = latParts[i] || 0;
+      if (Number.isNaN(currPart) || Number.isNaN(latPart)) continue;
       if (latPart > currPart) return true;
       if (currPart > latPart) return false;
     }

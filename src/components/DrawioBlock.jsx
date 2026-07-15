@@ -5,7 +5,7 @@ import { downloadImage } from "../services/electronService";
 import DrawioEditor from "./DrawioEditor";
 import "./ExcalidrawBlock.css"; // Reuse block styles
 
-export function DrawioBlock({ imagePath, diagramId, onUpdate, onNotify }) {
+export function DrawioBlock({ imagePath, diagramId, onUpdate, onNotify, onForceSaveNote }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [thumbnail, setThumbnail] = useState(null);
   const [error, setError] = useState("");
@@ -87,6 +87,7 @@ export function DrawioBlock({ imagePath, diagramId, onUpdate, onNotify }) {
       
       setError("");
       onNotify?.("Diagram saved successfully.", "success");
+      onForceSaveNote?.();
     } catch (err) {
       console.error("Failed to save diagram:", err);
       setError("Failed to save diagram");

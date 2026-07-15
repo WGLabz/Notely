@@ -134,7 +134,7 @@ function createWindowLifecycle(deps) {
       maximizable: false,
       fullscreenable: false,
       autoHideMenuBar: true,
-      show: true,
+      show: false,
       backgroundColor: "#dcece7",
       ...(windowIconPath ? { icon: windowIconPath } : {}),
       webPreferences: {
@@ -319,12 +319,13 @@ function createWindowLifecycle(deps) {
   </body>
 </html>`;
 
-    // Show immediately on app start so users get instant feedback after clicking .exe.
-    splashWindow.center();
-    splashWindow.show();
+    // Load HTML first; show only after content paints to avoid blank-frame flash on Windows.
     splashWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(splashHtml)}`);
     splashWindow.webContents.once("did-finish-load", () => {
       splashReady = true;
+      if (!splashWindow || splashWindow.isDestroyed()) return;
+      splashWindow.center();
+      splashWindow.show();
       if (pendingSplashPayload) {
         applySplashProgress(pendingSplashPayload);
         pendingSplashPayload = null;
@@ -629,6 +630,7 @@ function createWindowLifecycle(deps) {
       outlineEnabled: context?.outlineEnabled !== false,
       splitPreviewEnabled: context?.splitPreviewEnabled === true,
       focusModeEnabled: context?.focusModeEnabled === true,
+      autosaveEnabled: context?.autosaveEnabled === true,
       terminalOpen: context?.terminalOpen === true,
       terminalShell: context?.terminalShell === "bash" || context?.terminalShell === "cmd"
         ? context.terminalShell

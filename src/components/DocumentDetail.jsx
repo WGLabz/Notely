@@ -89,7 +89,6 @@ function getBlockRange(value, anchorIndex) {
 
 
 
-const AUTOSAVE_PREF_KEY = "notely:autosave-enabled";
 const AUTOSAVE_DELAY_MS = 1200;
 const EDITOR_MODE_OPTIONS = [
   { key: "edit", label: "Edit", icon: PenLine, announceLabel: "Edit" },
@@ -696,6 +695,13 @@ export function DocumentDetail({
   focusModeEnabled = false,
   onFocusModeChange,
   aiSidebar = null,
+  ignoredSpellingWords = [],
+  onIgnoreSpellingWord,
+  onRemoveIgnoredSpellingWord,
+  onClearIgnoredSpellingWords,
+  onForceSaveDocument,
+  autosaveEnabled = false,
+  setAutosaveEnabled,
 }) {
   const { confirm } = useConfirm();
   const MAX_EDITOR_HISTORY = 200;
@@ -711,13 +717,7 @@ export function DocumentDetail({
   const [pdfOptionsOpen, setPdfOptionsOpen] = useState(false);
   const [pdfExportMode, setPdfExportMode] = useState("formal");
   const [pdfQualityPreset, setPdfQualityPreset] = useState("full");
-  const [autosaveEnabled, setAutosaveEnabled] = useWorkspaceScopedStorage({
-    workspaceScope: workspaceStorageScope,
-    key: "notes:autosave-enabled",
-    defaultValue: false,
-    normalize: (value) => value === true,
-    fallbackKey: AUTOSAVE_PREF_KEY,
-  });
+
   const [lastAutoSaveAt, setLastAutoSaveAt] = useState(0);
   const [changedOnDisk, setChangedOnDisk] = useState(false);
 
@@ -1661,30 +1661,21 @@ export function DocumentDetail({
               </div>
             </div>
           )}
-          <div className={`save-status ${dirty ? "dirty" : "clean"}`} aria-live="polite">
-            {dirty ? "Unsaved" : "Saved"}
+          <div className={`save-status ${dirty ? "dirty" : "clean"}`} aria-live="polite" style={{ fontSize: "12px", color: "var(--text-muted)", marginRight: "4px" }}>
+            {dirty ? "Unsaved" : (autosaveEnabled && lastAutoSaveAt ? `Saved at ${new Date(lastAutoSaveAt).toLocaleTimeString()}` : "Saved")}
           </div>
-          {!autosaveEnabled && (
+          {!autosaveEnabled && dirty && (
             <AppButton
               variant="small"
               onClick={handleManualSave}
-              disabled={!dirty || changedOnDisk}
-              data-tooltip="Save note (Ctrl+S)"
+              disabled={saving || changedOnDisk}
+              title="Save note (Ctrl+S)"
               style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
             >
               <Save size={14} />
               <span>Save</span>
             </AppButton>
           )}
-          <AppButton
-            variant="small"
-            className={`autosave-toggle-btn ${autosaveEnabled ? "active" : ""}`}
-            onClick={() => setAutosaveEnabled((value) => !value)}
-            data-tooltip="Toggle autosave"
-          >
-            <Save size={18} />
-            {autosaveEnabled ? "Autosave On" : "Autosave Off"}
-          </AppButton>
           <AppButton
             variant="small"
             onClick={toggleFocusMode}
@@ -1696,10 +1687,6 @@ export function DocumentDetail({
           </AppButton>
         </div>
       )}
-
-      {!isFocusMode && autosaveEnabled && lastAutoSaveAt ? (
-        <div className="autosave-status">Last autosave {new Date(lastAutoSaveAt).toLocaleTimeString()}</div>
-      ) : null}
 
       {!isFocusMode && (
         <header className="doc-header">
@@ -1945,6 +1932,11 @@ export function DocumentDetail({
             activeFindMatchIndex={activeFindMatchIndex}
             showOriginalImages={showOriginalImages}
             inlineLinkedMarkdown={inlineLinkedMarkdown}
+            ignoredSpellingWords={ignoredSpellingWords}
+            onIgnoreSpellingWord={onIgnoreSpellingWord}
+            onRemoveIgnoredSpellingWord={onRemoveIgnoredSpellingWord}
+            onClearIgnoredSpellingWords={onClearIgnoredSpellingWords}
+            onForceSaveDocument={onForceSaveDocument}
           />
         </main>
 

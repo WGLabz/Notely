@@ -88,6 +88,12 @@ function buildAppMenu(win, context = {}) {
           click: () => sendMenuAction(win, "save-document")
         },
         {
+          label: "Auto Save",
+          type: "checkbox",
+          checked: Boolean(context?.autosaveEnabled),
+          click: () => sendMenuAction(win, "toggle-autosave")
+        },
+        {
           label: "Export PDF",
           accelerator: "CmdOrCtrl+Shift+E",
           click: () => sendMenuAction(win, "export-pdf")
@@ -183,6 +189,11 @@ function buildAppMenu(win, context = {}) {
           click: () => sendMenuAction(win, "settings-screen-capture-review")
         }
       ]
+    },
+    { type: "separator" },
+    {
+      label: "Spelling Dictionary",
+      click: () => sendMenuAction(win, "open-dictionary")
     }
   ];
 
