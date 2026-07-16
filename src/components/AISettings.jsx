@@ -3,7 +3,7 @@ import { Key, Save, Trash2, X, Zap, AlertCircle } from 'lucide-react';
 import AppInput from './AppInput';
 import AppIconButton from './AppIconButton';
 import AppSelect from './AppSelect';
-import './AISettings.css';
+import "../styles/AISettings.css";
 import OverlayDialog from './OverlayDialog';
 import {
   aiClearData,

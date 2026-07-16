@@ -8,7 +8,7 @@ import CodeMirror from "@uiw/react-codemirror";
 import { editorTheme } from "../utils/editorTheme";
 import { langs } from "@uiw/codemirror-extensions-langs";
 import { formatCode } from "../utils/codeFormatter";
-import "./CodeBlockModal.css";
+import "../styles/CodeBlockModal.css";
 
 const LANGUAGES = [
   { value: "", label: "Auto / Plain Text" },

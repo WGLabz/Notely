@@ -3,7 +3,7 @@ import { Download } from "lucide-react";
 import { readDrawioImage, readDrawioSource, writeDrawioSource } from "../services/drawioService";
 import { downloadImage } from "../services/electronService";
 import DrawioEditor from "./DrawioEditor";
-import "./ExcalidrawBlock.css"; // Reuse block styles
+import "../styles/ExcalidrawBlock.css"; // Reuse block styles
 
 export function DrawioBlock({ imagePath, diagramId, onUpdate, onNotify, onForceSaveNote }) {
   const [isModalOpen, setIsModalOpen] = useState(false);

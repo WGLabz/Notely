@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { pickFolder } from "../services/electronService";
 import notelyMark from "../assets/branding/notely-mark.png";
-import "./OnboardingFlow.css";
+import "../styles/OnboardingFlow.css";
 
 export function OnboardingFlow({ 
   onComplete, 

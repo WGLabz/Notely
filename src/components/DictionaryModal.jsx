@@ -5,7 +5,7 @@ import AppButton from "./AppButton";
 import AppInput from "./AppInput";
 import AppIconButton from "./AppIconButton";
 import { useConfirm } from "../hooks/useConfirm";
-import "./DictionaryModal.css";
+import "../styles/DictionaryModal.css";
 
 export default function DictionaryModal({
   open,

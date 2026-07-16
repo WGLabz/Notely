@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import "./AIPalette.css";
+import "../styles/AIPalette.css";
 import AppButton from "./AppButton";
 import AppChipButton from "./AppChipButton";
 import OverlayDialog from "./OverlayDialog";

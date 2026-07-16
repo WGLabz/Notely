@@ -11,7 +11,7 @@ import { writeDiagramImage } from "../services/diagramService";
 import AppButton from "./AppButton";
 import OverlayDialog from "./OverlayDialog";
 import useConfirm from "../hooks/useConfirm";
-import "./ExcalidrawEditor.css";
+import "../styles/ExcalidrawEditor.css";
 
 const BUNDLED_EXCALIDRAW_LIBRARY_URLS = Object.values(
   import.meta.glob(

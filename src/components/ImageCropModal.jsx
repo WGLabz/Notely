@@ -4,7 +4,7 @@ import { rotateImage } from "../utils/imageProcessingUtils";
 import AppButton from "./AppButton";
 import AppSelect from "./AppSelect";
 import OverlayDialog from "./OverlayDialog";
-import "./ImageCropModal.css";
+import "../styles/ImageCropModal.css";
 
 const ASPECT_PRESETS = [
   { value: "free", label: "Free" },

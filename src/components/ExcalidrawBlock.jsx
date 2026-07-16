@@ -3,7 +3,7 @@ import { Download } from "lucide-react";
 import { readDiagramImage, readDiagramSource, writeDiagramSource } from "../services/diagramService";
 import { downloadImage } from "../services/electronService";
 import ExcalidrawComponent from "./ExcalidrawEditor";
-import "./ExcalidrawBlock.css";
+import "../styles/ExcalidrawBlock.css";
 
 export function ExcalidrawBlock({ imagePath, diagramId, documentPath, originAssetPath, originAltText, onUpdate, onNotify, onForceSaveNote }) {
   const [isModalOpen, setIsModalOpen] = useState(false);

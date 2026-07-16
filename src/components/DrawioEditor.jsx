@@ -4,7 +4,7 @@ import AppButton from "./AppButton";
 import OverlayDialog from "./OverlayDialog";
 import useConfirm from "../hooks/useConfirm";
 import { writeDrawioSource, writeDrawioImage } from "../services/drawioService";
-import "./ExcalidrawEditor.css"; // Reuse modal styling
+import "../styles/ExcalidrawEditor.css"; // Reuse modal styling
 
 export function DrawioEditor({
   initialData, // XML string

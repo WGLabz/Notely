@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { X, Search } from "lucide-react";
 import { OverlayDialog } from "./OverlayDialog";
-import "./MarkdownGuideModal.css";
+import "../styles/MarkdownGuideModal.css";
 
 const MARKDOWN_SYNTAX = [
   { id: 1, syntax: "# Heading 1", description: "Largest heading", example: "<h1>Heading 1</h1>" },

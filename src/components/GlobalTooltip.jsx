@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import "./GlobalTooltip.css";
+import "../styles/GlobalTooltip.css";
 
 /**
  * GlobalTooltip listens to all mouse events and displays a tooltip when the mouse hovers over an element with a data-tooltip attribute.

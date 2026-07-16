@@ -19,7 +19,7 @@ import AppButton from "./AppButton";
 import AppIconButton from "./AppIconButton";
 import AppInput from "./AppInput";
 import OverlayDialog from "./OverlayDialog";
-import "./WorkspaceGraphPanel.css";
+import "../styles/WorkspaceGraphPanel.css";
 
 // ── Colour palette ────────────────────────────────────────────────────────────
 const PALETTE = [

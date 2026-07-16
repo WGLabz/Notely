@@ -1,0 +1,106 @@
+.icon-color-picker-card {
+  width: 100%;
+  max-width: 500px;
+}
+
+.icon-color-picker-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-5);
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.picker-section h3 {
+  font-size: var(--font-size-label);
+  font-weight: 600;
+  margin-bottom: var(--space-3);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  gap: var(--space-2);
+}
+
+.icon-grid-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-default);
+  color: var(--text-strong);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 11px; /* for "None" */
+}
+
+.icon-grid-item:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+
+.icon-grid-item.selected {
+  background: var(--surface-accent);
+  border-color: var(--accent-solid);
+  color: var(--text-on-accent);
+}
+
+.color-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  background: var(--surface-subtle);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+}
+
+.color-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.color-row label {
+  width: 60px;
+  font-size: var(--font-size-body-sm);
+  font-weight: 500;
+}
+
+.color-row input[type="color"] {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.color-row input[type="range"] {
+  flex: 1;
+}
+
+.color-hex {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-body-sm);
+  color: var(--text-muted);
+}
+
+.color-preview {
+  height: 40px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-strong);
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  border: 1px solid var(--border-strong);
+}
