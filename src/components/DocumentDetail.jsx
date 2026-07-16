@@ -599,11 +599,12 @@ const OutlinePanel = memo(function OutlinePanel({
   setIsOutlineCollapsed,
   outlineHeadings,
   onJumpToLine,
+  style,
 }) {
   if (!isOutlineEnabled) return null;
 
   return (
-    <aside className={`outline-panel ${isOutlineCollapsed ? "collapsed" : ""}`}>
+    <aside className={`outline-panel ${isOutlineCollapsed ? "collapsed" : ""}`} style={style}>
       {isOutlineCollapsed ? (
         <div className="outline-collapsed-actions">
           <AppButton
@@ -735,6 +736,86 @@ export function DocumentDetail({
 
   const [lastAutoSaveAt, setLastAutoSaveAt] = useState(0);
   const [changedOnDisk, setChangedOnDisk] = useState(false);
+  const [outlineWidth, setOutlineWidth] = useState(190);
+  const [aiSidebarWidth, setAiSidebarWidth] = useState(340);
+  const workspaceLayoutRef = useRef(null);
+
+  const clampOutlineWidth = (w) => Math.min(Math.max(w, 150), 350);
+  const clampAiSidebarWidth = (w) => Math.min(Math.max(w, 260), 600);
+
+  const startOutlineResize = (event) => {
+    const workspace = workspaceLayoutRef.current;
+    if (!workspace) return;
+    event.preventDefault();
+    const updateWidth = (clientX) => {
+      const bounds = workspace.getBoundingClientRect();
+      const nextWidth = bounds.right - clientX - (aiSidebar ? aiSidebarWidth + 8 : 0);
+      setOutlineWidth(clampOutlineWidth(nextWidth));
+    };
+    const handlePointerMove = (moveEvent) => {
+      updateWidth(moveEvent.clientX);
+    };
+    const handlePointerUp = () => {
+      document.removeEventListener("pointermove", handlePointerMove);
+      document.removeEventListener("pointerup", handlePointerUp);
+    };
+    document.addEventListener("pointermove", handlePointerMove);
+    document.addEventListener("pointerup", handlePointerUp);
+  };
+
+  const handleOutlineResizerKeyDown = (event) => {
+    const STEP = event.shiftKey ? 20 : 5;
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      setOutlineWidth((w) => clampOutlineWidth(w + STEP));
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      setOutlineWidth((w) => clampOutlineWidth(w - STEP));
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      setOutlineWidth(150);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      setOutlineWidth(350);
+    }
+  };
+
+  const startAiResize = (event) => {
+    const workspace = workspaceLayoutRef.current;
+    if (!workspace) return;
+    event.preventDefault();
+    const updateWidth = (clientX) => {
+      const bounds = workspace.getBoundingClientRect();
+      const nextWidth = bounds.right - clientX;
+      setAiSidebarWidth(clampAiSidebarWidth(nextWidth));
+    };
+    const handlePointerMove = (moveEvent) => {
+      updateWidth(moveEvent.clientX);
+    };
+    const handlePointerUp = () => {
+      document.removeEventListener("pointermove", handlePointerMove);
+      document.removeEventListener("pointerup", handlePointerUp);
+    };
+    document.addEventListener("pointermove", handlePointerMove);
+    document.addEventListener("pointerup", handlePointerUp);
+  };
+
+  const handleAiResizerKeyDown = (event) => {
+    const STEP = event.shiftKey ? 20 : 5;
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      setAiSidebarWidth((w) => clampAiSidebarWidth(w + STEP));
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      setAiSidebarWidth((w) => clampAiSidebarWidth(w - STEP));
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      setAiSidebarWidth(260);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      setAiSidebarWidth(600);
+    }
+  };
 
   useEffect(() => {
     setChangedOnDisk(false);
@@ -1589,6 +1670,23 @@ export function DocumentDetail({
 
 
 
+  const hasOutline = isOutlineEnabled && !isOutlineCollapsed;
+  const hasAi = !!aiSidebar;
+
+  let gridColumnsStyle = "minmax(0, 1fr)";
+  if (hasOutline && hasAi) {
+    gridColumnsStyle = `minmax(0, 1fr) 8px ${outlineWidth}px 8px ${aiSidebarWidth}px`;
+  } else if (hasOutline) {
+    gridColumnsStyle = `minmax(0, 1fr) 8px ${outlineWidth}px`;
+  } else if (isOutlineEnabled && isOutlineCollapsed && hasAi) {
+    gridColumnsStyle = `minmax(0, 1fr) 28px 8px ${aiSidebarWidth}px`;
+  } else if (isOutlineEnabled && isOutlineCollapsed) {
+    gridColumnsStyle = `minmax(0, 1fr) 28px`;
+  } else if (hasAi) {
+    gridColumnsStyle = `minmax(0, 1fr) 8px ${aiSidebarWidth}px`;
+  }
+  const workspaceStyle = isFocusMode ? {} : { gridTemplateColumns: gridColumnsStyle, gap: 0 };
+
   return (
     <div className="detail-shell">
       {!isFocusMode && (
@@ -1806,6 +1904,8 @@ export function DocumentDetail({
       )}
 
       <div 
+        ref={workspaceLayoutRef}
+        style={workspaceStyle}
         className={`workspace ${changedOnDisk ? "workspace-disabled" : ""} ${isOutlineEnabled ? "" : "outline-panel-disabled"} ${isOutlineCollapsed ? "outline-panel-collapsed" : ""} ${aiSidebar ? "with-ai-chat" : ""}`}
         onKeyDown={(e) => {
           if (changedOnDisk) {
@@ -1973,13 +2073,44 @@ export function DocumentDetail({
           />
         </main>
 
+        {hasOutline && (
+          <div
+            className="split-resizer"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize outline panel"
+            aria-valuemin={150}
+            aria-valuemax={350}
+            aria-valuenow={outlineWidth}
+            aria-valuetext={`${outlineWidth}px outline width`}
+            tabIndex={0}
+            onPointerDown={startOutlineResize}
+            onKeyDown={handleOutlineResizerKeyDown}
+          />
+        )}
         <OutlinePanel
           isOutlineEnabled={isOutlineEnabled}
           isOutlineCollapsed={isOutlineCollapsed}
           setIsOutlineCollapsed={setIsOutlineCollapsed}
           outlineHeadings={outlineHeadings}
           onJumpToLine={jumpToLine}
+          style={hasOutline ? { width: `${outlineWidth}px` } : {}}
         />
+        {hasAi && (
+          <div
+            className="split-resizer"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize AI sidebar"
+            aria-valuemin={260}
+            aria-valuemax={600}
+            aria-valuenow={aiSidebarWidth}
+            aria-valuetext={`${aiSidebarWidth}px AI width`}
+            tabIndex={0}
+            onPointerDown={startAiResize}
+            onKeyDown={handleAiResizerKeyDown}
+          />
+        )}
         {aiSidebar}
         {!aiPanelVisible && aiEnabled ? (
           <button

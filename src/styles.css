@@ -2645,8 +2645,8 @@ button {
 
 .landing-workspace-layout {
   display: grid;
-  grid-template-columns: minmax(250px, 20%) minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: minmax(200px, 20%) 8px minmax(0, 1fr);
+  gap: 0;
   flex: 1;
   height: 100%;
   min-height: 0;
@@ -6780,32 +6780,42 @@ button {
 .split-resizer {
   position: relative;
   cursor: col-resize;
-  background: linear-gradient(180deg, #eef2f0 0%, #e2e8e5 100%);
-  border-left: 1px solid #d9dedb;
-  border-right: 1px solid #d9dedb;
+  background: transparent;
+  width: 8px;
+  z-index: 10;
 }
 
 .split-resizer::before {
   content: "";
   position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: var(--border-default);
+  transform: translateX(-50%);
+}
+
+.split-resizer::after {
+  content: "";
+  position: absolute;
   top: 50%;
   left: 50%;
-  width: 3px;
-  height: 42px;
-  border-radius: 999px;
-  background: #9cb0aa;
+  width: 4px;
+  height: 32px;
+  border-radius: var(--radius-pill);
+  background: var(--border-soft);
   transform: translate(-50%, -50%);
+  opacity: 0.5;
+  transition: opacity var(--motion-fast), background-color var(--motion-fast), width var(--motion-fast);
 }
 
-.split-resizer:hover,
-.split-resizer:active {
-  background: linear-gradient(180deg, #e4ece9 0%, #d8e2de 100%);
-}
-
-.split-resizer:focus-visible {
-  outline: 2px solid #31535a;
-  outline-offset: -2px;
-  background: linear-gradient(180deg, #e4ece9 0%, #d8e2de 100%);
+.split-resizer:hover::after,
+.split-resizer:active::after,
+.split-resizer:focus-visible::after {
+  opacity: 1;
+  width: 6px;
+  background: var(--accent-solid);
 }
 
 .split-resizer-horizontal {
@@ -8891,15 +8901,7 @@ button {
 }
 
 /* â”€â”€ Split Resizer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-:root[data-theme="dark"] .split-resizer {
-  background: linear-gradient(180deg, #1e2b2e 0%, #1a2528 100%) !important;
-  border-color: var(--border-default) !important;
-}
-
-:root[data-theme="dark"] .split-resizer:hover,
-:root[data-theme="dark"] .split-resizer:active {
-  background: linear-gradient(180deg, #243236 0%, #1f2e32 100%) !important;
-}
+/* Dark mode split resizer overrides removed for transparency */
 
 :root[data-theme="dark"] .split-resizer-horizontal {
   background: linear-gradient(90deg, #1e2b2e 0%, #1a2528 100%) !important;

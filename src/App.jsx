@@ -376,6 +376,8 @@ export default function App() {
   const [updateStatus, setUpdateStatus] = useState(null);
   const [updateDetails, setUpdateDetails] = useState(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [landingSidebarWidth, setLandingSidebarWidth] = useState(260);
+  const landingLayoutRef = useRef(null);
 
   const {
     documents,
@@ -718,6 +720,45 @@ export default function App() {
   const terminalCwd = current?.filePath
     ? current.filePath.replace(/[\\/][^\\/]+$/, "")
     : (landingFolderPath || activeProject?.rootPath || notesFolderPath);
+
+  const clampLandingSidebarWidth = (w) => Math.min(Math.max(w, 200), 450);
+
+  const startLandingSidebarResize = (event) => {
+    const layout = landingLayoutRef.current;
+    if (!layout) return;
+    event.preventDefault();
+    const updateWidth = (clientX) => {
+      const bounds = layout.getBoundingClientRect();
+      const nextWidth = clientX - bounds.left;
+      setLandingSidebarWidth(clampLandingSidebarWidth(nextWidth));
+    };
+    const handlePointerMove = (moveEvent) => {
+      updateWidth(moveEvent.clientX);
+    };
+    const handlePointerUp = () => {
+      document.removeEventListener("pointermove", handlePointerMove);
+      document.removeEventListener("pointerup", handlePointerUp);
+    };
+    document.addEventListener("pointermove", handlePointerMove);
+    document.addEventListener("pointerup", handlePointerUp);
+  };
+
+  const handleLandingSidebarResizerKeyDown = (event) => {
+    const STEP = event.shiftKey ? 20 : 5;
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      setLandingSidebarWidth((w) => clampLandingSidebarWidth(w - STEP));
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      setLandingSidebarWidth((w) => clampLandingSidebarWidth(w + STEP));
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      setLandingSidebarWidth(200);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      setLandingSidebarWidth(450);
+    }
+  };
 
   async function handleOpenWorkspaceInEditor() {
     const workspacePath = activeProject?.rootPath || notesFolderPath;
@@ -2441,7 +2482,13 @@ export default function App() {
             </div>
           )}
           {isRootLandingView ? (
-            <div className="landing-workspace-layout">
+            <div
+              className="landing-workspace-layout"
+              ref={landingLayoutRef}
+              style={{
+                gridTemplateColumns: `${landingSidebarWidth}px 8px minmax(0, 1fr)`,
+              }}
+            >
               <aside className="landing-dashboard-rail" aria-label="Workspace dashboard rail">
                 <DashboardPanels
                   documents={documents}
@@ -2458,6 +2505,19 @@ export default function App() {
                   layout="rail"
                 />
               </aside>
+              <div
+                className="split-resizer"
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Resize workspace sidebar"
+                aria-valuemin={200}
+                aria-valuemax={450}
+                aria-valuenow={landingSidebarWidth}
+                aria-valuetext={`${landingSidebarWidth}px sidebar width`}
+                tabIndex={0}
+                onPointerDown={startLandingSidebarResize}
+                onKeyDown={handleLandingSidebarResizerKeyDown}
+              />
               <div className="landing-notes-pane">
                 <LandingListControls
                   query={landingListQuery}
