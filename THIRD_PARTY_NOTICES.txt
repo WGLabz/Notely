@@ -1,7 +1,7 @@
 THIRD-PARTY SOFTWARE NOTICES AND INFORMATION
 
 Notely incorporates components from the projects listed below.
-This file was generated automatically on 2026-07-15 by
+This file was generated automatically on 2026-07-16 by
 scripts/generate-notices.cjs. Do not edit by hand.
 
 Total third-party packages: 390

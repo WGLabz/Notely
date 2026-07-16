@@ -28,6 +28,36 @@ Notely is a desktop Markdown notes app for Windows. Your notes live as plain `.m
 Notely is a portable executable. You can run it from any folder, including a USB drive or a synced folder.
 :::
 
+## Release Types
+
+When downloading or building Notely, three package formats are available. Choose the one that fits your workflow:
+
+### 1. NSIS Installer (`.exe`)
+A standard Windows installer that installs Notely on your system, creates Start Menu/desktop shortcuts, and registers file associations.
+- **Best for:** Long-term installations on a single personal or work computer.
+- **Pros:** Standard user experience, clean updates, easy shortcut access.
+
+### 2. Portable Executable (`.exe`)
+A single self-contained application file that runs immediately without installation.
+- **Best for:** Quick testing, running from a USB drive, or on locked-down environments (e.g. corporate laptops) where administrator/install permissions are restricted.
+- **Pros:** Zero-install footprint; doesn't alter system files.
+
+### 3. ZIP Archive (`.zip`)
+A compressed folder containing the compiled application files and dependencies.
+- **Best for:** Portable configurations where you want full control over where the application files are kept, or for offline distribution.
+- **Pros:** Easy to inspect files directly; runs without installation.
+
+---
+
+## Cons & Limitations of Packaged Electron Applications
+
+Since Notely is packaged as an Electron desktop application, it inherits a few tradeoffs compared to native Windows apps or web tools:
+
+1. **Large Package Size:** The bundle includes both Chromium (browser engine) and Node.js runtime, resulting in a download size of over 100MB+ per package.
+2. **Memory Footprint:** Each open window launches separate helper processes for the renderer, main processor, and utility threads. This consumes more RAM compared to light text editors (like Notepad).
+3. **Windows SmartScreen/Signing Warnings:** Unsigned custom builds may trigger Windows Defender SmartScreen warnings on launch. Users will need to click *More Info -> Run Anyway* to launch the application unless it is signed with a valid Microsoft Developer Certificate.
+4. **Native Bindings (e.g., node-pty):** Notely compiles binary system dependencies (like the embedded terminal interface) specifically for target operating system architectures (x64). These require corresponding C++ runtimes on the host machine.
+
 ## Open Your Workspace
 
 A **workspace** is a folder on your computer where your notes live. Notely reads `.md` files from this folder and its subfolders.

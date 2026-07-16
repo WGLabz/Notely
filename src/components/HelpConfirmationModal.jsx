@@ -4,7 +4,7 @@ import { OverlayDialog } from "./OverlayDialog";
 export function HelpConfirmationModal({ open, onClose }) {
   if (!open) return null;
 
-  const docUrl = "https://thenotelyapp.github.io/getting-started/";
+  const docUrl = "https://thenotelyapp.github.io";
 
   const handleConfirm = () => {
     window.open(docUrl, "_blank", "noopener,noreferrer");

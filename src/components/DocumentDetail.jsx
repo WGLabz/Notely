@@ -41,6 +41,7 @@ import { useWorkspaceScopedStorage } from "../hooks/useWorkspaceScopedStorage";
 import { renderMarkdown } from "../utils/renderUtils";
 import { extractTasksFromText, getTaskCountsFromText } from "../utils/taskUtils";
 import useConfirm from "../hooks/useConfirm";
+import { NoteTabBar } from "./NoteTabBar";
 
 function getBlockRange(value, anchorIndex) {
   const text = String(value || "");
@@ -702,6 +703,20 @@ export function DocumentDetail({
   onForceSaveDocument,
   autosaveEnabled = false,
   setAutosaveEnabled,
+  openTabs = [],
+  activeTabPath = null,
+  tabStates = {},
+  documents = [],
+  onSelectTab,
+  onCloseTab,
+  onNewTab,
+  onNewFolder,
+  onCloseOthers,
+  onCloseToRight,
+  onCloseSaved,
+  onCloseAll,
+  onOpenInEditor,
+  onRevealInExplorer,
 }) {
   const { confirm } = useConfirm();
   const MAX_EDITOR_HISTORY = 200;
@@ -1576,6 +1591,24 @@ export function DocumentDetail({
 
   return (
     <div className="detail-shell">
+      {!isFocusMode && (
+        <NoteTabBar
+          openTabs={openTabs}
+          activeTabPath={activeTabPath}
+          tabStates={tabStates}
+          documents={documents}
+          onSelectTab={onSelectTab}
+          onCloseTab={onCloseTab}
+          onNewTab={onNewTab}
+          onNewFolder={onNewFolder}
+          onCloseOthers={onCloseOthers}
+          onCloseToRight={onCloseToRight}
+          onCloseSaved={onCloseSaved}
+          onCloseAll={onCloseAll}
+          onOpenInEditor={onOpenInEditor}
+          onRevealInExplorer={onRevealInExplorer}
+        />
+      )}
       {!isFocusMode && (
         <div className="detail-topbar">
           <nav className="detail-breadcrumb" aria-label="Note location">

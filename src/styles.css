@@ -6233,6 +6233,51 @@ button {
   padding-inline: 0;
 }
 
+.image-linker-list.compact {
+  gap: 2px !important;
+  margin-top: 2px !important;
+}
+
+.image-linker-note-item {
+  width: 100%;
+  min-height: 28px !important;
+  padding: 6px 12px !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: var(--radius-md) !important;
+  color: var(--text-muted) !important;
+  font-family: inherit;
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  text-align: left !important;
+  transition: all 120ms ease !important;
+  cursor: pointer !important;
+  box-sizing: border-box !important;
+  margin: 1px 0 !important;
+  box-shadow: none !important;
+}
+
+.image-linker-note-item:hover {
+  background: var(--surface-accent) !important;
+  color: var(--text-strong) !important;
+  transform: none !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+
+.image-linker-note-item:hover .image-linker-note-title {
+  color: var(--text-strong) !important;
+}
+
+.image-linker-note-item:hover .image-linker-note-path {
+  color: var(--text-muted) !important;
+  opacity: 0.9;
+}
+
 .image-linker-note-title {
   min-width: 0;
   overflow: hidden;
@@ -11397,6 +11442,391 @@ button {
   overflow-y: auto;
   flex: 1;
 }
+
+/* ── Note Tab Bar ───────────────────────────────────────────────────────────── */
+
+/* ── Note Tab Bar ───────────────────────────────────────────────────────────── */
+
+.note-tab-bar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  border: 1px solid var(--surface-border);
+  border-bottom: 1px solid var(--surface-border);
+  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+  background: var(--surface-muted);
+  padding: 6px 10px 0 10px;
+  min-height: 38px;
+  box-sizing: border-box;
+  gap: 8px;
+}
+
+.note-tab-list {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  overflow-x: auto;
+  flex: 1;
+  scrollbar-width: none; /* Firefox */
+  margin-bottom: -1px; /* Overlap with tab bar bottom border */
+}
+
+.note-tab-list::-webkit-scrollbar {
+  display: none; /* Chrome, Safari */
+}
+
+.note-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  cursor: pointer;
+  position: relative;
+  transition: all 120ms ease;
+  max-width: 160px;
+  min-width: 85px;
+  color: var(--text-muted);
+  box-sizing: border-box;
+  height: 32px;
+}
+
+.note-tab:hover {
+  background: rgba(0, 0, 0, 0.02);
+  color: var(--text-strong);
+}
+
+:root[data-theme="dark"] .note-tab:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.note-tab.active {
+  background: var(--surface-bg);
+  border-color: var(--surface-border);
+  border-bottom: 1px solid var(--surface-bg); /* Mask container bottom border */
+  z-index: 2;
+  font-weight: 500;
+  color: var(--text-strong);
+}
+
+.note-tab.active::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent-solid);
+  border-radius: 4px 4px 0 0;
+}
+
+.note-tab-title-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font-family: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+  text-align: left;
+  flex: 1;
+  min-width: 0;
+}
+
+.note-tab-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.note-tab-dirty-dot {
+  width: 5px;
+  height: 5px;
+  background-color: var(--accent-solid);
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.note-tab-close-btn {
+  background: none;
+  border: none;
+  padding: 2px;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 120ms ease;
+  opacity: 0.6;
+}
+
+.note-tab-close-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--status-danger-text, #ef4444);
+  opacity: 1;
+}
+
+:root[data-theme="dark"] .note-tab-close-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ── Note Tab Add & Picker Dropdown ─────────────────────────────────────────── */
+
+.note-tab-add-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.note-tab-add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-bg);
+  border: 1px solid var(--accent-solid);
+  border-radius: var(--radius-md);
+  color: var(--accent-solid);
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  transition: all 150ms ease;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.note-tab-add-btn:hover {
+  background: var(--surface-accent);
+  border-color: var(--accent-solid);
+  color: var(--accent-solid);
+  box-shadow: 0 2px 6px rgba(21, 52, 57, 0.08);
+}
+
+:root[data-theme="dark"] .note-tab-add-btn:hover {
+  background: var(--surface-bg);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.note-tab-add-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--surface-elevated);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px rgba(9, 18, 21, 0.16);
+  padding: 4px 0;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+}
+
+:root[data-theme="dark"] .note-tab-add-dropdown {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.note-tab-add-dropdown button {
+  display: flex;
+  align-items: center;
+  padding: 6px 14px;
+  font-family: inherit;
+  font-size: 11.5px;
+  border: none;
+  background: transparent;
+  color: var(--text-strong);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  box-sizing: border-box;
+  transition: background 120ms;
+}
+
+.note-tab-add-dropdown button:hover {
+  background: var(--surface-accent);
+}
+
+.note-tab-add-dropdown-separator {
+  height: 1px;
+  background: var(--surface-border);
+  margin: 4px 0;
+}
+
+.note-tab-add-dropdown-header {
+  padding: 6px 14px 4px 14px;
+  font-size: 10px;
+  font-weight: 650;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.note-tab-add-dropdown-scroll {
+  max-height: 180px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.note-tab-add-dropdown-item {
+  display: block !important;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  color: var(--text-muted) !important;
+}
+
+.note-tab-add-dropdown-item:hover {
+  color: var(--text-strong) !important;
+}
+
+/* ── Note Tab Overflow ───────────────────────────────────────────────────────── */
+
+.note-tab-overflow-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 32px;
+}
+
+.note-tab-overflow-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid var(--surface-border);
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 500;
+  transition: all 150ms ease;
+  white-space: nowrap;
+  height: 32px;
+  box-sizing: border-box;
+}
+
+.note-tab-overflow-btn:hover {
+  background: rgba(0, 0, 0, 0.02);
+  color: var(--text-strong);
+}
+
+:root[data-theme="dark"] .note-tab-overflow-btn:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.note-tab-overflow-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--surface-elevated);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px rgba(9, 18, 21, 0.16);
+  padding: 4px 0;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+:root[data-theme="dark"] .note-tab-overflow-dropdown {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.note-tab-overflow-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 11.5px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: left;
+  transition: background 120ms;
+  min-width: 150px;
+  box-sizing: border-box;
+}
+
+.note-tab-overflow-item:hover {
+  background: var(--surface-accent);
+  color: var(--text-strong);
+}
+
+.note-tab-overflow-item.active {
+  font-weight: 500;
+  color: var(--text-strong);
+  background: var(--surface-accent-strong);
+}
+
+/* ── Tab Context Menu ────────────────────────────────────────────────────────── */
+
+.tab-context-menu {
+  position: fixed;
+  background: var(--surface-elevated);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px rgba(9, 18, 21, 0.16);
+  padding: 4px 0;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+}
+
+:root[data-theme="dark"] .tab-context-menu {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.tab-context-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  font-family: inherit;
+  font-size: 11.5px;
+  border: none;
+  background: transparent;
+  color: var(--text-strong);
+  cursor: pointer;
+  text-align: left;
+  transition: background 120ms;
+}
+
+.tab-context-menu button:hover {
+  background: var(--surface-accent);
+}
+
+.tab-context-menu button svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.tab-context-menu-separator {
+  height: 1px;
+  background: var(--surface-border);
+  margin: 4px 0;
+}
+
+
+
 
 
 

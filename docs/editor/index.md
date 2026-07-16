@@ -60,7 +60,8 @@ Both actions show a success notification and copy to the clipboard.
 Notely checks your Markdown as you write:
 
 - **Markdown validation** — flags structural issues (unclosed tables, bad heading levels, etc.)
-- **Typo checking** — underlines suspected spelling errors in prose (skips code blocks)
+- **Typo checking** — underlines suspected spelling errors in prose (skips code blocks). Right-click any flagged word to ignore it or add it to your custom spelling dictionary.
+- **Custom spelling dictionary** — manage custom spelling dictionary words via the settings menu or the command palette (under "Manage Spelling Dictionary").
 
 When issues are found, a badge appears in the editor header. Click it to jump to the first problem.
 

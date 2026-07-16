@@ -11,7 +11,7 @@
   <a href="https://github.com/WGLabz/Notely/actions">
     <img src="https://github.com/WGLabz/Notely/actions/workflows/cd.yml/badge.svg" alt="CD Status">
   </a>
-  <img src="https://img.shields.io/badge/version-v0.1.20-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/version-v0.1.21-blue" alt="Version" />
   <img src="https://img.shields.io/badge/license-CC--BY--NC--4.0-green" alt="License" />
   <img src="https://img.shields.io/badge/platform-Windows-lightgrey" alt="Platform" />
 
@@ -28,7 +28,7 @@ Notely is built with Electron + React and is designed for project notes, meeting
 - Organize work into projects and a root workspace.
 - Edit Markdown in raw, split, preview, and web modes.
 - Validate Markdown structure while you type.
-- Check typos in the editor.
+- Check typos in the editor with a built-in Hunspell-powered spelling engine. Add custom jargon/vocabulary to a workspace spelling dictionary, and manage added words in a dedicated dictionary overlay.
 - Search notes by title, metadata, path, and in-file content with match previews.
   - **Regex search** with validation and pattern matching for advanced queries.
   - **Code-aware search** to find patterns inside code blocks only.

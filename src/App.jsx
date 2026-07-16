@@ -419,6 +419,19 @@ export default function App() {
     handleOpenListItem,
     handleOpenReferencedDocument,
     handleLandingNavigateTo,
+    openTabs,
+    activeTabPath,
+    tabStates,
+    handleCloseTab,
+    handleCloseOthers,
+    handleCloseToRight,
+    handleCloseSaved,
+    handleCloseAll,
+    handleOpenInEditor,
+    handleRevealInExplorer,
+    workspaceFolders,
+    selectedParentFolder,
+    setSelectedParentFolder,
   } = useDocumentManager({ notify });
 
   const [activeDocumentChangedOnDisk, setActiveDocumentChangedOnDisk] = useState(false);
@@ -2552,6 +2565,20 @@ export default function App() {
         <Suspense fallback={<div className="lazy-loading">Loading editor…</div>}>
           <DocumentDetail
             document={current}
+            openTabs={openTabs}
+            activeTabPath={activeTabPath}
+            tabStates={tabStates}
+            documents={documents}
+            onSelectTab={openDocument}
+            onCloseTab={handleCloseTab}
+            onNewTab={() => setNoteDialogOpen(true)}
+            onNewFolder={() => setFolderDialogOpen(true)}
+            onCloseOthers={handleCloseOthers}
+            onCloseToRight={handleCloseToRight}
+            onCloseSaved={handleCloseSaved}
+            onCloseAll={handleCloseAll}
+            onOpenInEditor={handleOpenInEditor}
+            onRevealInExplorer={handleRevealInExplorer}
             history={history}
             workspacePath={notesFolderPath}
             branch={gitWorkspaceMeta.branch}
@@ -2714,6 +2741,30 @@ export default function App() {
                 placeholder="Enter folder name"
                 autoFocus
               />
+            </label>
+            <label className="overlay-dialog-field">
+              <span>Parent folder</span>
+              <select
+                value={selectedParentFolder}
+                onChange={(event) => setSelectedParentFolder(event.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px",
+                  borderRadius: "var(--radius-md)",
+                  border: "1px solid var(--surface-border)",
+                  background: "var(--surface-bg)",
+                  color: "var(--text-strong)",
+                  fontSize: "12.5px",
+                  marginTop: "4px",
+                  fontFamily: "inherit"
+                }}
+              >
+                {workspaceFolders.map((f) => (
+                  <option key={f.path} value={f.path}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
             </label>
             <div className="overlay-dialog-actions">
               <button className="primary-button" onClick={handleCreateFolder} disabled={creatingFolder} type="button">

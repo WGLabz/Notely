@@ -590,13 +590,6 @@ export async function revealWorkspaceInExplorer(folderPath) {
   return api.revealWorkspaceInExplorer({ folderPath });
 }
 
-export async function openReferenceNoteWindow(filePath) {
-  const api = getNotesApi();
-  if (typeof api.openReferenceNoteWindow !== "function") {
-    throw new Error("Reference note window unavailable. Please restart the app to load the latest desktop API.");
-  }
-  return api.openReferenceNoteWindow({ filePath });
-}
 
 export async function downloadPdf(payload) {
   const api = getNotesApi();

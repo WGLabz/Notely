@@ -23,7 +23,7 @@ import {
 import AppSelect from "./AppSelect";
 import { applySnippet, createMediaMarkdown, insertTextAtCursor, normalizeImagePathForMarkdown } from "../utils/markdownUtils";
 import { insertMediaFromFile } from "../services/imageService";
-import { captureCurrentDisplay, listDocuments, listImages, openReferenceNoteWindow, saveImage } from "../services/electronService";
+import { captureCurrentDisplay, listDocuments, listImages, saveImage } from "../services/electronService";
 import { applyMarkdownQuickFix, applyValidationSuggestion, getIssueFixType } from "../utils/markdownQuickFix";
 import { MEDIA_FILE_INPUT_ACCEPT } from "../utils/mediaTypeUtils";
 import { getMediaTypeFromExtension } from "../utils/mediaUtils";
@@ -174,7 +174,6 @@ export function MarkdownToolbar({
   const [showMermaidBuilder, setShowMermaidBuilder] = useState(false);
   const [showAssetLinker, setShowAssetLinker] = useState(false);
   const [showReferenceLinker, setShowReferenceLinker] = useState(false);
-  const [referencePickerMode, setReferencePickerMode] = useState("preview");
   const [showWebLinker, setShowWebLinker] = useState(false);
   const [showTableBuilder, setShowTableBuilder] = useState(false);
   const [showValidationPanel, setShowValidationPanel] = useState(false);
@@ -411,9 +410,8 @@ export function MarkdownToolbar({
     return files;
   };
 
-  async function openReferenceLinker(mode = "preview") {
+  async function openReferenceLinker() {
     const shouldOpen = toggleToolbarPanel("reference");
-    setReferencePickerMode(mode === "insert" ? "insert" : "preview");
     setReferenceError("");
 
     if (!shouldOpen) return;
@@ -606,20 +604,7 @@ export function MarkdownToolbar({
     onNotify?.("Document link inserted.", "success");
   }
 
-  async function previewReferenceDocLink(targetDoc) {
-    const filePath = targetDoc?.filePath;
-    if (!hasMarkdownExtension(filePath)) {
-      setReferenceError("Only markdown notes can be previewed. Choose a .md file.");
-      return;
-    }
 
-    try {
-      await openReferenceNoteWindow(filePath);
-      onNotify?.("Reference note opened in a new window.", "success");
-    } catch (error) {
-      setReferenceError(error?.message || "Unable to open reference note preview.");
-    }
-  }
 
   function linkExistingAsset(pathValue) {
     const fileName = pathValue.split(/[\\/]/).pop() || "Media";
@@ -837,19 +822,19 @@ export function MarkdownToolbar({
   });
 
   const handleReferenceNoteShortcut = useEffectEvent(() => {
-    void openReferenceLinker("preview");
+    void openReferenceLinker();
   });
 
   const handleInsertReferenceLinkShortcut = useEffectEvent(() => {
-    void openReferenceLinker("insert");
+    void openReferenceLinker();
   });
 
   const handleOpenReferencePickerEvent = useEffectEvent(() => {
-    void openReferenceLinker("preview");
+    void openReferenceLinker();
   });
 
   const handleInsertReferenceLinkPickerEvent = useEffectEvent(() => {
-    void openReferenceLinker("insert");
+    void openReferenceLinker();
   });
 
   useEffect(() => {
@@ -925,7 +910,7 @@ export function MarkdownToolbar({
       <button onClick={openWebLinker} data-tooltip="Insert web link">
         <Link2 size={18} />
       </button>
-      <button onClick={() => void openReferenceLinker("preview")} data-tooltip="Open reference note (Ctrl/Cmd+Shift+K)">
+      <button onClick={() => void openReferenceLinker()} data-tooltip="Insert reference note link (Ctrl/Cmd+Shift+K)">
         <FileText size={18} />
       </button>
       <button onClick={() => imageInputRef.current?.click()} data-tooltip="Insert media from file">
@@ -1168,7 +1153,7 @@ export function MarkdownToolbar({
       {showReferenceLinker && (
         <div className="image-linker" ref={referenceLinkPopoverRef} role="dialog" aria-label="Reference note picker">
           <div className="mermaid-builder-header">
-            <strong>{referencePickerMode === "insert" ? "Insert Reference Link" : "Open Reference Note"}</strong>
+            <strong>Insert Reference Link</strong>
             <button className="mermaid-close" onClick={() => setShowReferenceLinker(false)} data-tooltip="Close">
               x
             </button>
@@ -1183,16 +1168,14 @@ export function MarkdownToolbar({
                 placeholder="Type note title or file name"
               />
             </label>
-            {referencePickerMode === "insert" ? (
-              <label>
-                Link text (optional)
-                <input
-                  value={referenceLinkText}
-                  onChange={(event) => setReferenceLinkText(event.target.value)}
-                  placeholder="Defaults to note title"
-                />
-              </label>
-            ) : null}
+            <label>
+              Link text (optional)
+              <input
+                value={referenceLinkText}
+                onChange={(event) => setReferenceLinkText(event.target.value)}
+                placeholder="Defaults to note title"
+              />
+            </label>
           </div>
 
           {referenceError && <p className="toolbar-inline-error">{referenceError}</p>}
@@ -1209,7 +1192,7 @@ export function MarkdownToolbar({
           }).length ? (
             <p className="toolbar-inline-note">No matching notes found.</p>
           ) : (
-            <div className="image-linker-list">
+            <div className="image-linker-list compact">
               {availableReferenceNotes
                 .filter((asset) => {
                   const search = referenceSearch.trim().toLowerCase();
@@ -1221,45 +1204,18 @@ export function MarkdownToolbar({
                   return label.includes(search);
                 })
                 .map((asset) => (
-                  <div className="image-linker-note-row" key={asset.filePath}>
-                    <button
-                      className="image-linker-note-primary"
-                      onClick={() => {
-                        if (referencePickerMode === "insert") {
-                          insertReferenceDocLink(asset);
-                          return;
-                        }
-                        void previewReferenceDocLink(asset);
-                      }}
-                      data-tooltip={asset.displayPath || asset.fileName || asset.title}
-                    >
-                      <span className="image-linker-note-title">{(asset.displayTitle || asset.fileName || "Untitled note").trim()}</span>
-                      {asset.displayPath ? (
-                        <span className="image-linker-note-path">{asset.displayPath}</span>
-                      ) : null}
-                    </button>
-                    <button
-                      className={referencePickerMode === "insert"
-                        ? "image-linker-note-secondary"
-                        : "image-linker-note-secondary image-linker-note-secondary-icon"}
-                      onClick={() => {
-                        if (referencePickerMode === "insert") {
-                          void previewReferenceDocLink(asset);
-                          return;
-                        }
-                        insertReferenceDocLink(asset);
-                      }}
-                      data-tooltip={referencePickerMode === "insert"
-                        ? `Preview ${asset.displayTitle || asset.fileName || asset.title || "note"}`
-                        : `Insert link to ${asset.displayTitle || asset.fileName || asset.title || "note"}`}
-                      aria-label={referencePickerMode === "insert"
-                        ? `Preview ${asset.displayTitle || asset.fileName || asset.title || "note"}`
-                        : `Insert link to ${asset.displayTitle || asset.fileName || asset.title || "note"}`}
-                      type="button"
-                    >
-                      {referencePickerMode === "insert" ? "Open Preview" : <Link2 size={14} aria-hidden="true" />}
-                    </button>
-                  </div>
+                  <button
+                    key={asset.filePath}
+                    className="image-linker-note-item image-linker-note-primary"
+                    type="button"
+                    onClick={() => insertReferenceDocLink(asset)}
+                    title={asset.displayPath || asset.filePath}
+                  >
+                    <span className="image-linker-note-title">{(asset.displayTitle || asset.fileName || "Untitled note").trim()}</span>
+                    {asset.displayPath ? (
+                      <span className="image-linker-note-path">{asset.displayPath}</span>
+                    ) : null}
+                  </button>
                 ))}
             </div>
           )}
