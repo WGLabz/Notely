@@ -235,6 +235,11 @@ function buildAppMenu(win, context = {}) {
         },
         { type: "separator" },
         {
+          label: "Set Icon & Color",
+          click: () => sendMenuAction(win, "set-icon-and-color")
+        },
+        { type: "separator" },
+        {
           label: "Editor Layout",
           submenu: [
             {

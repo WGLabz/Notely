@@ -4,11 +4,11 @@ import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WebViewPreview } from "../../components/WebViewPreview";
 
-vi.mock("./MermaidBlock", () => ({
+vi.mock("../../components/MermaidBlock", () => ({
   MermaidBlock: () => null,
 }));
 
-vi.mock("./ExcalidrawBlock", () => ({
+vi.mock("../../components/ExcalidrawBlock", () => ({
   ExcalidrawBlock: ({ imagePath, diagramId }) => (
     <div data-testid="excalidraw-block" data-image-path={imagePath} data-diagram-id={diagramId} />
   ),

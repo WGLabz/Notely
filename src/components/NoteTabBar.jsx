@@ -1,5 +1,7 @@
-import React, { useMemo, useState, useEffect, useRef } from "react";
-import { X, Plus, ChevronDown, FolderOpen, ExternalLink } from "lucide-react";
+import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import { X, Plus, ChevronDown, FolderOpen, ExternalLink, Edit2 } from "lucide-react";
+import { useWorkspaceMetadata } from "../hooks/useWorkspaceMetadata";
+import { IconColorPickerModal } from "./IconColorPickerModal";
 
 export function NoteTabBar({
   openTabs = [],
@@ -22,6 +24,8 @@ export function NoteTabBar({
   const [contextMenu, setContextMenu] = useState(null); // { x, y, filePath }
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [addDropdownOpen, setAddDropdownOpen] = useState(false);
+  const [pickerState, setPickerState] = useState({ isOpen: false, entry: null });
+  const { getMetadata, updateMetadata } = useWorkspaceMetadata();
 
   // Measure container width
   useEffect(() => {
@@ -34,6 +38,7 @@ export function NoteTabBar({
     observer.observe(barRef.current);
     return () => observer.disconnect();
   }, []);
+
 
   // Close menus on click-away
   useEffect(() => {
@@ -59,7 +64,7 @@ export function NoteTabBar({
       .filter((doc) => doc.entryType === "file" && !openTabs.includes(doc.filePath));
   }, [documents, openTabs]);
 
-  const getTabTitle = (filePath) => {
+  const getTabTitle = useCallback((filePath) => {
     const cachedDoc = tabStates[filePath]?.doc;
     if (cachedDoc?.title) return cachedDoc.title;
     const metaDoc = docMap.get(filePath);
@@ -67,7 +72,18 @@ export function NoteTabBar({
     const parts = filePath.split(/[\\/]/);
     const basename = parts[parts.length - 1] || filePath;
     return basename.replace(/\.md$/i, "");
-  };
+  }, [tabStates, docMap]);
+
+  // Listen for set-icon-and-color action from main menu
+  useEffect(() => {
+    const handleSetIcon = () => {
+      if (activeTabPath) {
+        setPickerState({ isOpen: true, entry: { filePath: activeTabPath, title: getTabTitle(activeTabPath) } });
+      }
+    };
+    window.addEventListener("app:set-icon-and-color", handleSetIcon);
+    return () => window.removeEventListener("app:set-icon-and-color", handleSetIcon);
+  }, [activeTabPath, getTabTitle]);
 
   const isTabDirty = (filePath) => {
     const state = tabStates[filePath];
@@ -144,7 +160,9 @@ export function NoteTabBar({
                 type="button"
                 onClick={() => onSelectTab?.(filePath)}
               >
-                <span className="note-tab-text">{title}</span>
+                <span className="note-tab-text" style={getMetadata(filePath)?.color ? { color: getMetadata(filePath).color } : {}}>
+                  {title}
+                </span>
                 {isDirty && <span className="note-tab-dirty-dot" aria-label="Unsaved changes" />}
               </button>
               <button
@@ -364,7 +382,29 @@ export function NoteTabBar({
             <FolderOpen size={14} />
             Reveal in File Explorer
           </button>
+          <div className="tab-context-menu-separator" />
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setPickerState({ isOpen: true, entry: { filePath: contextMenu.filePath, title: getTabTitle(contextMenu.filePath) } });
+              setContextMenu(null);
+            }}
+          >
+            <Edit2 size={14} />
+            Set Icon & Color
+          </button>
         </div>
+      )}
+      {pickerState.isOpen && (
+        <IconColorPickerModal
+          isOpen={true}
+          onClose={() => setPickerState({ isOpen: false, entry: null })}
+          initialIcon={getMetadata(pickerState.entry?.filePath)?.icon}
+          initialColor={getMetadata(pickerState.entry?.filePath)?.color}
+          targetName={pickerState.entry?.title}
+          onSave={(updates) => updateMetadata(pickerState.entry?.filePath, updates)}
+        />
       )}
     </div>
   );

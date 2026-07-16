@@ -7,8 +7,8 @@ import { MarkdownToolbar } from "../../components/MarkdownToolbar";
 const listImagesMock = vi.fn();
 const listDocumentsMock = vi.fn();
 
-vi.mock("../services/electronService", async () => {
-  const actual = await vi.importActual("../services/electronService");
+vi.mock("../../services/electronService", async () => {
+  const actual = await vi.importActual("../../services/electronService");
   return {
     ...actual,
     listImages: (...args) => listImagesMock(...args),

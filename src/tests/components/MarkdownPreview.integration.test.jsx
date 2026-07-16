@@ -4,11 +4,11 @@ import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MarkdownPreview } from "../../components/MarkdownPreview";
 
-vi.mock("./MermaidBlock", () => ({
+vi.mock("../../components/MermaidBlock", () => ({
   MermaidBlock: () => null,
 }));
 
-vi.mock("./ExcalidrawEditor", () => ({
+vi.mock("../../components/ExcalidrawEditor", () => ({
   default: () => null,
 }));
 
@@ -18,7 +18,7 @@ const deleteImageMock = vi.fn();
 const renameImageMock = vi.fn();
 const readMarkdownSourceMock = vi.fn();
 
-vi.mock("../services/electronService", () => ({
+vi.mock("../../services/electronService", () => ({
   readImage: (...args) => readImageMock(...args),
   replaceImage: (...args) => replaceImageMock(...args),
   deleteImage: (...args) => deleteImageMock(...args),

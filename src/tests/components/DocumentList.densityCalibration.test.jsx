@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { DocumentList } from "../../components/DocumentList";
 import { DOCUMENT_DENSITY_PROFILES } from "../../components/documentDensityProfiles";
 
-vi.mock("../services/electronService", () => ({
+vi.mock("../../services/electronService", () => ({
   readImage: vi.fn(async () => "data:image/png;base64,"),
 }));
 

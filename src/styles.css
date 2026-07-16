@@ -3462,8 +3462,8 @@ button {
 
 .document-card:hover {
   transform: translateY(-1px);
-  border-color: #2a5961;
-  box-shadow: 0 16px 30px rgba(20, 42, 44, 0.13);
+  border-color: rgba(42, 89, 97, 0.2);
+  box-shadow: 0 8px 24px rgba(20, 42, 44, 0.08);
 }
 
 .document-title,
@@ -11825,9 +11825,12 @@ button {
   margin: 4px 0;
 }
 
-
-
-
-
-
-
+.custom-avatar {
+  width: 24px !important;
+  height: 24px !important;
+  margin-right: 4px;
+}
+.document-table .custom-avatar {
+  width: 20px !important;
+  height: 20px !important;
+}

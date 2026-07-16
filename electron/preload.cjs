@@ -199,5 +199,13 @@ contextBridge.exposeInMainWorld("notesApi", {
   executeCodeBlock: (payload) => ipcRenderer.invoke("code:execute", payload),
   checkIsDirectory: (payload) => ipcRenderer.invoke("system:is-directory", payload),
   openFolder: (payload) => ipcRenderer.invoke("shell:open-folder", payload),
+  getWorkspaceMetadata: () => ipcRenderer.invoke("workspace-metadata:get-all"),
+  updateWorkspaceMetadata: (payload) => ipcRenderer.invoke("workspace-metadata:update", payload),
+  onWorkspaceMetadataChanged: (callback) => {
+    if (typeof callback !== "function") return () => {};
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on("workspace-metadata:changed", listener);
+    return () => ipcRenderer.removeListener("workspace-metadata:changed", listener);
+  },
 });
 

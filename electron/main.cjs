@@ -35,6 +35,7 @@ const { assertTrustedIpcSender } = require("./lib/ipc/ipcSecurity.cjs");
 const { createP2PSyncEngine } = require("./lib/sync/p2pSyncEngine.cjs");
 const { createWorkspaceEntries, DEFAULT_WALK_EXCLUDE_DIRS } = require("./lib/documents/workspaceEntries.cjs");
 const { createMetadataStore } = require("./lib/core/metadataStore.cjs");
+const { createWorkspaceMetadata } = require("./lib/core/workspaceMetadata.cjs");
 const { createDashboardCache } = require("./lib/core/dashboardCache.cjs");
 const { createDocumentFileOps } = require("./lib/documents/documentFileOps.cjs");
 const { createMainHelpers } = require("./lib/core/mainHelpers.cjs");
@@ -451,6 +452,15 @@ function applyNotesRoot(nextRootPath) {
     pruneVersionHistory: (filePath, limit) => p2pSyncEngine.pruneVersionHistory(filePath, limit),
   });
 
+  workspaceMetadataStore = createWorkspaceMetadata({
+    fs,
+    path,
+    getAppDataDir: () => appDataDir,
+    getNotesRoot: () => notesRoot,
+    filePathWithin,
+    normalizeToPosix,
+  });
+
   if (p2pService) {
     p2pService.shutdown();
   }
@@ -746,6 +756,7 @@ function deleteFolderInProject(rootDir, folderPath) {
 }
 
 let metadataStore;
+let workspaceMetadataStore;
 
 const windowLifecycle = createWindowLifecycle({
   app,
@@ -877,6 +888,7 @@ registerCoreIpcHandlers(ipcMain, {
   },
   createReferenceWindow: (filePath) => windowLifecycle.createReferenceWindow(filePath),
   nativeTheme,
+  getWorkspaceMetadataStore: () => workspaceMetadataStore,
 });
 
 terminalIpc.registerHandlers(ipcMain);

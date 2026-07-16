@@ -24,6 +24,7 @@ function registerCoreIpcHandlers(ipcMain, deps) {
     getActiveProjectSlug,
     setActiveProjectSlug,
     createReferenceWindow,
+    getWorkspaceMetadataStore,
   } = deps;
 
   const RECENT_WORKSPACES_LIMIT = 8;
@@ -501,6 +502,34 @@ function registerCoreIpcHandlers(ipcMain, deps) {
       throw new Error(openResult);
     }
     return { success: true };
+  });
+
+  registerTrustedHandler("workspace-metadata:get-all", () => {
+    if (typeof getWorkspaceMetadataStore === "function") {
+      const store = getWorkspaceMetadataStore();
+      if (store) return store.getAllMetadata();
+    }
+    return {};
+  });
+
+  registerTrustedHandler("workspace-metadata:update", (_event, payload) => {
+    const { absolutePath, icon, color } = payload || {};
+    if (!absolutePath) throw new Error("absolutePath is required");
+    
+    if (typeof getWorkspaceMetadataStore === "function") {
+      const store = getWorkspaceMetadataStore();
+      if (store) {
+        store.updateMetadata(absolutePath, { icon, color });
+        // Broadcast the update to all windows
+        const allMeta = store.getAllMetadata();
+        for (const win of BrowserWindow.getAllWindows()) {
+          if (!win || win.isDestroyed()) continue;
+          win.webContents.send("workspace-metadata:changed", allMeta);
+        }
+        return { success: true };
+      }
+    }
+    return { success: false };
   });
 
   return {

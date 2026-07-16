@@ -10,7 +10,7 @@ const mockOnTerminalExit = vi.fn(() => () => {});
 const mockResizeTerminal = vi.fn();
 const mockWriteTerminalInput = vi.fn();
 
-vi.mock("../services/electronService", () => ({
+vi.mock("../../services/electronService", () => ({
   createTerminalSession: (...args) => mockCreateTerminalSession(...args),
   killTerminalSession: (...args) => mockKillTerminalSession(...args),
   onTerminalData: (...args) => mockOnTerminalData(...args),

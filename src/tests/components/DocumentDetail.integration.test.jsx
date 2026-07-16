@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { DocumentDetail } from "../../components/DocumentDetail";
 
-vi.mock("./ExcalidrawEditor", () => ({
+vi.mock("../../components/ExcalidrawEditor", () => ({
   default: () => null,
 }));
 

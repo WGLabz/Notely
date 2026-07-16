@@ -1148,6 +1148,11 @@ export default function App() {
         return;
       }
 
+      if (action === "set-icon-and-color") {
+        window.dispatchEvent(new CustomEvent("app:set-icon-and-color"));
+        return;
+      }
+
       if (action === "open-p2p-status") {
         handleOpenP2PStatus();
         return;

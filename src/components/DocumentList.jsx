@@ -3,18 +3,29 @@ import { useEffect, useMemo, useState } from "react";
 import { readImage } from "../services/electronService";
 import { DocumentEntryActions } from "./DocumentEntryActions";
 import { getDocumentDensityProfile, normalizeDocumentDensity } from "./documentDensityProfiles";
+import { useWorkspaceMetadata } from "../hooks/useWorkspaceMetadata";
+import { IconColorPickerModal } from "./IconColorPickerModal";
+import * as LucideIcons from "lucide-react";
 
-function EntryIcon({ entryType }) {
+function EntryIcon({ entryType, icon, color }) {
+  const style = color ? { color } : {};
+  const className = `document-kind-icon ${entryType} ${icon || color ? 'custom-avatar' : ''}`;
+  
+  if (icon && LucideIcons[icon]) {
+    const IconComp = LucideIcons[icon];
+    return <IconComp className={className} style={style} />;
+  }
+
   if (entryType === "folder") {
     return (
-      <svg className="document-kind-icon folder" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+      <svg className={className} style={style} viewBox="0 0 20 20" aria-hidden="true" focusable="false">
         <path d="M2.5 5.5A1.5 1.5 0 0 1 4 4h4.1a2 2 0 0 1 1.4.58l1.02 1.02A1 1 0 0 0 11.24 6H16a1.5 1.5 0 0 1 1.5 1.5v7A1.5 1.5 0 0 1 16 16H4a1.5 1.5 0 0 1-1.5-1.5z" />
       </svg>
     );
   }
 
   return (
-    <svg className="document-kind-icon note" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+    <svg className={className} style={style} viewBox="0 0 20 20" aria-hidden="true" focusable="false">
       <path d="M5 2.5h6.6a2 2 0 0 1 1.4.58l2.92 2.92A2 2 0 0 1 16.5 7.4V15A2.5 2.5 0 0 1 14 17.5H5A2.5 2.5 0 0 1 2.5 15V5A2.5 2.5 0 0 1 5 2.5m0 1.5A1 1 0 0 0 4 5v10a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V7.6a.5.5 0 0 0-.15-.36l-2.9-2.9a.5.5 0 0 0-.35-.14z" />
     </svg>
   );
@@ -39,6 +50,8 @@ export function DocumentList({
   onToggleFavorite,
   emptyMessage,
 }) {
+  const { getMetadata, updateMetadata } = useWorkspaceMetadata();
+  const [pickerState, setPickerState] = useState({ isOpen: false, entry: null });
   const [resolvedPreviewImages, setResolvedPreviewImages] = useState({});
   const normalizedDensity = normalizeDocumentDensity(density);
   const densityProfile = getDocumentDensityProfile(normalizedDensity);
@@ -119,10 +132,16 @@ export function DocumentList({
             </tr>
           </thead>
           <tbody>
-            {documents.map((doc) => (
+            {documents.map((doc) => {
+              const meta = getMetadata(doc.filePath);
+              return (
               <tr
                 key={doc.filePath}
                 onClick={() => onOpen(doc)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setPickerState({ isOpen: true, entry: doc });
+                }}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
@@ -135,8 +154,8 @@ export function DocumentList({
               >
                 <td>
                   <span className="document-name-cell">
-                    <EntryIcon entryType={doc.entryType} />
-                    <span>{doc.title}</span>
+                    <EntryIcon entryType={doc.entryType} icon={meta.icon} color={meta.color} />
+                    <span style={meta.color ? { color: meta.color, fontWeight: '500' } : {}}>{doc.title}</span>
                     {doc.entryType === "file" ? (
                       <DocumentEntryActions
                         entry={doc}
@@ -175,9 +194,19 @@ export function DocumentList({
                   )}
                 </td>
               </tr>
-            ))}
+            )})}
           </tbody>
         </table>
+        {pickerState.isOpen && (
+          <IconColorPickerModal
+            isOpen={true}
+            onClose={() => setPickerState({ isOpen: false, entry: null })}
+            initialIcon={getMetadata(pickerState.entry?.filePath)?.icon}
+            initialColor={getMetadata(pickerState.entry?.filePath)?.color}
+            targetName={pickerState.entry?.title}
+            onSave={(updates) => updateMetadata(pickerState.entry?.filePath, updates)}
+          />
+        )}
       </div>
     );
   }
@@ -190,6 +219,7 @@ export function DocumentList({
       data-density-target-cards={densityProfile.targetCardsPerViewport}
     >
       {documents.map((doc) => {
+        const meta = getMetadata(doc.filePath);
         const previewTiles = (doc.previewImages || []).slice(0, 4).map((image, index) => {
           const key = `${doc.filePath}:${index}:${image.sourceFilePath || doc.filePath}:${image.path}`;
           const resolved = resolvedPreviewImages[key];
@@ -198,11 +228,11 @@ export function DocumentList({
         const hasPreview = previewTiles.some(Boolean);
 
         return (
-          <button className="document-card" key={doc.filePath} onClick={() => onOpen(doc)}>
+          <button className="document-card" key={doc.filePath} onClick={() => onOpen(doc)} onContextMenu={(e) => { e.preventDefault(); setPickerState({ isOpen: true, entry: doc }); }}>
             <span className="document-card-header">
               <span className="document-title-wrap">
-                <EntryIcon entryType={doc.entryType} />
-                <span className="document-title">{doc.title}</span>
+                <EntryIcon entryType={doc.entryType} icon={meta.icon} color={meta.color} />
+                <span className="document-title" style={meta.color ? { color: meta.color, fontWeight: '500' } : {}}>{doc.title}</span>
               </span>
               <DocumentEntryActions
                 entry={doc}
@@ -228,6 +258,16 @@ export function DocumentList({
           </button>
         );
       })}
+      {pickerState.isOpen && (
+        <IconColorPickerModal
+          isOpen={true}
+          onClose={() => setPickerState({ isOpen: false, entry: null })}
+          initialIcon={getMetadata(pickerState.entry?.filePath)?.icon}
+          initialColor={getMetadata(pickerState.entry?.filePath)?.color}
+          targetName={pickerState.entry?.title}
+          onSave={(updates) => updateMetadata(pickerState.entry?.filePath, updates)}
+        />
+      )}
     </div>
   );
 }
