@@ -2,7 +2,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DocumentList } from "./DocumentList";
+import { DocumentList } from "../../components/DocumentList";
 
 vi.mock("../services/electronService", () => ({
   readImage: vi.fn(async () => "data:image/png;base64,"),

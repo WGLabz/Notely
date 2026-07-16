@@ -2,8 +2,8 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { GitStatusBar } from "./GitStatusBar";
-import { GitCommitDialog } from "./GitCommitDialog";
+import { GitStatusBar } from "../../components/GitStatusBar";
+import { GitCommitDialog } from "../../components/GitCommitDialog";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 

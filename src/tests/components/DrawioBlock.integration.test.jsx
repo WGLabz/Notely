@@ -2,7 +2,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DrawioBlock } from "./DrawioBlock";
+import { DrawioBlock } from "../../components/DrawioBlock";
 
 const drawioExistsMock = vi.fn();
 const drawioReadSourceMock = vi.fn();

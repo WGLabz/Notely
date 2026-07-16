@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseMarkdownTable, serializeMarkdownTable } from "./tableUtils";
+import { parseMarkdownTable, serializeMarkdownTable } from "../../utils/tableUtils";
 
 describe("tableUtils", () => {
   it("parses escaped pipes inside cell content", () => {

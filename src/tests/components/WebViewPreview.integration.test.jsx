@@ -2,7 +2,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { WebViewPreview } from "./WebViewPreview";
+import { WebViewPreview } from "../../components/WebViewPreview";
 
 vi.mock("./MermaidBlock", () => ({
   MermaidBlock: () => null,

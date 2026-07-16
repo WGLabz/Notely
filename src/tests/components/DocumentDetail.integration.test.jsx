@@ -2,7 +2,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { DocumentDetail } from "./DocumentDetail";
+import { DocumentDetail } from "../../components/DocumentDetail";
 
 vi.mock("./ExcalidrawEditor", () => ({
   default: () => null,

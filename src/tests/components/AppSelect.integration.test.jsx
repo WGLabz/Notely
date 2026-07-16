@@ -2,7 +2,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import AppSelect from "./AppSelect";
+import AppSelect from "../../components/AppSelect";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 

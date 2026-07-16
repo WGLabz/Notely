@@ -2,8 +2,8 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DocumentList } from "./DocumentList";
-import { DOCUMENT_DENSITY_PROFILES } from "./documentDensityProfiles";
+import { DocumentList } from "../../components/DocumentList";
+import { DOCUMENT_DENSITY_PROFILES } from "../../components/documentDensityProfiles";
 
 vi.mock("../services/electronService", () => ({
   readImage: vi.fn(async () => "data:image/png;base64,"),

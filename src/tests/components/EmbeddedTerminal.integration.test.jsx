@@ -42,7 +42,7 @@ vi.mock("@xterm/addon-fit", () => ({
   FitAddon: vi.fn(() => mockFitAddon),
 }));
 
-import { EmbeddedTerminal } from "./EmbeddedTerminal";
+import { EmbeddedTerminal } from "../../components/EmbeddedTerminal";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 

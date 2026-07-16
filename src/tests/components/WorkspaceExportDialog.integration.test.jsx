@@ -2,7 +2,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { WorkspaceExportDialog } from "./WorkspaceExportDialog";
+import { WorkspaceExportDialog } from "../../components/WorkspaceExportDialog";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 

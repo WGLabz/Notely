@@ -2,7 +2,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { MarkdownEditor } from "./MarkdownEditor";
+import { MarkdownEditor } from "../../components/MarkdownEditor";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 

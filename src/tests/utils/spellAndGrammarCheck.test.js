@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { checkSpelling } from "./spellAndGrammarCheck";
+import { checkSpelling } from "../../utils/spellAndGrammarCheck";
 
 beforeEach(() => {
   vi.restoreAllMocks();

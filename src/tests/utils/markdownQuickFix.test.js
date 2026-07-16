@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyMarkdownQuickFix, applyValidationSuggestion, getIssueFixType } from "./markdownQuickFix";
+import { applyMarkdownQuickFix, applyValidationSuggestion, getIssueFixType } from "../../utils/markdownQuickFix";
 
 describe("markdown quick fix", () => {
   it("detects supported issue types", () => {

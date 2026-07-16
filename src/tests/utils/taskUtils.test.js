@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractOpenTasksFromDocuments, extractTasksFromDocuments, extractTasksFromText, getTaskCountsFromDocuments, getTaskCountsFromText } from "./taskUtils";
+import { extractOpenTasksFromDocuments, extractTasksFromDocuments, extractTasksFromText, getTaskCountsFromDocuments, getTaskCountsFromText } from "../../utils/taskUtils";
 
 describe("taskUtils", () => {
   it("extracts open and closed tasks from note text", () => {
