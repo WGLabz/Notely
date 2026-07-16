@@ -1,0 +1,166 @@
+/* Global Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-soft);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+:where(
+    a[href],
+    button,
+    [role="button"],
+    [tabindex]:not([tabindex="-1"])
+  ):focus:not(:focus-visible) {
+  outline: none;
+}
+
+:where(
+    a[href],
+    button,
+    input,
+    select,
+    textarea,
+    [role="button"],
+    [tabindex]:not([tabindex="-1"])
+  ):focus-visible {
+  outline: 1.5px solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+}
+
+:where(
+    button,
+    [role="button"]
+  ):focus-visible {
+  outline: none;
+  border-color: var(--focus-ring-color) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus-ring-color) 35%, transparent) !important;
+}
+
+.app-shell {
+  --terminal-status-height: 28px;
+  --app-shell-pad-x: var(--space-6);
+  --app-shell-pad-top: var(--space-6);
+  --app-shell-pad-bottom: 32px;
+  min-height: var(--app-viewport-height);
+  height: var(--app-viewport-height);
+  padding: var(--app-shell-pad-top) var(--app-shell-pad-x) var(--app-shell-pad-bottom);
+  color: var(--app-text);
+  background: var(--app-bg);
+  overflow: hidden;
+}
+
+.app-shell.terminal-open.document-screen {
+  /* Keep content clear of the fixed terminal dock when it is expanded. */
+  --terminal-dock-height: min(240px, 30vh);
+  padding-bottom: calc(var(--app-shell-pad-bottom) + var(--terminal-dock-height) + 16px);
+}
+
+.app-shell.focus-mode-active {
+  --app-shell-pad-bottom: 0px;
+}
+
+.toast-stack {
+  position: fixed;
+  top: var(--space-6);
+  right: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.toast-item {
+  min-width: 240px;
+  max-width: 380px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid #cad7d3;
+  background: var(--surface-elevated);
+  color: var(--text-strong);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  font-size: 13px;
+  line-height: 1.4;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: toastSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.toast-item.success {
+  border-color: #b7decf;
+  background: #ebfaf4;
+  color: #1b6654;
+}
+
+.toast-item.info {
+  border-color: #bdd2e8;
+  background: #f1f7ff;
+  color: #23476e;
+}
+
+.toast-item.warning {
+  border-color: #e8d3a2;
+  background: #fff7e8;
+  color: #73561d;
+}
+
+.toast-item.error {
+  border-color: #e8c2c2;
+  background: #fff3f3;
+  color: #8e1b1b;
+}
+
+[data-theme="dark"] .toast-item {
+  border-color: var(--border-soft);
+  background: var(--surface-bg);
+  color: var(--text-strong);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .toast-item.success {
+  border-color: #1b6654;
+  background: #0f3025;
+  color: #b7decf;
+}
+
+[data-theme="dark"] .toast-item.info {
+  border-color: #23476e;
+  background: #112338;
+  color: #bdd2e8;
+}
+
+[data-theme="dark"] .toast-item.warning {
+  border-color: #73561d;
+  background: #3a2b0e;
+  color: #e8d3a2;
+}
+
+[data-theme="dark"] .toast-item.error {
+  border-color: #8e1b1b;
+  background: #470d0d;
+  color: #e8c2c2;
+}
