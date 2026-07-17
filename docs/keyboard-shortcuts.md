@@ -16,7 +16,9 @@ Use shortcuts to navigate and edit notes quickly.
   { action: 'Open Keyboard Shortcuts', key: 'Ctrl + /' },
   { action: 'Open Command Palette', key: 'Ctrl + K' },
   { action: 'Open Workspace Selector', key: 'Ctrl + Shift + N' },
-  { action: 'Show Workspace Activity', key: 'Ctrl + Shift + A' }
+  { action: 'Show Workspace Activity', key: 'Ctrl + Shift + A' },
+  { action: 'Switch to Next Tab', key: 'Ctrl + Tab' },
+  { action: 'Switch to Previous Tab', key: 'Ctrl + Shift + Tab' }
 ]" context="General" />
 
 ## Note Editor

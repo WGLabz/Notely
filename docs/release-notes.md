@@ -1,8 +1,22 @@
 # Release Notes
 
-## 2026-07-11 (latest)
+## 2026-07-17 (latest)
 
 ### New features
+
+- **Keyboard Tab Switching** — switch between open tabs using `Ctrl+Tab` (next) and `Ctrl+Shift+Tab` (previous).
+- **Copy Link Path** — right-click on active tabs or dashboard document list items to copy the workspace-relative path for note referencing.
+- **Preview Link Hover overlay** — hover over any link in note previews to open a popover with **Copy** and **Navigate** options (with icons). Direct link clicks are disabled to prevent accidental navigation jumps.
+- **Dismissible Toasts & Undo actions** — notification toasts now include an `X` dismiss button, and applying markdown quick fixes prompts an **Undo** toast to quickly revert changes.
+
+### Refinements
+
+- **Double-click to open row** — table list items in document dashboard now open immediately on double-click.
+- **Validation Banner Auto-Hide** — the validation banner at the top of the editor is completely hidden when there are no issues.
+
+---
+
+## 2026-07-11
 
 - **Inline markdown table editor** — placing the cursor inside a markdown table now opens a focused grid editor for direct cell/header updates.
 

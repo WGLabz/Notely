@@ -32,8 +32,14 @@ When you open a workspace, you are greeted by the landing dashboard, which provi
 
 Customize how you browse your workspace contents:
 - **Tile View**: Card-style layout showing note content previews.
-- **Table View**: Compact, grid-based list view for scanning large note lists quickly.
+- **Table View**: Compact, grid-based list view for scanning large note lists quickly. Double-click any note row in Table View to open it immediately.
 - **Comfortable Density**: Added margins and breathing room.
 - **Compact Density**: High-density display for reviewing many documents at once.
 
 Switch views from the **View** menu or the Command Palette.
+
+---
+
+## 4. Unsaved Changes Guard
+
+If you attempt to close a note tab with unsaved edits, Notely will display a **Discard Changes** confirmation dialog to prevent accidental data loss. You can choose to save changes first, discard them, or cancel the action to return to editing.

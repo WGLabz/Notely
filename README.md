@@ -63,6 +63,10 @@ Notely is built with Electron + React and is designed for project notes, meeting
 - Copy note content as HTML or plain text directly from the editor toolbar.
 - Execute JavaScript (`js`/`javascript`) and Python (`py`/`python`) code blocks locally with the interactive ▶ Run (Play) button in both Markdown Previews and the popup Code Editor modal. Outputs (stdout/stderr) are rendered in an integrated high-contrast dark terminal output pane.
 - Navigate nested folders with breadcrumb links for easy folder traversal.
+- Navigate active note tabs using **Ctrl+Tab** (next tab) and **Ctrl+Shift+Tab** (previous tab) standard shortcuts.
+- Copy note link paths relative to the current workspace root from right-click context menus on tabs and dashboard document list items.
+- Dismiss notification toasts immediately with a close button, and undo/redo applied markdown quick fixes or validation suggestions.
+- Hover over links in Markdown Previews to display a transient popover containing Copy Link and Navigate options, while direct clicks on links are prevented to avoid accidental navigation.
 
 ## Getting Started
 

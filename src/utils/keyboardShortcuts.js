@@ -114,6 +114,16 @@ export const DEFAULT_KEYBOARD_SHORTCUTS = [
     notes: "Also closes many overlays and dialogs.",
   },
   {
+    keys: "Ctrl+Tab",
+    action: "Switch to Next Tab",
+    group: "Editor",
+  },
+  {
+    keys: "Ctrl+Shift+Tab",
+    action: "Switch to Previous Tab",
+    group: "Editor",
+  },
+  {
     keys: "Ctrl/Cmd+Z",
     action: "Undo",
     group: "Editor",

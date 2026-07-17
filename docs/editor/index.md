@@ -55,6 +55,18 @@ From the editor toolbar you can export note content without leaving the app:
 
 Both actions show a success notification and copy to the clipboard.
 
+### Copy Link Path
+
+Right-click any note tab or document list item to select **Copy Link Path**. This copies a workspace-relative reference link to your clipboard, making it easy to link documents together.
+
+## Link Hover Preview
+
+When viewing notes in **Preview** or **Split** modes, hovering over any note link displays a transient popup with two actions:
+- **Copy**: Copy the link target path to your clipboard.
+- **Navigate**: Open and jump to the linked note.
+
+To prevent accidental navigation jumps, clicking a link directly in the preview pane is disabled.
+
 ## Validation Indicators
 
 Notely checks your Markdown as you write:
@@ -78,5 +90,7 @@ When issues are found, a badge appears in the editor header. Click it to jump to
 | Focus Mode | `Ctrl + Alt + F` |
 | Version History | `Ctrl + Shift + H` |
 | Screen Capture | `Ctrl + Shift + S` |
+| Switch to Next Tab | `Ctrl + Tab` |
+| Switch to Previous Tab | `Ctrl + Shift + Tab` |
 
 → [Full Keyboard Shortcuts](/keyboard-shortcuts)

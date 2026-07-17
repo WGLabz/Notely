@@ -1123,6 +1123,32 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const handleTabSwitchKeyDown = (e) => {
+      if (e.ctrlKey && e.key === "Tab") {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!openTabs || openTabs.length <= 1) return;
+        const currentIndex = openTabs.indexOf(activeTabPath);
+        if (currentIndex === -1) return;
+
+        let nextIndex;
+        if (e.shiftKey) {
+          nextIndex = (currentIndex - 1 + openTabs.length) % openTabs.length;
+        } else {
+          nextIndex = (currentIndex + 1) % openTabs.length;
+        }
+
+        const nextTab = openTabs[nextIndex];
+        if (nextTab) {
+          openDocument(nextTab);
+        }
+      }
+    };
+    window.addEventListener("keydown", handleTabSwitchKeyDown, true);
+    return () => window.removeEventListener("keydown", handleTabSwitchKeyDown, true);
+  }, [openTabs, activeTabPath, openDocument]);
+
+  useEffect(() => {
     function handleCustomSearch(e) {
       setGlobalSearchQuery(e.detail?.query || "");
       setGlobalSearchOpen(true);
