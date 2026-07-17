@@ -173,16 +173,6 @@ export function MarkdownTableEditor({ initialMarkdown, onCommit, onCancel, style
       ref={containerRef}
       onKeyDown={handleKeyDown}
     >
-      <div className="table-editor-toolbar">
-        <button onClick={() => addRow(tableData.rows.length - 1)} className="action-chip" title="Add Row (Bottom)"><Plus size={12} /><span>Row</span></button>
-        <button onClick={() => addColumn(tableData.headers.length - 1)} className="action-chip" title="Add Column (Right)"><Plus size={12} style={{ transform: 'rotate(90deg)' }} /><span>Column</span></button>
-        <div className="toolbar-divider" style={{ width: 1, height: 16, background: 'var(--border-color)', margin: '0 4px' }} />
-        <button onClick={clearTable} className="action-chip" title="Clear Data"><Eraser size={12} /><span>Clear</span></button>
-        <div style={{ flex: 1 }} />
-        <button onClick={commitChanges} className="action-chip" title="Save Table"><Check size={12} /><span>Save</span></button>
-        <button onClick={onCancel} className="action-chip" title="Cancel"><X size={12} /><span>Cancel</span></button>
-      </div>
-      
       <div className="table-editor-grid-container">
         <table className="table-editor-grid">
           <thead>
@@ -238,6 +228,16 @@ export function MarkdownTableEditor({ initialMarkdown, onCommit, onCancel, style
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className="table-editor-toolbar">
+        <button onClick={() => addRow(tableData.rows.length - 1)} className="action-chip" title="Add Row (Bottom)"><Plus size={12} /><span>Row</span></button>
+        <button onClick={() => addColumn(tableData.headers.length - 1)} className="action-chip" title="Add Column (Right)"><Plus size={12} style={{ transform: 'rotate(90deg)' }} /><span>Column</span></button>
+        <div className="toolbar-divider" style={{ width: 1, height: 16, background: 'var(--border-color)', margin: '0 4px' }} />
+        <button onClick={clearTable} className="action-chip" title="Clear Data"><Eraser size={12} /><span>Clear</span></button>
+        <div style={{ flex: 1 }} />
+        <button onClick={commitChanges} className="action-chip" title="Save Table"><Check size={12} /><span>Save</span></button>
+        <button onClick={onCancel} className="action-chip" title="Cancel"><X size={12} /><span>Cancel</span></button>
       </div>
     </div>,
     document.body

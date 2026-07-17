@@ -737,8 +737,25 @@ export function DocumentDetail({
 
   const [lastAutoSaveAt, setLastAutoSaveAt] = useState(0);
   const [changedOnDisk, setChangedOnDisk] = useState(false);
-  const [outlineWidth, setOutlineWidth] = useState(190);
-  const [aiSidebarWidth, setAiSidebarWidth] = useState(340);
+  const [outlineWidth, setOutlineWidth] = useWorkspaceScopedStorage({
+    workspaceScope: workspaceStorageScope,
+    key: "notes:outline-sidebar-width",
+    defaultValue: 190,
+    normalize: (value) => {
+      const parsed = parseInt(value, 10);
+      return Number.isNaN(parsed) ? 190 : parsed;
+    },
+  });
+
+  const [aiSidebarWidth, setAiSidebarWidth] = useWorkspaceScopedStorage({
+    workspaceScope: workspaceStorageScope,
+    key: "notes:ai-sidebar-width",
+    defaultValue: 340,
+    normalize: (value) => {
+      const parsed = parseInt(value, 10);
+      return Number.isNaN(parsed) ? 340 : parsed;
+    },
+  });
   const workspaceLayoutRef = useRef(null);
 
   const clampOutlineWidth = (w) => Math.min(Math.max(w, 150), 350);
@@ -1184,14 +1201,7 @@ export function DocumentDetail({
 
   const toggleFocusMode = () => {
     onFocusModeChange?.((value) => {
-      const nextEnabled = value !== true;
-      onNotify?.(
-        nextEnabled
-          ? "Focus mode on. Outline is hidden; press Ctrl/Cmd+Alt+F to exit."
-          : "Focus mode off. Full layout restored.",
-        "info",
-      );
-      return nextEnabled;
+      return value !== true;
     });
   };
 
@@ -1843,7 +1853,7 @@ export function DocumentDetail({
 
       {isFocusMode && (
         <div className="mode-contract-banner" role="status" aria-live="polite">
-          <span>Focus mode is active — press F11 to exit</span>
+          <span>Focus mode is active</span>
           <AppButton
             variant="small"
             data-tooltip="Exit focus mode"

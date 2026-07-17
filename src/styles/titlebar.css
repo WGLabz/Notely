@@ -207,3 +207,9 @@
 body.dark .titlebar-btn:hover {
   background: rgba(255, 255, 255, 0.08);
 }
+
+.titlebar-menu-btn:focus-visible,
+.titlebar-btn:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: -2px;
+}

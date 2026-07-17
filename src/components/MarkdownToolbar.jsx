@@ -30,6 +30,7 @@ import { getMediaTypeFromExtension } from "../utils/mediaUtils";
 import { createDiagramMarkdown, generateDiagramId } from "../utils/diagramFileUtils";
 import { ImageCropModal } from "./ImageCropModal";
 import CodeBlockModal from "./CodeBlockModal";
+import AppIconButton from "./AppIconButton";
 
 function canonicalPathKey(pathValue) {
   const normalized = String(pathValue || "").trim().replace(/\\/g, "/");
@@ -883,14 +884,14 @@ export function MarkdownToolbar({
   return (
     <>
       <div className="editor-toolbar" aria-label="Markdown formatting toolbar">
-        <button onClick={() => onUndo?.()} data-tooltip="Undo (Ctrl/Cmd+Z)" disabled={!canUndo}>
+        <AppIconButton onClick={() => onUndo?.()} title="Undo (Ctrl/Cmd+Z)" aria-label="Undo" disabled={!canUndo}>
         <Undo2 size={18} />
-      </button>
-      <button onClick={() => onRedo?.()} data-tooltip="Redo (Ctrl/Cmd+Y)" disabled={!canRedo}>
+      </AppIconButton>
+      <AppIconButton onClick={() => onRedo?.()} title="Redo (Ctrl/Cmd+Y)" aria-label="Redo" disabled={!canRedo}>
         <Redo2 size={18} />
-      </button>
+      </AppIconButton>
       {snippets.map((snippet) => (
-        <button
+        <AppIconButton
           key={snippet.key}
           onClick={() => {
             if (snippet.key === "code") {
@@ -899,28 +900,30 @@ export function MarkdownToolbar({
               applySnippet(value, onChange, textareaRef, snippet.before, snippet.after, snippet.placeholder);
             }
           }}
-          data-tooltip={snippet.title}
+          title={snippet.title}
+          aria-label={snippet.title}
         >
           <snippet.icon size={18} />
-        </button>
+        </AppIconButton>
       ))}
-      <button onClick={openTableBuilder} data-tooltip="Insert table">
+      <AppIconButton onClick={openTableBuilder} title="Insert table" aria-label="Insert table">
         <Table2 size={18} />
-      </button>
-      <button onClick={openWebLinker} data-tooltip="Insert web link">
+      </AppIconButton>
+      <AppIconButton onClick={openWebLinker} title="Insert web link" aria-label="Insert web link">
         <Link2 size={18} />
-      </button>
-      <button onClick={() => void openReferenceLinker()} data-tooltip="Insert reference note link (Ctrl/Cmd+Shift+K)">
+      </AppIconButton>
+      <AppIconButton onClick={() => void openReferenceLinker()} title="Insert reference note link (Ctrl/Cmd+Shift+K)" aria-label="Insert reference note link">
         <FileText size={18} />
-      </button>
-      <button onClick={() => imageInputRef.current?.click()} data-tooltip="Insert media from file">
+      </AppIconButton>
+      <AppIconButton onClick={() => imageInputRef.current?.click()} title="Insert media from file" aria-label="Insert media from file">
         <ImagePlus size={18} />
-      </button>
-      <button
+      </AppIconButton>
+      <AppIconButton
         onClick={() => {
           void openScreenCapture();
         }}
-        data-tooltip={`Capture screen area (Ctrl/Cmd+Shift+S) - ${screenCaptureMode === "review" ? "Review before insert" : "Auto insert"}`}
+        title={`Capture screen area (Ctrl/Cmd+Shift+S) - ${screenCaptureMode === "review" ? "Review before insert" : "Auto insert"}`}
+        aria-label="Capture screen area"
         disabled={screenCaptureBusy || screenCaptureSaving}
         className={screenCaptureMode === "review" ? "toolbar-btn-capture review" : "toolbar-btn-capture auto"}
       >
@@ -928,16 +931,16 @@ export function MarkdownToolbar({
         <span className="toolbar-capture-mode-glyph" aria-hidden="true">
           {screenCaptureMode === "review" ? "R" : "A"}
         </span>
-      </button>
-      <button onClick={openAssetLinker} data-tooltip="Insert workspace asset">
+      </AppIconButton>
+      <AppIconButton onClick={openAssetLinker} title="Insert workspace asset" aria-label="Insert workspace asset">
         <Link size={18} />
-      </button>
-      <button onClick={openDiagramBuilder} data-tooltip="Insert diagram">
+      </AppIconButton>
+      <AppIconButton onClick={openDiagramBuilder} title="Insert diagram" aria-label="Insert diagram">
         <Zap size={18} />
-      </button>
-      <button onClick={runMarkdownValidation} data-tooltip="Validate markdown syntax">
+      </AppIconButton>
+      <AppIconButton onClick={runMarkdownValidation} title="Validate markdown syntax" aria-label="Validate markdown syntax">
         <CheckCircle2 size={18} />
-      </button>
+      </AppIconButton>
       <span className={`toolbar-validation-summary ${validationStatus}`} data-tooltip={validationSummary}>
         {validationSummary}
       </span>

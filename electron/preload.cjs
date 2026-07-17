@@ -38,6 +38,13 @@ contextBridge.exposeInMainWorld("notesApi", {
     return () => ipcRenderer.removeListener("window:maximized-changed", listener);
   },
   popupAppMenu: (payload) => ipcRenderer.send("window:popup-app-menu", payload),
+  showContextMenu: (template) => ipcRenderer.send("window:show-context-menu", template),
+  onContextMenuAction: (callback) => {
+    if (typeof callback !== "function") return () => {};
+    const listener = (_event, action) => callback(action);
+    ipcRenderer.on("window:context-menu-action", listener);
+    return () => ipcRenderer.removeListener("window:context-menu-action", listener);
+  },
   getMenuLabels: () => ipcRenderer.invoke("window:get-menu-labels"),
   getMenuStructure: () => ipcRenderer.invoke("window:get-menu-structure"),
   executeMenuItem: (payload) => ipcRenderer.send("window:execute-menu-item", payload),

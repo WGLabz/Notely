@@ -924,6 +924,33 @@ ipcMain.on("window:popup-app-menu", (event, { label, x, y }) => {
   }
 });
 
+ipcMain.on("window:show-context-menu", (event, template) => {
+  assertTrustedIpcSender(BrowserWindow, event, "window:show-context-menu");
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return;
+
+  const buildMenu = (menuItems) => {
+    return menuItems.map((item) => {
+      if (item.type === "separator") {
+        return { type: "separator" };
+      }
+      return {
+        label: item.label,
+        type: item.type,
+        checked: item.checked,
+        enabled: item.enabled,
+        click: () => {
+          event.sender.send("window:context-menu-action", { action: item.action, payload: item.payload });
+        },
+        submenu: item.submenu ? buildMenu(item.submenu) : undefined
+      };
+    });
+  };
+
+  const menu = Menu.buildFromTemplate(buildMenu(template));
+  menu.popup({ window: win });
+});
+
 ipcMain.handle("window:get-menu-labels", (event) => {
   assertTrustedIpcSender(BrowserWindow, event, "window:get-menu-labels");
   const menu = Menu.getApplicationMenu();

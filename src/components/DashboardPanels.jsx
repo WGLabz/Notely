@@ -88,7 +88,7 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
       <section className="dashboard-panels rail" aria-label="Workspace dashboard">
         <article className="dashboard-panel continue">
           <div className="dashboard-panel-head">
-            <h2>Continue Writing</h2>
+            <h3>Continue Writing</h3>
             <Clock3 size={14} />
           </div>
           {continueCandidate ? (
@@ -125,7 +125,7 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
 
         <article className="dashboard-panel quick-actions">
           <div className="dashboard-panel-head">
-            <h2>Quick Actions</h2>
+            <h3>Quick Actions</h3>
           </div>
           <div className="dashboard-action-grid">
             <button type="button" onClick={() => onAction("new-note")}>
@@ -153,7 +153,7 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
 
         <article className="dashboard-panel recent">
           <div className="dashboard-panel-head">
-            <h2>Recent Notes</h2>
+            <h3>Recent Notes</h3>
             {renderSectionToggle(recentNotes, onOpenRecentNotes)}
           </div>
           {recentSlice.length ? (
@@ -174,7 +174,7 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
 
         <article className="dashboard-panel favorites">
           <div className="dashboard-panel-head">
-            <h2>Favorites</h2>
+            <h3>Favorites</h3>
             {renderSectionToggle(favoriteSlice, onOpenFavorites)}
           </div>
           {visibleFavorites.length ? (
@@ -195,7 +195,7 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
 
         <article className="dashboard-panel tasks">
           <div className="dashboard-panel-head">
-            <h2>Open Tasks</h2>
+            <h3>Open Tasks</h3>
             <div className="dashboard-task-head-actions">
               {taskCounts.total > 0 && (
                 <div
@@ -236,7 +236,7 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
       <div className="dashboard-bar" role="group" aria-label="Landing productivity bar">
         <article className="dashboard-bar-section continue">
           <div className="dashboard-panel-head">
-            <h2>Continue Writing</h2>
+            <h3>Continue Writing</h3>
             <Clock3 size={14} />
           </div>
           {continueCandidate ? (
@@ -273,7 +273,7 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
 
         <article className="dashboard-bar-section quick-actions">
           <div className="dashboard-panel-head">
-            <h2>Quick Actions</h2>
+            <h3>Quick Actions</h3>
           </div>
           <div className="dashboard-action-grid inline">
             <button type="button" onClick={() => onAction("new-note")}>
@@ -301,7 +301,7 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
 
         <article className="dashboard-bar-section recent">
           <div className="dashboard-panel-head">
-            <h2>Recent Notes</h2>
+            <h3>Recent Notes</h3>
             {renderSectionToggle(recentNotes, onOpenRecentNotes)}
           </div>
           {recentSlice.length ? (
@@ -322,7 +322,7 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
 
         <article className="dashboard-bar-section favorites">
           <div className="dashboard-panel-head">
-            <h2>Favorites</h2>
+            <h3>Favorites</h3>
             {renderSectionToggle(favoriteSlice, onOpenFavorites)}
           </div>
           {visibleFavorites.length ? (
@@ -343,7 +343,7 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
 
         <article className="dashboard-bar-section tasks">
           <div className="dashboard-panel-head">
-            <h2>Open Tasks</h2>
+            <h3>Open Tasks</h3>
             <div className="dashboard-task-head-actions">
               {taskCounts.total > 0 && (
                 <div

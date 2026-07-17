@@ -197,7 +197,7 @@ export function TitleBar({ title = "Notely", onOpenWebsite }) {
   };
 
   return (
-    <header className="app-titlebar" ref={containerRef}>
+    <header className="app-titlebar" ref={containerRef} onDoubleClick={handleMaximize}>
       <div className="titlebar-left">
         <div className="titlebar-brand">
           <img src={notelyMark} alt="Notely logo" className="titlebar-brand-icon" style={{ width: "16px", height: "16px", objectFit: "contain" }} />

@@ -379,7 +379,6 @@ export default function App() {
   const [updateStatus, setUpdateStatus] = useState(null);
   const [updateDetails, setUpdateDetails] = useState(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
-  const [landingSidebarWidth, setLandingSidebarWidth] = useState(260);
   const landingLayoutRef = useRef(null);
 
   const {
@@ -486,6 +485,16 @@ export default function App() {
     const rawWorkspaceId = activeProject?.slug || activeProject?.rootPath || notesFolderPath || "default";
     return encodeURIComponent(String(rawWorkspaceId));
   }, [activeProject, notesFolderPath]);
+
+  const [landingSidebarWidth, setLandingSidebarWidth] = useWorkspaceScopedStorage({
+    workspaceScope: workspaceStorageScope,
+    key: "notes:landing-sidebar-width",
+    defaultValue: 260,
+    normalize: (value) => {
+      const parsed = parseInt(value, 10);
+      return Number.isNaN(parsed) ? 260 : parsed;
+    },
+  });
 
   const [landingListPreferences, setLandingListPreferences] = useWorkspaceScopedStorage({
     workspaceScope: workspaceStorageScope,

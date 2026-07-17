@@ -2132,6 +2132,11 @@
   border-right-color: #2f3f44 !important;
 }
 
+:root[data-theme="dark"] .markdown-codemirror .cm-activeLineGutter {
+  background-color: var(--surface-accent) !important;
+  color: var(--text-strong) !important;
+}
+
 /* â”€â”€ Spell/Grammar Gutter Indicators â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 :root[data-theme="dark"] .markdown-gutter button.has-spelling-issue {
   background-color: #352010 !important;
