@@ -17,7 +17,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const ROOT = path.resolve(__dirname, "..");
-const SRC_CSS = path.join(ROOT, "src", "styles.css");
+const SRC_CSS = path.join(ROOT, "src", "styles", "variables.css");
 const OUT_CSS = path.join(ROOT, "docs-site", ".vitepress", "theme", "tokens.css");
 
 function extractCssBlocks(css) {

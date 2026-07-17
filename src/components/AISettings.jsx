@@ -101,7 +101,7 @@ function normalizeProviderModels(models) {
   }).filter((model) => model.id);
 }
 
-const AISettings = ({ isOpen, onClose }) => {
+export const AISettingsContent = ({ onClose }) => {
   const [apiKey, setApiKey] = useState('');
   const [selectedProvider, setSelectedProvider] = useState('gemini');
   const [preferences, setPreferences] = useState(defaultPreferences);
@@ -113,18 +113,15 @@ const AISettings = ({ isOpen, onClose }) => {
   const [hfTestResult, setHfTestResult] = useState(null);
   const [selectedModel, setSelectedModel] = useState('');
   const [embeddingStaleness, setEmbeddingStaleness] = useState(null);
-  const [showAdvancedGeneration, setShowAdvancedGeneration] = useState(false);
-  const [showDataControls, setShowDataControls] = useState(false);
+  const [showAdvancedGeneration, setShowAdvancedGeneration] = useState(true);
+  const [showDataControls, setShowDataControls] = useState(true);
+  const [activeSubTab, setActiveSubTab] = useState("providers");
 
   useEffect(() => {
-    if (isOpen) {
-      loadSettings();
-      loadEmbeddingStaleness();
-      setShowAdvancedGeneration(false);
-      setShowDataControls(false);
-    }
+    loadSettings();
+    loadEmbeddingStaleness();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, selectedProvider]);
+  }, [selectedProvider]);
 
   const loadSettings = async () => {
     try {
@@ -259,7 +256,8 @@ const AISettings = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleTestConnection = async () => {    try {
+  const handleTestConnection = async () => {
+    try {
       setLoading(true);
       setTestResult(null);
 
@@ -271,46 +269,32 @@ const AISettings = ({ isOpen, onClose }) => {
         });
         setStatus('Connection test passed.');
       } else {
-        setTestResult({
-          success: false,
-          message: `Connection failed: ${response.error}`
-        });
-        setStatus('Connection test failed.');
+        setTestResult({ success: false, message: response.error || 'Connection failed.' });
       }
-    } catch (error) {
-      setTestResult({
-        success: false,
-        message: `Error: ${error.message}`
-      });
-      setStatus('Connection test failed.');
+    } catch (err) {
+      setTestResult({ success: false, message: err?.message || 'Connection failed.' });
     } finally {
       setLoading(false);
     }
   };
 
   const handlePreferenceChange = (key, value) => {
-    setPreferences((currentPreferences) => ({
-      ...currentPreferences,
-      [key]: value
-    }));
+    setPreferences((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleClearData = async () => {
-    if (!window.confirm('Clear all AI cache and pattern data? This cannot be undone.')) {
-      return;
-    }
-
     try {
       setLoading(true);
       const response = await aiClearData();
-
       if (response.success) {
-        setStatus('AI data cleared.');
+        setStatus('AI cached data cleared.');
+        loadEmbeddingStaleness();
+        setTimeout(() => setStatus(''), 3000);
       } else {
-        setStatus(`Failed to clear data: ${response.error}`);
+        setStatus(response.error || 'Failed to clear AI data.');
       }
-    } catch (error) {
-      setStatus(`Error: ${error.message}`);
+    } catch (err) {
+      setStatus(err?.message || 'Failed to clear AI data.');
     } finally {
       setLoading(false);
     }
@@ -337,238 +321,247 @@ const AISettings = ({ isOpen, onClose }) => {
   };
 
   return (
-    <OverlayDialog
-      open={isOpen}
-      onClose={onClose}
-      ariaLabel="AI settings"
-      cardClassName="ai-settings-dialog-card"
-    >
-        <div className="overlay-dialog-header ai-settings-dialog-header">
-          <div className="ai-settings-title-group">
-            <h2>AI Settings</h2>
-            <p>Connect providers, tune behavior, and manage local AI data.</p>
-          </div>
-          <AppIconButton onClick={onClose} aria-label="Close AI settings">
-            <X size={16} />
-          </AppIconButton>
-        </div>
-
+    <div className="ai-settings-inner-wrap">
         {status ? (
           <div className={`ai-settings-status ${testResult?.success ? 'success' : testResult?.success === false ? 'error' : 'info'}`}>
             {status}
           </div>
         ) : null}
 
+        <div className="ai-subtabs-nav" role="tablist" style={{ display: "flex", gap: "16px", marginBottom: "16px", borderBottom: "1px solid var(--border-soft)", paddingBottom: "8px" }}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeSubTab === "providers"}
+            className={`ai-subtab-btn ${activeSubTab === "providers" ? "active" : ""}`}
+            style={{
+              background: "transparent",
+              border: "none",
+              borderBottom: activeSubTab === "providers" ? "2px solid var(--accent-solid)" : "2px solid transparent",
+              color: activeSubTab === "providers" ? "var(--text-strong)" : "var(--text-muted)",
+              padding: "4px 8px",
+              cursor: "pointer",
+              fontWeight: "600",
+              fontSize: "0.85rem"
+            }}
+            onClick={() => setActiveSubTab("providers")}
+          >
+            Connection & Providers
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeSubTab === "tuning"}
+            className={`ai-subtab-btn ${activeSubTab === "tuning" ? "active" : ""}`}
+            style={{
+              background: "transparent",
+              border: "none",
+              borderBottom: activeSubTab === "tuning" ? "2px solid var(--accent-solid)" : "2px solid transparent",
+              color: activeSubTab === "tuning" ? "var(--text-strong)" : "var(--text-muted)",
+              padding: "4px 8px",
+              cursor: "pointer",
+              fontWeight: "600",
+              fontSize: "0.85rem"
+            }}
+            onClick={() => setActiveSubTab("tuning")}
+          >
+            Tuning & Behavior
+          </button>
+        </div>
+
         <div className="ai-settings-content">
-          <div className="ai-settings-intent-header">
-            <h3>Connect Providers</h3>
-            <p>Set up text generation and embeddings, then verify connections.</p>
-          </div>
-
-          <section className="ai-settings-section ai-settings-embeddings-card">
-            <div className="ai-settings-setup-head">
-              <h3>Embeddings</h3>
-              <span className={`ai-settings-badge ${hfConfigured ? 'badge-ok' : 'badge-off'}`}>
-                {hfConfigured ? 'Active' : 'Not configured'}
-              </span>
-            </div>
-            <p className="ai-settings-embeddings-info">
-              Powers semantic search and the workspace graph — works with any text provider (Groq or Gemini).
-              Uses <strong>HuggingFace Inference API</strong> free tier. Get a token at <strong>huggingface.co</strong>.
-            </p>
-            <div className="api-key-group compact">
-              <label htmlFor="hf-token">HuggingFace Token (hf_…)</label>
-              <div className="api-key-input-group">
-                <AppInput
-                  id="hf-token"
-                  type="password"
-                  className="api-key-input"
-                  placeholder="hf_xxxxxxxxxxxxxxxxxx"
-                  value={hfToken}
-                  onChange={(e) => setHfToken(e.target.value)}
-                  disabled={loading}
-                />
-                <button
-                  className="btn btn-primary"
-                  onClick={handleSaveHfToken}
-                  disabled={loading || !hfToken}
-                  type="button"
-                >
-                  <Save size={12} /> Save
-                </button>
-                <button
-                  className="btn btn-secondary"
-                  onClick={handleTestHfConnection}
-                  disabled={loading || !hfConfigured}
-                  type="button"
-                >
-                  <Zap size={12} /> Test
-                </button>
-              </div>
-            </div>
-            {hfTestResult ? (
-              <div className={`test-result ${hfTestResult.success ? 'success' : 'error'}`}>
-                {hfTestResult.message}
-              </div>
-            ) : null}
-          </section>
-
-          <section className="ai-settings-section ai-settings-setup-card">
-            <div className="ai-settings-setup-head">
-              <h3>Text Provider</h3>
-              <span className="ai-settings-badge">On device</span>
-            </div>
-            <div className="provider-grid">
-              {providers.map((provider) => (
-                <button
-                  key={provider.id}
-                  className={`provider-card ${selectedProvider === provider.id ? 'selected' : ''} ${!provider.available ? 'planned' : ''}`}
-                  onClick={() => provider.available && setSelectedProvider(provider.id)}
-                  disabled={loading || !provider.available}
-                  type="button"
-                  data-tooltip={!provider.available ? 'Coming soon' : undefined}
-                >
-                  <div className="provider-name">
-                    {provider.name}
-                    {!provider.available && <span className="provider-planned-badge">Soon</span>}
-                  </div>
-                  <div className="provider-description">{provider.description}</div>
-                </button>
-              ))}
-            </div>
-            <div className="api-key-group compact">
-              <label htmlFor="api-key">
-                {selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1)} API Key
-              </label>
-              <div className="api-key-combined-row">
-                <AppInput
-                  id="api-key"
-                  type="password"
-                  className="api-key-input"
-                  placeholder="Enter your API key"
-                  value={apiKey}
-                  onChange={(event) => setApiKey(event.target.value)}
-                  disabled={loading}
-                />
-                {(() => {
-                  const providerEntry = providers.find((p) => p.id === selectedProvider);
-                  const providerModels = normalizeProviderModels(providerEntry?.models);
-                  if (!providerModels.length) return null;
-                  return (
-                    <AppSelect
-                      id="provider-model"
-                      className="provider-model-select"
-                      value={selectedModel}
-                      onChange={async (e) => {
-                        const model = e.target.value;
-                        setSelectedModel(model);
-                        await aiSetProviderModel(selectedProvider, model);
-                      }}
+          {activeSubTab === "providers" ? (
+            <>
+              <section className="ai-settings-section ai-settings-embeddings-card">
+                <div className="ai-settings-setup-head">
+                  <h3>Embeddings</h3>
+                  <span className={`ai-settings-badge ${hfConfigured ? 'badge-ok' : 'badge-off'}`}>
+                    {hfConfigured ? 'Active' : 'Not configured'}
+                  </span>
+                </div>
+                <p className="ai-settings-embeddings-info">
+                  Powers semantic search and the workspace graph — works with any text provider (Groq or Gemini).
+                  Uses <strong>HuggingFace Inference API</strong> free tier. Get a token at <strong>huggingface.co</strong>.
+                </p>
+                <div className="api-key-group compact">
+                  <label htmlFor="hf-token">HuggingFace Token (hf_…)</label>
+                  <div className="api-key-input-group">
+                    <AppInput
+                      id="hf-token"
+                      type="password"
+                      className="api-key-input"
+                      placeholder="hf_xxxxxxxxxxxxxxxxxx"
+                      value={hfToken}
+                      onChange={(e) => setHfToken(e.target.value)}
                       disabled={loading}
+                    />
+                    <button
+                      className="btn btn-primary"
+                      onClick={handleSaveHfToken}
+                      disabled={loading || !hfToken}
+                      type="button"
                     >
-                      {providerModels.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.note ? `${m.label} — ${m.note}` : m.label}
-                        </option>
-                      ))}
-                    </AppSelect>
-                  );
-                })()}
-                <button
-                  className="btn btn-primary"
-                  onClick={handleSaveAPIKey}
-                  disabled={loading || !apiKey}
-                  type="button"
-                >
-                  <Key size={12} /> Save
-                </button>
-                <button
-                  className="btn btn-secondary"
-                  onClick={handleTestConnection}
-                  disabled={loading || !apiKey}
-                  type="button"
-                >
-                  <Zap size={12} /> Test
-                </button>
-              </div>
-            </div>
-            {testResult ? (
-              <div className={`test-result ${testResult.success ? 'success' : 'error'}`}>
-                {testResult.message}
-              </div>
-            ) : null}
-
-            {getCapabilityWarnings().length > 0 && (
-              <div className="ai-settings-capability-warnings">
-                {getCapabilityWarnings().map((warning, idx) => (
-                  <div key={idx} className="capability-warning">
-                    <AlertCircle size={14} />
-                    <div>
-                      <strong>{warning.title}</strong>
-                      <p>{warning.message}</p>
-                    </div>
+                      <Save size={12} /> Save
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={handleTestHfConnection}
+                      disabled={loading || !hfConfigured}
+                      type="button"
+                    >
+                      <Zap size={12} /> Test
+                    </button>
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
+                {hfTestResult ? (
+                  <div className={`test-result ${hfTestResult.success ? 'success' : 'error'}`}>
+                    {hfTestResult.message}
+                  </div>
+                ) : null}
+              </section>
 
-            {embeddingStaleness && (
-              <div className="ai-settings-embedding-staleness">
-                <span>Embeddings: {embeddingStaleness.message}</span>
-              </div>
-            )}
-          </section>
+              <section className="ai-settings-section ai-settings-setup-card">
+                <div className="ai-settings-setup-head">
+                  <h3>Text Provider</h3>
+                  <span className="ai-settings-badge">On device</span>
+                </div>
+                <div className="provider-grid">
+                  {providers.map((provider) => (
+                    <button
+                      key={provider.id}
+                      className={`provider-card ${selectedProvider === provider.id ? 'selected' : ''} ${!provider.available ? 'planned' : ''}`}
+                      onClick={() => provider.available && setSelectedProvider(provider.id)}
+                      disabled={loading || !provider.available}
+                      type="button"
+                      data-tooltip={!provider.available ? 'Coming soon' : undefined}
+                    >
+                      <div className="provider-name">
+                        {provider.name}
+                        {!provider.available && <span className="provider-planned-badge">Soon</span>}
+                      </div>
+                      <div className="provider-description">{provider.description}</div>
+                    </button>
+                  ))}
+                </div>
+                <div className="api-key-group compact">
+                  <label htmlFor="api-key">
+                    {selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1)} API Key
+                  </label>
+                  <div className="api-key-combined-row">
+                    <AppInput
+                      id="api-key"
+                      type="password"
+                      className="api-key-input"
+                      placeholder="Enter your API key"
+                      value={apiKey}
+                      onChange={(event) => setApiKey(event.target.value)}
+                      disabled={loading}
+                    />
+                    {(() => {
+                      const providerEntry = providers.find((p) => p.id === selectedProvider);
+                      const providerModels = normalizeProviderModels(providerEntry?.models);
+                      if (!providerModels.length) return null;
+                      return (
+                        <AppSelect
+                          id="provider-model"
+                          className="provider-model-select"
+                          value={selectedModel}
+                          onChange={async (e) => {
+                            const model = e.target.value;
+                            setSelectedModel(model);
+                            await aiSetProviderModel(selectedProvider, model);
+                          }}
+                          disabled={loading}
+                        >
+                          {providerModels.map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.note ? `${m.label} — ${m.note}` : m.label}
+                            </option>
+                          ))}
+                        </AppSelect>
+                      );
+                    })()}
+                    <button
+                      className="btn btn-primary"
+                      onClick={handleSaveAPIKey}
+                      disabled={loading || !apiKey}
+                      type="button"
+                    >
+                      <Key size={12} /> Save
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={handleTestConnection}
+                      disabled={loading || !apiKey}
+                      type="button"
+                    >
+                      <Zap size={12} /> Test
+                    </button>
+                  </div>
+                </div>
+                {testResult ? (
+                  <div className={`test-result ${testResult.success ? 'success' : 'error'}`}>
+                    {testResult.message}
+                  </div>
+                ) : null}
 
-          <div className="ai-settings-intent-header">
-            <h3>Assistant Behavior</h3>
-            <p>Choose how AI features run during everyday note work.</p>
-          </div>
+                {getCapabilityWarnings().length > 0 && (
+                  <div className="ai-settings-capability-warnings">
+                    {getCapabilityWarnings().map((warning, idx) => (
+                      <div key={idx} className="capability-warning">
+                        <AlertCircle size={14} />
+                        <div>
+                          <strong>{warning.title}</strong>
+                          <p>{warning.message}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
-          <section className="ai-settings-section ai-settings-features-card">
-            <h3>Features</h3>
-            <div className="ai-settings-option-list">
-              <label className="preference-checkbox ai-settings-option-row">
-                <input
-                  type="checkbox"
-                  checked={preferences.enablePatternLearning}
-                  onChange={(event) => handlePreferenceChange('enablePatternLearning', event.target.checked)}
-                  disabled={loading}
-                />
-                <span>Learn user patterns</span>
-              </label>
-              <label className="preference-checkbox ai-settings-option-row">
-                <input
-                  type="checkbox"
-                  checked={preferences.enableEmbeddings}
-                  onChange={(event) => handlePreferenceChange('enableEmbeddings', event.target.checked)}
-                  disabled={loading}
-                />
-                <span>Generate embeddings</span>
-              </label>
-              <label className="preference-checkbox ai-settings-option-row">
-                <input
-                  type="checkbox"
-                  checked={preferences.enableRelationshipDiscovery}
-                  onChange={(event) => handlePreferenceChange('enableRelationshipDiscovery', event.target.checked)}
-                  disabled={loading}
-                />
-                <span>Discover relationships</span>
-              </label>
-            </div>
-          </section>
+                {embeddingStaleness && (
+                  <div className="ai-settings-embedding-staleness">
+                    <span>Embeddings: {embeddingStaleness.message}</span>
+                  </div>
+                )}
+              </section>
+            </>
+          ) : (
+            <>
+              <section className="ai-settings-section ai-settings-features-card" style={{ gridColumn: "1 / -1" }}>
+                <h3>Features</h3>
+                <div className="ai-settings-option-list">
+                  <label className="preference-checkbox ai-settings-option-row">
+                    <input
+                      type="checkbox"
+                      checked={preferences.enablePatternLearning}
+                      onChange={(event) => handlePreferenceChange('enablePatternLearning', event.target.checked)}
+                      disabled={loading}
+                    />
+                    <span>Learn user patterns</span>
+                  </label>
+                  <label className="preference-checkbox ai-settings-option-row">
+                    <input
+                      type="checkbox"
+                      checked={preferences.enableEmbeddings}
+                      onChange={(event) => handlePreferenceChange('enableEmbeddings', event.target.checked)}
+                      disabled={loading}
+                    />
+                    <span>Generate embeddings</span>
+                  </label>
+                  <label className="preference-checkbox ai-settings-option-row">
+                    <input
+                      type="checkbox"
+                      checked={preferences.enableRelationshipDiscovery}
+                      onChange={(event) => handlePreferenceChange('enableRelationshipDiscovery', event.target.checked)}
+                      disabled={loading}
+                    />
+                    <span>Discover relationships</span>
+                  </label>
+                </div>
+              </section>
 
-          <div className="ai-settings-disclosure">
-            <button
-              type="button"
-              className={`ai-settings-disclosure-toggle ${showAdvancedGeneration ? 'active' : ''}`}
-              onClick={() => setShowAdvancedGeneration((value) => !value)}
-              aria-expanded={showAdvancedGeneration}
-            >
-              {showAdvancedGeneration ? 'Hide' : 'Show'} advanced generation tuning
-            </button>
-
-            {showAdvancedGeneration ? (
-              <section className="ai-settings-section ai-settings-generation-card">
+              <section className="ai-settings-section ai-settings-generation-card" style={{ gridColumn: "1 / -1" }}>
                 <h3>Generation</h3>
                 <div className="ai-settings-range-row">
                   <div className="ai-settings-range-label">
@@ -613,21 +606,8 @@ const AISettings = ({ isOpen, onClose }) => {
                   </button>
                 </div>
               </section>
-            ) : null}
-          </div>
 
-          <div className="ai-settings-disclosure">
-            <button
-              type="button"
-              className={`ai-settings-disclosure-toggle ${showDataControls ? 'active' : ''}`}
-              onClick={() => setShowDataControls((value) => !value)}
-              aria-expanded={showDataControls}
-            >
-              {showDataControls ? 'Hide' : 'Show'} data and privacy controls
-            </button>
-
-            {showDataControls ? (
-              <section className="ai-settings-section ai-settings-storage-card">
+              <section className="ai-settings-section ai-settings-storage-card" style={{ gridColumn: "1 / -1" }}>
                 <div className="ai-settings-storage-meta">
                   <div className="ai-settings-meta-pill">Local only</div>
                   <div className="ai-settings-meta-pill">SQLite memory</div>
@@ -649,15 +629,39 @@ const AISettings = ({ isOpen, onClose }) => {
                   </button>
                 </div>
               </section>
-            ) : null}
-          </div>
+            </>
+          )}
         </div>
+    </div>
+  );
+};
 
-        <div className="ai-settings-footer">
-          <button className="btn btn-secondary" onClick={onClose} type="button">
-            <X size={12} /> Close
-          </button>
+export const AISettings = ({ isOpen, onClose }) => {
+  if (!isOpen) return null;
+  return (
+    <OverlayDialog
+      open={isOpen}
+      onClose={onClose}
+      ariaLabel="AI settings"
+      cardClassName="ai-settings-dialog-card"
+    >
+      <div className="overlay-dialog-header ai-settings-dialog-header">
+        <div className="ai-settings-title-group">
+          <h2>AI Settings</h2>
+          <p>Connect providers, tune behavior, and manage local AI data.</p>
         </div>
+        <AppIconButton onClick={onClose} aria-label="Close AI settings">
+          <X size={16} />
+        </AppIconButton>
+      </div>
+
+      <AISettingsContent onClose={onClose} />
+
+      <div className="ai-settings-footer">
+        <button className="btn btn-secondary" onClick={onClose} type="button">
+          <X size={12} /> Close
+        </button>
+      </div>
     </OverlayDialog>
   );
 };

@@ -57,50 +57,30 @@ export function ConfirmationProvider({ children }) {
         ariaLabel={confirmState.title}
         cardClassName="confirmation-modal-card"
       >
-        <div style={{
-          padding: "24px 20px 20px 20px",
-          textAlign: "center",
-          maxWidth: "340px",
-          margin: "0 auto"
-        }}>
+        <div className="confirmation-dialog">
           {confirmState.title && (
-            <h3 style={{
-              margin: "0 0 12px 0",
-              fontSize: "16px",
-              fontWeight: "600",
-              color: "var(--text-strong, var(--app-text))"
-            }}>
+            <h3 className="confirmation-dialog__title">
               {confirmState.title}
             </h3>
           )}
-          <p style={{
-            margin: "0 0 24px 0",
-            fontSize: "14px",
-            color: "var(--text-muted, #7f8c8d)",
-            lineHeight: "1.5"
-          }}>
+          <p className="confirmation-dialog__message">
             {confirmState.message}
           </p>
-          <div style={{
-            display: "flex",
-            justifyContent: "center",
-            gap: "12px"
-          }}>
+          <div className="confirmation-dialog__actions">
             <AppButton
-              variant={confirmState.variant === "danger" ? "primary" : confirmState.variant}
-              onClick={handleConfirm}
-              style={confirmState.variant === "danger" ? { background: "var(--accent-red, #e06c75)", border: "none", display: "inline-flex", alignItems: "center", gap: "6px" } : { display: "inline-flex", alignItems: "center", gap: "6px" }}
-            >
-              <Check size={14} />
-              <span>{confirmState.confirmLabel}</span>
-            </AppButton>
-            <AppButton
-              variant="secondary"
+              variant="small"
               onClick={handleCancel}
-              style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
             >
               <X size={14} />
               <span>{confirmState.cancelLabel}</span>
+            </AppButton>
+            <AppButton
+              variant="primary"
+              className={confirmState.variant === "danger" ? "danger" : ""}
+              onClick={handleConfirm}
+            >
+              <Check size={14} />
+              <span>{confirmState.confirmLabel}</span>
             </AppButton>
           </div>
         </div>

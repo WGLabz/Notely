@@ -15,9 +15,6 @@ const MediaTab = lazy(() =>
 const DocumentDetail = lazy(() =>
   import("./components/DocumentDetail").then((m) => ({ default: m.DocumentDetail }))
 );
-const P2PStatusPanel = lazy(() =>
-  import("./components/P2PStatusPanel").then((m) => ({ default: m.P2PStatusPanel }))
-);
 const WorkspaceActivityPanel = lazy(() =>
   import("./components/WorkspaceActivityPanel").then((m) => ({ default: m.WorkspaceActivityPanel }))
 );
@@ -25,10 +22,14 @@ const ConflictResolutionPanel = lazy(() =>
   import("./components/ConflictResolutionPanel").then((m) => ({ default: m.ConflictResolutionPanel }))
 );
 const AIChatPanel = lazy(() => import("./components/AIChatPanel"));
-const AISettings = lazy(() => import("./components/AISettings"));
 const WorkspaceGraphPanel = lazy(() =>
   import("./components/WorkspaceGraphPanel").then((m) => ({ default: m.WorkspaceGraphPanel }))
 );
+
+import { SettingsModal } from "./components/SettingsModal";
+import { LandingView } from "./components/layout/LandingView";
+import { TitleBar } from "./components/layout/TitleBar";
+import { TrashDialog } from "./components/TrashDialog";
 const EmbeddedTerminal = lazy(() =>
   import("./components/EmbeddedTerminal").then((m) => ({ default: m.EmbeddedTerminal }))
 );
@@ -106,6 +107,7 @@ import { useAIAssistant } from "./hooks/useAIAssistant";
 import { useDocumentManager } from "./hooks/useDocumentManager";
 import { useWorkspaceScopedStorage } from "./hooks/useWorkspaceScopedStorage";
 import { OnboardingFlow } from "./components/OnboardingFlow";
+import { useUIState } from "./contexts/UIStateContext";
 import { setupDemoWorkspace } from "./utils/demoWorkspace";
 
 function getPaletteUsageKey(commandId) {
@@ -326,22 +328,31 @@ export default function App() {
     window.addEventListener("app:toast", handleToast);
     return () => window.removeEventListener("app:toast", handleToast);
   }, [notify]);
-  const [landingAssetsOpen, setLandingAssetsOpen] = useState(false);
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
-  const [globalSearchQuery, setGlobalSearchQuery] = useState("");
-  const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false);
-  const [workspaceGraphOpen, setWorkspaceGraphOpen] = useState(false);
-  const [markdownGuideOpen, setMarkdownGuideOpen] = useState(false);
-  const [aboutOpen, setAboutOpen] = useState(false);
-  const [helpConfirmationOpen, setHelpConfirmationOpen] = useState(false);
-  const [gitVCOpen, setGitVCOpen] = useState(false);
-  const [gitVCInitialTab, setGitVCInitialTab] = useState("status");
-  const [globalCommitDialogOpen, setGlobalCommitDialogOpen] = useState(false);
-  const [tasksPanelOpen, setTasksPanelOpen] = useState(false);
-  const [allTasksPanelOpen, setAllTasksPanelOpen] = useState(false);
-  const [recentNotesPanelOpen, setRecentNotesPanelOpen] = useState(false);
-  const [favoritesPanelOpen, setFavoritesPanelOpen] = useState(false);
+  const {
+    landingAssetsOpen, setLandingAssetsOpen,
+    commandPaletteOpen, setCommandPaletteOpen,
+    globalSearchOpen, setGlobalSearchOpen,
+    globalSearchQuery, setGlobalSearchQuery,
+    shortcutsModalOpen, setShortcutsModalOpen,
+    workspaceGraphOpen, setWorkspaceGraphOpen,
+    markdownGuideOpen, setMarkdownGuideOpen,
+    aboutOpen, setAboutOpen,
+    helpConfirmationOpen, setHelpConfirmationOpen,
+    gitVCOpen, setGitVCOpen,
+    gitVCInitialTab, setGitVCInitialTab,
+    globalCommitDialogOpen, setGlobalCommitDialogOpen,
+    tasksPanelOpen, setTasksPanelOpen,
+    allTasksPanelOpen, setAllTasksPanelOpen,
+    recentNotesPanelOpen, setRecentNotesPanelOpen,
+    favoritesPanelOpen, setFavoritesPanelOpen,
+    trashDialogOpen, setTrashDialogOpen,
+    onboardingComplete, setOnboardingCompleteState,
+    defaultNotesPath, setDefaultNotesPath,
+    themePreference, setThemePreferenceState,
+    effectiveTheme, setEffectiveTheme,
+    zoomFactor, setZoomFactorState,
+  } = useUIState();
+
   const [workspaceExportOpen, setWorkspaceExportOpen] = useState(false);
   const [workspaceExportBusy, setWorkspaceExportBusy] = useState(false);
   const [workspaceExportProgress, setWorkspaceExportProgress] = useState({ phase: "", percent: 0 });
@@ -357,11 +368,6 @@ export default function App() {
     commitHash: "",
     isPackaged: true,
   });
-  const [onboardingComplete, setOnboardingCompleteState] = useState(true);
-  const [defaultNotesPath, setDefaultNotesPath] = useState("");
-  const [themePreference, setThemePreferenceState] = useState("auto");
-  const [effectiveTheme, setEffectiveTheme] = useState("light");
-  const [zoomFactor, setZoomFactorState] = useState(1);
   const [workspaceTaskDocuments, setWorkspaceTaskDocuments] = useState([]);
   const [dashboardCache, setDashboardCache] = useState({ continueWriting: [], recentNotes: [] });
   const [gitWorkspaceMeta, setGitWorkspaceMeta] = useState({
@@ -376,6 +382,8 @@ export default function App() {
   const [updateStatus, setUpdateStatus] = useState(null);
   const [updateDetails, setUpdateDetails] = useState(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [landingSidebarWidth, setLandingSidebarWidth] = useState(260);
+  const landingLayoutRef = useRef(null);
 
   const {
     documents,
@@ -605,6 +613,41 @@ export default function App() {
     fallbackKey: "notely:autosave-enabled",
   });
   const [dictionaryOpen, setDictionaryOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState("general");
+
+  const openSettings = (tab = "general") => {
+    setSettingsTab(tab);
+    setSettingsOpen(true);
+  };
+
+  const handleSetTheme = async (theme) => {
+    try {
+      const themeResult = await persistThemePreference(theme);
+      const appliedPreference = ["auto", "light", "dark"].includes(themeResult?.themePreference)
+        ? themeResult.themePreference
+        : theme;
+      const appliedTheme = themeResult?.effectiveTheme === "dark" ? "dark" : "light";
+      setThemePreferenceState(appliedPreference);
+      setEffectiveTheme(appliedTheme);
+    } catch (err) {
+      notify("Failed to set theme preference.", "error");
+    }
+  };
+
+  const handleSetZoom = async (zoom) => {
+    try {
+      const result = await persistZoomFactor(zoom);
+      const appliedZoom = Number.isFinite(Number(result?.zoomFactor))
+        ? Number(result.zoomFactor)
+        : zoom;
+      setZoomFactorState(appliedZoom);
+    } catch (err) {
+      notify("Failed to change zoom scale.", "error");
+    }
+  };
+
+
 
   const handleAddDictionaryWord = (word) => {
     const normalized = String(word || "").trim().toLowerCase();
@@ -715,9 +758,64 @@ export default function App() {
     notify,
   });
 
+  useEffect(() => {
+    if (p2pStatusOpen) {
+      setSettingsTab("p2p");
+      setSettingsOpen(true);
+      setP2PStatusOpen(false);
+    }
+  }, [p2pStatusOpen, setP2PStatusOpen]);
+
+  useEffect(() => {
+    if (aiSettingsOpen) {
+      setSettingsTab("ai");
+      setSettingsOpen(true);
+      setAiSettingsOpen(false);
+    }
+  }, [aiSettingsOpen, setAiSettingsOpen]);
+
   const terminalCwd = current?.filePath
     ? current.filePath.replace(/[\\/][^\\/]+$/, "")
     : (landingFolderPath || activeProject?.rootPath || notesFolderPath);
+
+  const clampLandingSidebarWidth = (w) => Math.min(Math.max(w, 200), 450);
+
+  const startLandingSidebarResize = (event) => {
+    const layout = landingLayoutRef.current;
+    if (!layout) return;
+    event.preventDefault();
+    const updateWidth = (clientX) => {
+      const bounds = layout.getBoundingClientRect();
+      const nextWidth = clientX - bounds.left;
+      setLandingSidebarWidth(clampLandingSidebarWidth(nextWidth));
+    };
+    const handlePointerMove = (moveEvent) => {
+      updateWidth(moveEvent.clientX);
+    };
+    const handlePointerUp = () => {
+      document.removeEventListener("pointermove", handlePointerMove);
+      document.removeEventListener("pointerup", handlePointerUp);
+    };
+    document.addEventListener("pointermove", handlePointerMove);
+    document.addEventListener("pointerup", handlePointerUp);
+  };
+
+  const handleLandingSidebarResizerKeyDown = (event) => {
+    const STEP = event.shiftKey ? 20 : 5;
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      setLandingSidebarWidth((w) => clampLandingSidebarWidth(w - STEP));
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      setLandingSidebarWidth((w) => clampLandingSidebarWidth(w + STEP));
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      setLandingSidebarWidth(200);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      setLandingSidebarWidth(450);
+    }
+  };
 
   async function handleOpenWorkspaceInEditor() {
     const workspacePath = activeProject?.rootPath || notesFolderPath;
@@ -998,6 +1096,10 @@ export default function App() {
       if (e.key && e.key.toLowerCase() === "m" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         setMarkdownGuideOpen(true);
+      }
+      if (e.key === "," && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        openSettings("general");
       }
     };
     window.addEventListener("keydown", handleGlobalKeyDown);
@@ -2177,6 +2279,11 @@ export default function App() {
 
     if (action === "assets") {
       setLandingAssetsOpen(true);
+      return;
+    }
+
+    if (action === "trash") {
+      setTrashDialogOpen(true);
     }
   }
 
@@ -2300,7 +2407,12 @@ export default function App() {
 
   return (
     <div className={`app-shell${showTerminal ? " terminal-open" : ""}${current ? " document-screen" : " landing-screen"}${focusModeEnabled && current ? " focus-mode-active" : ""}`}>
-      <div className="toast-stack" aria-live="polite" aria-atomic="true">
+      <TitleBar
+        title={current ? current.title : (activeProject ? activeProject.name : "Notely")}
+        onOpenWebsite={current ? handleOpenWebsiteForCurrent : handleOpenWebsiteFromLanding}
+      />
+      <div className="app-main-layout">
+        <div className="toast-stack" aria-live="polite" aria-atomic="true">
         {toasts.map((toast) => {
           let IconComponent = Info;
           if (toast.type === "success") IconComponent = CheckCircle2;
@@ -2375,178 +2487,47 @@ export default function App() {
         </div>
       ) : null}
       {!current ? (
-        <div className="landing-shell">
-          {updateStatus === "available" && (
-            <div
-              className="update-banner"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                background: "var(--surface-accent)",
-                border: "1px solid var(--border-soft)",
-                borderRadius: "var(--radius-md)",
-                padding: "6px 12px",
-                fontSize: "0.82rem",
-                color: "var(--accent-strong)",
-                fontWeight: "500",
-                zIndex: 2,
-                marginBottom: "12px",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <span>🎉</span>
-                <span>A new version of Notely (v{String(updateDetails?.latestVersion || "").replace(/^v/, "")}) is available!</span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <button
-                  onClick={() => setShowUpdateModal(true)}
-                  style={{
-                    background: "var(--accent-solid)",
-                    color: "#ffffff",
-                    border: "none",
-                    padding: "3px 8px",
-                    borderRadius: "4px",
-                    fontSize: "0.72rem",
-                    fontWeight: "600",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "4px"
-                  }}
-                  type="button"
-                >
-                  <Eye size={12} />
-                  View Update
-                </button>
-                <button
-                  onClick={() => setUpdateStatus("dismissed")}
-                  style={{
-                    background: "transparent",
-                    color: "var(--text-muted)",
-                    border: "none",
-                    fontSize: "0.72rem",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "4px",
-                    padding: "3px 6px"
-                  }}
-                  type="button"
-                >
-                  <X size={12} />
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          )}
-          {isRootLandingView ? (
-            <div className="landing-workspace-layout">
-              <aside className="landing-dashboard-rail" aria-label="Workspace dashboard rail">
-                <DashboardPanels
-                  documents={documents}
-                  taskDocuments={workspaceTaskDocuments}
-                  loading={loading}
-                  onOpen={handleOpenListItem}
-                  onOpenTask={(task) => handleOpenReferencedDocument(task?.filePath)}
-                  onOpenAllTasks={() => setAllTasksPanelOpen(true)}
-                  onOpenRecentNotes={() => setRecentNotesPanelOpen(true)}
-                  onOpenFavorites={() => setFavoritesPanelOpen(true)}
-                  onAction={handleDashboardAction}
-                  continueNotes={continueDashboardNotes}
-                  favorites={favoriteNotes}
-                  layout="rail"
-                />
-              </aside>
-              <div className="landing-notes-pane">
-                <LandingListControls
-                  query={landingListQuery}
-                  onQueryChange={setLandingListQuery}
-                  typeFilter={landingEntryFilter}
-                  onTypeFilterChange={setLandingEntryFilter}
-                  sortBy={landingSortMode}
-                  onSortByChange={setLandingSortMode}
-                  visibleCount={visibleDocuments.length}
-                  totalCount={documents.length}
-                  visibleFolderCount={visibleFolderCount}
-                  totalFolderCount={folderCount}
-                  visibleNoteCount={visibleNoteCount}
-                  totalNoteCount={noteCount}
-                  onCreateNote={() => handleDashboardAction("new-note")}
-                />
-                <DocumentList
-                  documents={visibleDocuments}
-                  onOpen={handleOpenListItem}
-                  onRemove={handleRemoveListEntry}
-                  loading={loading}
-                  viewMode={notesViewMode}
-                  density={notesDensityMode}
-                  favorites={favoriteNotes}
-                  onToggleFavorite={handleToggleFavorite}
-                  emptyMessage="No notes or folders match your current filters."
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="landing-notes-pane standalone">
-              <div className="landing-header">
-                <div className="landing-header-main">
-                  <div className="landing-title-row">
-                    <h1>{landingTitle}</h1>
-                  </div>
-                  <nav className="landing-path" aria-label="Folder path">
-                    {breadcrumbSegments.map((segment, index) => {
-                      const isLast = index === breadcrumbSegments.length - 1;
-                      return (
-                        <span className="landing-path-part" key={segment.path}>
-                          <button
-                            className={`landing-path-segment${isLast ? " active" : ""}`}
-                            type="button"
-                            disabled={isLast}
-                            data-tooltip={segment.label}
-                            onClick={() => {
-                              if (!isLast) {
-                                void handleLandingNavigateTo(segment.path);
-                              }
-                            }}
-                          >
-                            {segment.label}
-                          </button>
-                          {!isLast ? <span className="landing-path-separator" aria-hidden="true">/</span> : null}
-                        </span>
-                      );
-                    })}
-                  </nav>
-                </div>
-              </div>
-              <LandingListControls
-                query={landingListQuery}
-                onQueryChange={setLandingListQuery}
-                typeFilter={landingEntryFilter}
-                onTypeFilterChange={setLandingEntryFilter}
-                sortBy={landingSortMode}
-                onSortByChange={setLandingSortMode}
-                visibleCount={visibleDocuments.length}
-                totalCount={documents.length}
-                visibleFolderCount={visibleFolderCount}
-                totalFolderCount={folderCount}
-                visibleNoteCount={visibleNoteCount}
-                totalNoteCount={noteCount}
-                onCreateNote={() => handleDashboardAction("new-note")}
-              />
-              <DocumentList
-                documents={visibleDocuments}
-                onOpen={handleOpenListItem}
-                onRemove={handleRemoveListEntry}
-                loading={loading}
-                viewMode={notesViewMode}
-                density={notesDensityMode}
-                favorites={favoriteNotes}
-                onToggleFavorite={handleToggleFavorite}
-                emptyMessage="No notes or folders match your current filters."
-              />
-            </div>
-          )}
+        <>
+          <LandingView
+            isRootLandingView={isRootLandingView}
+            landingSidebarWidth={landingSidebarWidth}
+            landingLayoutRef={landingLayoutRef}
+            startLandingSidebarResize={startLandingSidebarResize}
+            handleLandingSidebarResizerKeyDown={handleLandingSidebarResizerKeyDown}
+            documents={documents}
+            workspaceTaskDocuments={workspaceTaskDocuments}
+            loading={loading}
+            onOpenListItem={handleOpenListItem}
+            onOpenReferencedDocument={(task) => handleOpenReferencedDocument(task?.filePath)}
+            onOpenAllTasks={() => setAllTasksPanelOpen(true)}
+            onOpenRecentNotes={() => setRecentNotesPanelOpen(true)}
+            onOpenFavorites={() => setFavoritesPanelOpen(true)}
+            onDashboardAction={handleDashboardAction}
+            continueDashboardNotes={continueDashboardNotes}
+            favoriteNotes={favoriteNotes}
+            landingListQuery={landingListQuery}
+            setLandingListQuery={setLandingListQuery}
+            landingEntryFilter={landingEntryFilter}
+            setLandingEntryFilter={setLandingEntryFilter}
+            landingSortMode={landingSortMode}
+            setLandingSortMode={setLandingSortMode}
+            visibleDocuments={visibleDocuments}
+            visibleFolderCount={visibleFolderCount}
+            folderCount={folderCount}
+            visibleNoteCount={visibleNoteCount}
+            noteCount={noteCount}
+            notesViewMode={notesViewMode}
+            density={notesDensityMode}
+            onToggleFavorite={handleToggleFavorite}
+            onRemoveListEntry={handleRemoveListEntry}
+            landingTitle={landingTitle}
+            breadcrumbSegments={breadcrumbSegments}
+            onLandingNavigateTo={handleLandingNavigateTo}
+            updateStatus={updateStatus}
+            updateDetails={updateDetails}
+            onShowUpdateModal={() => setShowUpdateModal(true)}
+            onDismissUpdate={() => setUpdateStatus("dismissed")}
+          />
           {landingAssetsOpen ? (
             <OverlayDialog open={landingAssetsOpen} onClose={() => setLandingAssetsOpen(false)} ariaLabel="Assets" cardClassName="assets-dialog-card">
                 <div className="overlay-dialog-header assets-dialog-header">
@@ -2575,7 +2556,7 @@ export default function App() {
                 </div>
             </OverlayDialog>
           ) : null}
-        </div>
+        </>
       ) : (
         <Suspense fallback={<div className="lazy-loading">Loading editor…</div>}>
           <DocumentDetail
@@ -2843,37 +2824,42 @@ export default function App() {
         </Suspense>
       ) : null}
 
-      {p2pStatusOpen ? (
-        <OverlayDialog open={p2pStatusOpen} onClose={() => setP2PStatusOpen(false)} ariaLabel="P2P status" cardClassName="p2p-status-dialog-card">
-            <div className="overlay-dialog-header">
-              <h2>P2P Status</h2>
-              <button
-                className="icon-button"
-                onClick={() => setP2PStatusOpen(false)}
-                type="button"
-                aria-label="Close P2P status"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <Suspense fallback={<div className="lazy-loading">Loading P2P status…</div>}>
-              <P2PStatusPanel
-                status={p2pStatus}
-                loading={p2pStatusLoading}
-                fullSyncProgressByPeer={fullSyncProgressByPeer}
-                onRefresh={handleOpenP2PStatus}
-                onStartDiscovery={handleStartP2PDiscovery}
-                onStopDiscovery={handleStopP2PDiscovery}
-                onSetDeviceName={handleSetP2PDeviceName}
-                onSetKeyPolicyDays={handleSetP2PKeyPolicyDays}
-                onCreateInvite={handleCreateP2PInvite}
-                onPairWithCode={handlePairP2PWithCode}
-                onManualConnect={handleManualP2PConnect}
-                onRemoveTrustedPeer={handleRemoveTrustedP2PPeer}
-                onRotateWorkspaceKeys={handleRotateP2PWorkspaceKeys}
-              />
-            </Suspense>
-        </OverlayDialog>
+      {settingsOpen ? (
+        <SettingsModal
+          isOpen={settingsOpen}
+          onClose={() => {
+            setSettingsOpen(false);
+            refreshAIConfiguration();
+          }}
+          activeTab={settingsTab}
+          themePreference={themePreference}
+          onThemeChange={handleSetTheme}
+          zoomFactor={zoomFactor}
+          onZoomChange={handleSetZoom}
+          autosaveEnabled={autosaveEnabled}
+          onAutosaveToggle={setAutosaveEnabled}
+          typoCheckEnabled={typoCheckEnabled}
+          onTypoCheckToggle={setTypoCheckEnabled}
+          outlineEnabled={outlineEnabled}
+          onOutlineToggle={setOutlineEnabled}
+          previewImageMode={previewImageMode}
+          onPreviewImageModeChange={setPreviewImageMode}
+          embeddedMarkdownMode={embeddedMarkdownMode}
+          onEmbeddedMarkdownModeToggle={setEmbeddedMarkdownMode}
+          p2pStatus={p2pStatus}
+          p2pLoading={p2pStatusLoading}
+          fullSyncProgressByPeer={fullSyncProgressByPeer}
+          onRefreshP2P={handleOpenP2PStatus}
+          onStartP2PDiscovery={handleStartP2PDiscovery}
+          onStopP2PDiscovery={handleStopP2PDiscovery}
+          onSetP2PDeviceName={handleSetP2PDeviceName}
+          onSetP2PKeyPolicyDays={handleSetP2PKeyPolicyDays}
+          onCreateP2PInvite={handleCreateP2PInvite}
+          onPairP2PWithCode={handlePairP2PWithCode}
+          onManualP2PConnect={handleManualP2PConnect}
+          onRemoveTrustedP2PPeer={handleRemoveTrustedP2PPeer}
+          onRotateP2PWorkspaceKeys={handleRotateP2PWorkspaceKeys}
+        />
       ) : null}
 
       {workspaceActivityOpen ? (
@@ -2897,18 +2883,6 @@ export default function App() {
               />
             </Suspense>
         </OverlayDialog>
-      ) : null}
-
-      {aiSettingsOpen ? (
-        <Suspense fallback={<div className="lazy-loading">Loading settings…</div>}>
-          <AISettings
-            isOpen={aiSettingsOpen}
-            onClose={() => {
-              setAiSettingsOpen(false);
-              refreshAIConfiguration();
-            }}
-          />
-        </Suspense>
       ) : null}
 
       {p2pSyncHelpOpen ? (
@@ -3212,6 +3186,14 @@ export default function App() {
         </Suspense>
       ) : null}
 
+      {trashDialogOpen ? (
+        <TrashDialog
+          isOpen={trashDialogOpen}
+          onClose={() => setTrashDialogOpen(false)}
+          onRestored={loadDocumentsData}
+        />
+      ) : null}
+
       {aboutOpen ? (
         <Suspense fallback={<div className="lazy-loading">Loading about…</div>}>
           <AboutModal
@@ -3280,7 +3262,7 @@ export default function App() {
       )}
 
       {gitVCOpen && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 1000, display: "flex", flexDirection: "column", background: "var(--app-bg)", color: "var(--app-text)" }}>
+        <div style={{ position: "fixed", top: "32px", right: 0, bottom: 0, left: 0, zIndex: 1000, display: "flex", flexDirection: "column", background: "var(--app-bg)", color: "var(--app-text)" }}>
           <Suspense fallback={<div className="lazy-loading">Loading Version Control…</div>}>
             <GitVersionControlPage
               workspacePath={notesFolderPath}
@@ -3313,6 +3295,7 @@ export default function App() {
         </Suspense>
       )}
 
+      </div>
       <GlobalTooltip />
     </div>
   );

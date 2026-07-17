@@ -259,6 +259,7 @@ export function NoteTabBar({
             setDropdownOpen(false);
           }}
           title="Create or open note"
+          data-tooltip="Create or open note"
           aria-label="Create or open note"
           aria-haspopup="true"
           aria-expanded={addDropdownOpen}

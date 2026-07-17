@@ -27,6 +27,26 @@ contextBridge.exposeInMainWorld("notesApi", {
     ipcRenderer.on("appearance:theme-changed", listener);
     return () => ipcRenderer.removeListener("appearance:theme-changed", listener);
   },
+  minimizeWindow: () => ipcRenderer.send("window:minimize"),
+  maximizeWindow: () => ipcRenderer.send("window:maximize"),
+  closeWindow: () => ipcRenderer.send("window:close"),
+  isWindowMaximized: () => ipcRenderer.invoke("window:is-maximized"),
+  onWindowMaximizedChanged: (callback) => {
+    if (typeof callback !== "function") return () => {};
+    const listener = (_event, isMaximized) => callback(isMaximized);
+    ipcRenderer.on("window:maximized-changed", listener);
+    return () => ipcRenderer.removeListener("window:maximized-changed", listener);
+  },
+  popupAppMenu: (payload) => ipcRenderer.send("window:popup-app-menu", payload),
+  getMenuLabels: () => ipcRenderer.invoke("window:get-menu-labels"),
+  getMenuStructure: () => ipcRenderer.invoke("window:get-menu-structure"),
+  executeMenuItem: (payload) => ipcRenderer.send("window:execute-menu-item", payload),
+  onMenuUpdated: (callback) => {
+    if (typeof callback !== "function") return () => {};
+    const listener = () => callback();
+    ipcRenderer.on("window:menu-updated", listener);
+    return () => ipcRenderer.removeListener("window:menu-updated", listener);
+  },
   aiQuery: (payload) => ipcRenderer.invoke("ai:query", payload),
   aiGetApiKey: (payload) => ipcRenderer.invoke("ai:config:get-api-key", payload),
   aiSetApiKey: (payload) => ipcRenderer.invoke("ai:config:set-api-key", payload),
@@ -88,6 +108,9 @@ contextBridge.exposeInMainWorld("notesApi", {
   renameDocument: (payload) => ipcRenderer.invoke("documents:rename", payload),
   deleteDocument: (payload) => ipcRenderer.invoke("documents:delete", payload),
   readDocument: (filePath) => ipcRenderer.invoke("documents:read", filePath),
+  trashList: () => ipcRenderer.invoke("trash:list"),
+  trashRestore: (payload) => ipcRenderer.invoke("trash:restore", payload),
+  trashEmpty: () => ipcRenderer.invoke("trash:empty"),
   markDocumentOpened: (filePath) => ipcRenderer.invoke("documents:mark-opened", filePath),
   readMarkdownSource: (filePath) => ipcRenderer.invoke("documents:read-markdown-source", filePath),
   saveDocument: (payload) => ipcRenderer.invoke("documents:save", payload),

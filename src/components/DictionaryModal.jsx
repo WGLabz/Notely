@@ -88,7 +88,7 @@ export default function DictionaryModal({
                     type="button"
                     className="dictionary-pill-close"
                     onClick={() => handleRemove(word)}
-                    title={`Remove "${word}" from dictionary`}
+                    data-tooltip={`Remove "${word}" from dictionary`}
                   >
                     <X size={12} />
                   </button>

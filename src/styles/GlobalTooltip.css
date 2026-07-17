@@ -2,14 +2,14 @@
   position: fixed;
   z-index: 10000;
   pointer-events: none;
-  background-color: var(--bg-tooltip, #333333);
-  color: var(--text-tooltip, #ffffff);
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 12px;
+  background-color: var(--tooltip-bg, rgba(20, 30, 33, 0.92));
+  color: var(--tooltip-text, #f0f8f5);
+  padding: 5px 10px;
+  border-radius: var(--tooltip-radius, var(--radius-md));
+  font-size: var(--font-size-label);
   font-family: inherit;
   font-weight: 500;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.06);
   transform: translate(-50%, -10px);
   opacity: 0;
   transition: opacity 0.15s ease, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
@@ -18,15 +18,16 @@
 }
 
 :root[data-theme="dark"] .global-tooltip {
-  background-color: rgba(30, 30, 30, 0.9);
-  color: #eeeeee;
+  background-color: rgba(18, 28, 31, 0.95);
+  color: #ecf6f2;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
 :root[data-theme="light"] .global-tooltip {
-  background-color: rgba(255, 255, 255, 0.95);
-  color: #111111;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  background-color: rgba(255, 255, 255, 0.97);
+  color: var(--text-strong);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1), 0 0 0 1px var(--border-default);
+  backdrop-filter: none;
 }
 
 .global-tooltip.visible {

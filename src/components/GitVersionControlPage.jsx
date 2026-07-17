@@ -117,6 +117,16 @@ function StatusTab({ status, workspacePath, onRefresh, onNotify, onCommitSuccess
   const [commitDialogOpen, setCommitDialogOpen] = useState(false);
   const { files = [], branch = "", ahead = 0, behind = 0 } = status || {};
 
+  const getStatusLetter = (statusStr) => {
+    if (!statusStr) return "M";
+    const s = statusStr.toLowerCase();
+    if (s.startsWith("mod")) return "M";
+    if (s.startsWith("add")) return "A";
+    if (s.startsWith("del")) return "D";
+    if (s.startsWith("ren")) return "R";
+    return statusStr.charAt(0).toUpperCase();
+  };
+
   const modified = files.filter((f) => f.status !== "untracked");
   const untracked = files.filter((f) => f.status === "untracked");
 
@@ -160,7 +170,7 @@ function StatusTab({ status, workspacePath, onRefresh, onNotify, onCommitSuccess
               <ul className="git-vc-file-list" aria-label="Changed files">
                 {modified.map((f) => (
                   <li key={f.path} className={`git-vc-file-row git-vc-file-row--${(f.status || "M").toLowerCase()}`}>
-                    <span className="git-vc-file-row__status" aria-label={`Status: ${f.status}`}>{f.status || "M"}</span>
+                    <span className="git-vc-file-row__status" aria-label={`Status: ${f.status}`}>{getStatusLetter(f.status)}</span>
                     <span className="git-vc-file-row__path">{f.path}</span>
                   </li>
                 ))}
@@ -1317,7 +1327,7 @@ export function GitVersionControlPage({
             />
           </div>
           <div className="overlay-dialog-actions">
-            <AppButton variant="secondary" onClick={() => {
+            <AppButton variant="small" onClick={() => {
               setTagDialogOpen(false);
               setTagCommit(null);
             }}>Cancel</AppButton>

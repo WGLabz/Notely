@@ -121,7 +121,7 @@
 .ai-settings-section {
   padding: 7px 9px;
   border: 1px solid #d9e3df;
-  border-radius: 7px;
+  border-radius: var(--radius-md);
   background: #ffffff;
 }
 
@@ -369,7 +369,7 @@
 .ai-settings-option-row {
   min-height: 26px;
   padding: 0 2px;
-  border-radius: 5px;
+  border-radius: var(--radius-md);
 }
 
 .ai-settings-option-row span {

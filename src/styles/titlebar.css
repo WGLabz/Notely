@@ -1,0 +1,209 @@
+.app-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 32px;
+  background: var(--surface-bg);
+  border-bottom: 1px solid var(--border-soft);
+  user-select: none;
+  -webkit-app-region: drag;
+  padding: 0 12px;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--text-strong);
+  z-index: 9999;
+}
+
+.titlebar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 100%;
+}
+
+.titlebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--text-strong);
+  opacity: 0.95;
+}
+
+.titlebar-brand-icon {
+  color: var(--accent-solid);
+  display: flex;
+  align-items: center;
+}
+
+.titlebar-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-weight: 500;
+  color: var(--text-muted);
+  pointer-events: none;
+  font-size: 12px;
+}
+
+.titlebar-menu {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  -webkit-app-region: no-drag;
+}
+
+.titlebar-menu-container {
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.titlebar-menu-btn {
+  background: transparent;
+  border: none;
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.1s ease, color 0.1s ease;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  outline: none;
+}
+
+.titlebar-menu-btn:hover,
+.titlebar-menu-container.open .titlebar-menu-btn {
+  background: var(--surface-accent);
+  color: var(--text-strong);
+}
+
+.titlebar-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-lg);
+  z-index: 10000;
+  border-radius: var(--radius-md);
+  min-width: 220px;
+  padding: 6px 0;
+  margin-top: 2px;
+}
+
+.titlebar-dropdown-list {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.titlebar-menu-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--text-strong);
+  cursor: pointer;
+  transition: background 0.1s ease;
+  position: relative;
+  white-space: nowrap;
+}
+
+.titlebar-menu-item:hover {
+  background: var(--surface-accent);
+}
+
+.titlebar-menu-item.disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.titlebar-menu-item-check {
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-solid);
+}
+
+.titlebar-menu-item-label {
+  flex: 1;
+}
+
+.titlebar-menu-item-shortcut {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-left: 24px;
+  opacity: 0.8;
+}
+
+.titlebar-menu-item-chevron {
+  color: var(--text-muted);
+  margin-left: 8px;
+  opacity: 0.8;
+}
+
+.titlebar-menu-separator {
+  height: 1px;
+  background: var(--border-soft);
+  margin: 6px 0;
+}
+
+.titlebar-submenu {
+  position: absolute;
+  top: -6px;
+  left: 100%;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-lg);
+  z-index: 10001;
+  border-radius: var(--radius-md);
+  min-width: 200px;
+  padding: 6px 0;
+  margin-left: 2px;
+}
+
+.titlebar-controls {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  -webkit-app-region: no-drag;
+}
+
+.titlebar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  outline: none;
+}
+
+.titlebar-btn:hover {
+  background: var(--surface-accent);
+  color: var(--text-strong);
+}
+
+.titlebar-btn.close:hover {
+  background: #e81123 !important;
+  color: #ffffff !important;
+}
+
+/* Make sure active windows have distinct contrast if needed */
+body.dark .titlebar-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}

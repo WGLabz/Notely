@@ -14,7 +14,7 @@
   max-height: 92vh;
   background: #ffffff;
   border: 1px solid #dce8e3;
-  border-radius: 10px;
+  border-radius: var(--radius-xl);
   overflow: visible;
   display: flex;
   flex-direction: column;

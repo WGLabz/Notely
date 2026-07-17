@@ -1,4 +1,4 @@
-import { ArrowRight, CheckSquare, Clock3, FilePlus2, FolderPlus, Image as ImageIcon, Search } from "lucide-react";
+import { ArrowRight, CheckSquare, Clock3, FilePlus2, FolderPlus, Image as ImageIcon, Search, Trash2 } from "lucide-react";
 import { useMemo } from "react";
 import { formatDate } from "../utils/dateUtils";
 import { extractOpenTasksFromDocuments, getTaskCountsFromDocuments } from "../utils/taskUtils";
@@ -144,6 +144,10 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
               <ImageIcon size={14} />
               Assets
             </button>
+            <button type="button" onClick={() => onAction("trash")}>
+              <Trash2 size={14} />
+              Trash
+            </button>
           </div>
         </article>
 
@@ -287,6 +291,10 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
             <button type="button" onClick={() => onAction("assets")}>
               <ImageIcon size={14} />
               Assets
+            </button>
+            <button type="button" onClick={() => onAction("trash")}>
+              <Trash2 size={14} />
+              Trash
             </button>
           </div>
         </article>

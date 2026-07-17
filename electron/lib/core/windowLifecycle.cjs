@@ -13,6 +13,8 @@ function createWindowLifecycle(deps) {
     buildAppMenu,
     terminalIpc,
     getInitialZoomFactor,
+    getStoredWindowBounds,
+    saveWindowBounds,
   } = deps;
 
   let mainWindow = null;
@@ -425,13 +427,16 @@ function createWindowLifecycle(deps) {
 
     createSplashWindow(windowIconPath);
 
-    const win = new BrowserWindow({
+    const { screen } = require("electron");
+    const storedBounds = typeof getStoredWindowBounds === "function" ? getStoredWindowBounds() : null;
+    let windowOpts = {
       width: 1280,
       height: 840,
       minWidth: 860,
       minHeight: 560,
       show: false,
       backgroundColor: "#f5f3ef",
+      titleBarStyle: "hidden",
       ...(windowIconPath ? { icon: windowIconPath } : {}),
       webPreferences: {
         preload: path.join(__dirname, "..", "..", "preload.cjs"),
@@ -439,6 +444,50 @@ function createWindowLifecycle(deps) {
         nodeIntegration: false,
         sandbox: true,
         webviewTag: false
+      }
+    };
+
+    if (storedBounds && typeof storedBounds === "object") {
+      const { x, y, width, height } = storedBounds;
+      if (Number.isInteger(x) && Number.isInteger(y) && Number.isInteger(width) && Number.isInteger(height)) {
+        const match = screen.getDisplayMatching({ x, y, width, height });
+        if (match) {
+          windowOpts.x = x;
+          windowOpts.y = y;
+          windowOpts.width = width;
+          windowOpts.height = height;
+        }
+      }
+    }
+
+    const win = new BrowserWindow(windowOpts);
+
+    const saveBounds = () => {
+      if (!win.isDestroyed() && !win.isMaximized() && !win.isMinimized() && !win.isFullScreen()) {
+        try {
+          saveWindowBounds?.(win.getBounds());
+        } catch (err) {
+          console.warn("[settings] Failed to save window geometry:", err?.message || err);
+        }
+      }
+    };
+
+    let saveTimeout = null;
+    const throttledSaveBounds = () => {
+      if (saveTimeout) clearTimeout(saveTimeout);
+      saveTimeout = setTimeout(saveBounds, 300);
+    };
+
+    win.on("resize", throttledSaveBounds);
+    win.on("move", throttledSaveBounds);
+    win.on("maximize", () => {
+      if (!win.isDestroyed() && win.webContents) {
+        win.webContents.send("window:maximized-changed", true);
+      }
+    });
+    win.on("unmaximize", () => {
+      if (!win.isDestroyed() && win.webContents) {
+        win.webContents.send("window:maximized-changed", false);
       }
     });
 
@@ -493,9 +542,16 @@ function createWindowLifecycle(deps) {
       currentFolderLabel: "",
     };
     Menu.setApplicationMenu(buildAppMenu(win, win.__menuContext));
+    if (!win.isDestroyed() && win.webContents) {
+      win.webContents.send("window:menu-updated");
+    }
     mainWindow = win;
 
     win.on("closed", () => {
+      if (saveTimeout) {
+        clearTimeout(saveTimeout);
+        saveTimeout = null;
+      }
       terminalIpc.disposeForWindow(win.id);
 
       if (mainWindow === win) {
@@ -610,6 +666,9 @@ function createWindowLifecycle(deps) {
       recentWorkspacePaths: [],
     };
     Menu.setApplicationMenu(buildAppMenu(win, context));
+    if (!win.isDestroyed() && win.webContents) {
+      win.webContents.send("window:menu-updated");
+    }
   }
 
   function handleMenuContextUpdate(event, context) {
@@ -643,6 +702,9 @@ function createWindowLifecycle(deps) {
     };
 
     Menu.setApplicationMenu(buildAppMenu(win, win.__menuContext));
+    if (!win.isDestroyed() && win.webContents) {
+      win.webContents.send("window:menu-updated");
+    }
   }
 
   function registerAppWindowEvents() {

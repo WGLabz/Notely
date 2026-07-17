@@ -1,7 +1,7 @@
 .dictionary-dialog-card {
   max-width: 480px !important;
   width: 90% !important;
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   background: var(--surface-bg);
   box-shadow: var(--shadow-overlay);
   border: 1px solid var(--border-default);
@@ -133,7 +133,7 @@
   background: var(--surface-subtle);
   border: 1px solid var(--border-soft);
   padding: 4px 8px;
-  border-radius: 16px;
+  border-radius: var(--radius-pill);
   font-size: 13px;
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }

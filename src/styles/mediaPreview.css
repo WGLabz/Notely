@@ -170,7 +170,7 @@
   padding: 0 8px;
   margin: 0;
   border: 1px solid #c6d6d1;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   background: var(--surface-bg);
   color: #1a3a3e;
   font-size: 11px;
@@ -206,7 +206,7 @@
   padding: 0 10px;
   margin: 0;
   border: 1px solid #c6d6d1;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   background: var(--surface-bg);
   color: #45666b;
   font-size: 11px;
@@ -222,7 +222,7 @@
   width: 26px;
   height: 26px;
   padding: 0;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   gap: 0;
 }
 

@@ -37,6 +37,7 @@ function registerDocumentIpcHandlers(ipcMain, deps) {
     rememberPdfExportPath,
     buildPdfExportMarkdown,
     buildPdfExportHtml,
+    getAppDataDir,
   } = deps;
 
   const PDF_WRITE_RETRY_DELAYS_MS = [120, 320, 700];
@@ -567,6 +568,89 @@ function registerDocumentIpcHandlers(ipcMain, deps) {
       }
       return { ...buildWorkspaceGraph(fs, path, workspaceRoot), clusters: [], staleness };
     }
+  });
+
+  registerTrustedHandler("trash:list", (_event) => {
+    const removedDir = path.join(getAppDataDir(), "removed");
+    if (!fs.existsSync(removedDir)) {
+      return [];
+    }
+
+    const items = [];
+    function walk(dir, group) {
+      if (!fs.existsSync(dir)) return;
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (group === "folders") {
+            const relativePath = path.relative(path.join(removedDir, "folders"), fullPath);
+            const stats = fs.statSync(fullPath);
+            items.push({
+              name: entry.name,
+              relativePath,
+              group,
+              deletedAt: stats.mtimeMs,
+              isDirectory: true
+            });
+          }
+          walk(fullPath, group);
+        } else {
+          const relativePath = path.relative(path.join(removedDir, group), fullPath);
+          const stats = fs.statSync(fullPath);
+          items.push({
+            name: entry.name,
+            relativePath,
+            group,
+            deletedAt: stats.mtimeMs,
+            isDirectory: false
+          });
+        }
+      }
+    }
+
+    walk(path.join(removedDir, "notes"), "notes");
+    walk(path.join(removedDir, "folders"), "folders");
+
+    items.sort((a, b) => b.deletedAt - a.deletedAt);
+    return items;
+  });
+
+  registerTrustedHandler("trash:restore", (_event, payload) => {
+    const { relativePath, group } = payload || {};
+    if (!relativePath || !group) {
+      throw new Error("Invalid payload.");
+    }
+    const notesRoot = getNotesRoot();
+    const removedDir = path.join(getAppDataDir(), "removed");
+    const sourcePath = path.join(removedDir, group, relativePath);
+    const targetPath = path.join(notesRoot, relativePath);
+
+    if (!fs.existsSync(sourcePath)) {
+      throw new Error("File not found in trash.");
+    }
+
+    const targetParent = path.dirname(targetPath);
+    if (!fs.existsSync(targetParent)) {
+      fs.mkdirSync(targetParent, { recursive: true });
+    }
+
+    fs.renameSync(sourcePath, targetPath);
+
+    if (group === "notes") {
+      const metadataStore = deps.getMetadataStore ? deps.getMetadataStore() : null;
+      metadataStore?.renameHistoryFilePath(sourcePath, targetPath);
+      dashboardCache?.addEntry?.(targetPath);
+    }
+    return { success: true };
+  });
+
+  registerTrustedHandler("trash:empty", (_event) => {
+    const removedDir = path.join(getAppDataDir(), "removed");
+    if (fs.existsSync(removedDir)) {
+      fs.rmSync(removedDir, { recursive: true, force: true });
+    }
+    return { success: true };
   });
 }
 

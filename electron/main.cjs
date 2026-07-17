@@ -21,7 +21,7 @@ const {
 } = require("./lib/shared/utils.cjs");
 const { buildPdfExportMarkdown, buildPdfStyles } = require("./lib/media/pdf.cjs");
 const { buildWebsiteHtml } = require("./lib/web/websiteTemplate.cjs");
-const { buildAppMenu } = require("./lib/core/appMenu.cjs");
+const { buildAppMenu, buildAppMenuTemplate, sendMenuAction } = require("./lib/core/appMenu.cjs");
 const { createWebsiteRenderer } = require("./lib/web/websiteRenderer.cjs");
 const { createImageMedia } = require("./lib/media/imageMedia.cjs");
 const { createTerminalIpc } = require("./lib/ipc/terminalIpc.cjs");
@@ -772,6 +772,25 @@ const windowLifecycle = createWindowLifecycle({
   buildAppMenu,
   terminalIpc,
   getInitialZoomFactor: getStoredZoomFactor,
+  getStoredWindowBounds: () => {
+    try {
+      const settings = readUserSettings();
+      return settings?.windowBounds || null;
+    } catch {
+      return null;
+    }
+  },
+  saveWindowBounds: (bounds) => {
+    try {
+      const settings = readUserSettings();
+      writeUserSettings({
+        ...settings,
+        windowBounds: bounds,
+      });
+    } catch (err) {
+      console.warn("[settings] Failed to save window bounds:", err?.message || err);
+    }
+  },
 });
 
 p2pSyncEngine = createP2PSyncEngine({
@@ -860,6 +879,172 @@ ipcMain.on("app:boot-ready", (event) => {
 ipcMain.on("app:boot-progress", (event, payload) => {
   assertTrustedIpcSender(BrowserWindow, event, "app:boot-progress");
   windowLifecycle.updateRendererBootProgress(event.sender, payload);
+});
+
+ipcMain.on("window:minimize", (event) => {
+  assertTrustedIpcSender(BrowserWindow, event, "window:minimize");
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) win.minimize();
+});
+
+ipcMain.on("window:maximize", (event) => {
+  assertTrustedIpcSender(BrowserWindow, event, "window:maximize");
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) {
+    if (win.isMaximized()) {
+      win.unmaximize();
+    } else {
+      win.maximize();
+    }
+  }
+});
+
+ipcMain.on("window:close", (event) => {
+  assertTrustedIpcSender(BrowserWindow, event, "window:close");
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) win.close();
+});
+
+ipcMain.handle("window:is-maximized", (event) => {
+  assertTrustedIpcSender(BrowserWindow, event, "window:is-maximized");
+  const win = BrowserWindow.fromWebContents(event.sender);
+  return win ? win.isMaximized() : false;
+});
+
+ipcMain.on("window:popup-app-menu", (event, { label, x, y }) => {
+  assertTrustedIpcSender(BrowserWindow, event, "window:popup-app-menu");
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return;
+  const menu = Menu.getApplicationMenu();
+  if (menu) {
+    const item = menu.items.find((i) => String(i.label).toLowerCase() === String(label).toLowerCase());
+    if (item && item.submenu) {
+      item.submenu.popup({ window: win, x: Math.round(x), y: Math.round(y) });
+    }
+  }
+});
+
+ipcMain.handle("window:get-menu-labels", (event) => {
+  assertTrustedIpcSender(BrowserWindow, event, "window:get-menu-labels");
+  const menu = Menu.getApplicationMenu();
+  return menu ? menu.items.map((i) => i.label).filter(Boolean) : [];
+});
+
+ipcMain.handle("window:get-menu-structure", (event) => {
+  assertTrustedIpcSender(BrowserWindow, event, "window:get-menu-structure");
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return [];
+  const rawTemplate = buildAppMenuTemplate(win, win.__menuContext || {});
+  
+  function serializeMenuTemplate(items) {
+    if (!Array.isArray(items)) return [];
+
+    const roleLabels = {
+      undo: "Undo",
+      redo: "Redo",
+      cut: "Cut",
+      copy: "Copy",
+      paste: "Paste",
+      selectall: "Select All",
+      reload: "Reload",
+      forcereload: "Force Reload",
+      toggledevtools: "Toggle Developer Tools",
+      togglefullscreen: "Toggle Full Screen",
+      minimize: "Minimize",
+      close: "Close"
+    };
+
+    const roleAccelerators = {
+      undo: "CmdOrCtrl+Z",
+      redo: "CmdOrCtrl+Y",
+      cut: "CmdOrCtrl+X",
+      copy: "CmdOrCtrl+C",
+      paste: "CmdOrCtrl+V",
+      selectall: "CmdOrCtrl+A",
+      reload: "CmdOrCtrl+R",
+      forcereload: "CmdOrCtrl+Shift+R",
+      toggledevtools: "CmdOrCtrl+Shift+I"
+    };
+
+    return items.map((item) => {
+      if (item.type === "separator") {
+        return { type: "separator" };
+      }
+      
+      const normalizedRole = item.role ? item.role.toLowerCase() : "";
+      const label = item.label || roleLabels[normalizedRole] || (item.role ? item.role.charAt(0).toUpperCase() + item.role.slice(1) : "");
+      const accelerator = item.accelerator || roleAccelerators[normalizedRole] || "";
+
+      const result = {
+        label,
+        accelerator,
+        type: item.type,
+        checked: item.checked,
+        enabled: item.enabled !== false,
+        role: item.role
+      };
+
+      if (item.submenu) {
+        result.submenu = serializeMenuTemplate(item.submenu);
+      } else if (typeof item.click === "function") {
+        const fnStr = item.click.toString();
+        const match = fnStr.match(/sendMenuAction\(\s*\w+\s*,\s*["']([^"']+)["']\)/);
+        if (match) {
+          result.action = match[1];
+        }
+      }
+      return result;
+    });
+  }
+
+  return serializeMenuTemplate(rawTemplate);
+});
+
+ipcMain.on("window:execute-menu-item", (event, { indexPath, role, action }) => {
+  assertTrustedIpcSender(BrowserWindow, event, "window:execute-menu-item");
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return;
+
+  if (Array.isArray(indexPath)) {
+    const rawTemplate = buildAppMenuTemplate(win, win.__menuContext || {});
+    let currentItems = rawTemplate;
+    let targetItem = null;
+    for (let i = 0; i < indexPath.length; i++) {
+      const idx = indexPath[i];
+      if (!currentItems || !currentItems[idx]) {
+        targetItem = null;
+        break;
+      }
+      targetItem = currentItems[idx];
+      currentItems = targetItem.submenu;
+    }
+
+    if (targetItem) {
+      if (typeof targetItem.click === "function") {
+        targetItem.click();
+        return;
+      }
+      role = role || targetItem.role;
+    }
+  }
+
+  if (role) {
+    if (role === "toggleDevTools") {
+      win.webContents.toggleDevTools();
+    } else if (role === "reload") {
+      win.webContents.reload();
+    } else if (role === "forceReload") {
+      win.webContents.reloadIgnoringCache();
+    } else if (role === "togglefullscreen") {
+      win.setFullScreen(!win.isFullScreen());
+    } else if (role === "minimize") {
+      win.minimize();
+    } else if (role === "close") {
+      win.close();
+    }
+  } else if (action) {
+    sendMenuAction(win, action);
+  }
 });
 
 registerCoreIpcHandlers(ipcMain, {
@@ -953,6 +1138,7 @@ registerDocumentIpcHandlers(ipcMain, {
   rememberPdfExportPath,
   buildPdfExportMarkdown,
   buildPdfExportHtml,
+  getAppDataDir: () => appDataDir,
 });
 
 registerWorkspaceExportIpcHandlers(ipcMain, {

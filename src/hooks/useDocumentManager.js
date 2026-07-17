@@ -101,6 +101,23 @@ export function useDocumentManager({ notify }) {
   const tabStatesRef = useRef(tabStates);
   tabStatesRef.current = tabStates;
 
+  const lastScopeRef = useRef(workspaceStorageScope);
+  useEffect(() => {
+    if (lastScopeRef.current !== workspaceStorageScope) {
+      lastScopeRef.current = workspaceStorageScope;
+      setOpenTabs([]);
+      setActiveTabPath(null);
+      setTabStates({});
+      setCurrent(null);
+      setHistory([]);
+    }
+  }, [workspaceStorageScope, setOpenTabs, setActiveTabPath, setCurrent, setHistory]);
+
+  useEffect(() => {
+    setActiveTabPath(null);
+    setCurrent(null);
+  }, [setActiveTabPath, setCurrent]);
+
   useEffect(() => {
     if (!activeTabPath) {
       setCurrent(null);

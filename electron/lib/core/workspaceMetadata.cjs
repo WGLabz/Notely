@@ -28,7 +28,7 @@ class WorkspaceMetadata {
       } else {
         this.state = { items: {} };
       }
-    } catch (_e) {
+    } catch {
       this.state = { items: {} };
     }
   }

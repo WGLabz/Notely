@@ -24,7 +24,7 @@ function normalizeMenuText(value, fallback = "") {
 }
 
 // Builds the application menu template based on the current screen/view context.
-function buildAppMenu(win, context = {}) {
+function buildAppMenuTemplate(win, context = {}) {
   const isMac = process.platform === "darwin";
   const screen = context?.screen === "document" ? "document" : "landing";
   const viewMode = context?.viewMode === "table" ? "table" : "tile";
@@ -651,7 +651,12 @@ function buildAppMenu(win, context = {}) {
     );
   }
 
+  return template;
+}
+
+function buildAppMenu(win, context = {}) {
+  const template = buildAppMenuTemplate(win, context);
   return Menu.buildFromTemplate(template);
 }
 
-module.exports = { buildAppMenu, sendMenuAction };
+module.exports = { buildAppMenu, buildAppMenuTemplate, sendMenuAction };
