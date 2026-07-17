@@ -2649,3 +2649,7 @@
   display: grid;
   gap: 8px;
 }
+
+.trash-panel-card {
+  width: min(780px, 95vw);
+}

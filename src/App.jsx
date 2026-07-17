@@ -29,6 +29,7 @@ const WorkspaceGraphPanel = lazy(() =>
 import { SettingsModal } from "./components/SettingsModal";
 import { LandingView } from "./components/layout/LandingView";
 import { TitleBar } from "./components/layout/TitleBar";
+import { TrashDialog } from "./components/TrashDialog";
 const EmbeddedTerminal = lazy(() =>
   import("./components/EmbeddedTerminal").then((m) => ({ default: m.EmbeddedTerminal }))
 );
@@ -342,6 +343,7 @@ export default function App() {
   const [allTasksPanelOpen, setAllTasksPanelOpen] = useState(false);
   const [recentNotesPanelOpen, setRecentNotesPanelOpen] = useState(false);
   const [favoritesPanelOpen, setFavoritesPanelOpen] = useState(false);
+  const [trashDialogOpen, setTrashDialogOpen] = useState(false);
   const [workspaceExportOpen, setWorkspaceExportOpen] = useState(false);
   const [workspaceExportBusy, setWorkspaceExportBusy] = useState(false);
   const [workspaceExportProgress, setWorkspaceExportProgress] = useState({ phase: "", percent: 0 });
@@ -2273,6 +2275,11 @@ export default function App() {
 
     if (action === "assets") {
       setLandingAssetsOpen(true);
+      return;
+    }
+
+    if (action === "trash") {
+      setTrashDialogOpen(true);
     }
   }
 
@@ -3170,6 +3177,14 @@ export default function App() {
             onRemoveWord={handleRemoveDictionaryWord}
           />
         </Suspense>
+      ) : null}
+
+      {trashDialogOpen ? (
+        <TrashDialog
+          isOpen={trashDialogOpen}
+          onClose={() => setTrashDialogOpen(false)}
+          onRestored={loadDocumentsData}
+        />
       ) : null}
 
       {aboutOpen ? (

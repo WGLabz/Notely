@@ -1138,6 +1138,7 @@ registerDocumentIpcHandlers(ipcMain, {
   rememberPdfExportPath,
   buildPdfExportMarkdown,
   buildPdfExportHtml,
+  getAppDataDir: () => appDataDir,
 });
 
 registerWorkspaceExportIpcHandlers(ipcMain, {
