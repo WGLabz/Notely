@@ -929,6 +929,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
       if (linkElement instanceof HTMLAnchorElement) {
         event.preventDefault();
         event.stopPropagation();
+        handleLinkNavigateRef.current?.(linkElement);
         return;
       }
 
@@ -1887,7 +1888,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
             className="link-hover-popup-btn"
             onClick={() => handleCopyLinkFromPreview(activeLinkPopup.href)}
           >
-            <Copy size={11} style={{ marginRight: "4px" }} />
+            <Copy size={12} style={{ marginRight: "4px" }} />
             <span>Copy</span>
           </button>
           <div className="link-hover-popup-separator" />
@@ -1899,7 +1900,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
               setActiveLinkPopup(null);
             }}
           >
-            <ExternalLink size={11} style={{ marginRight: "4px" }} />
+            <ExternalLink size={12} style={{ marginRight: "4px" }} />
             <span>Navigate</span>
           </button>
         </div>

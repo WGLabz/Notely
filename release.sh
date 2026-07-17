@@ -62,23 +62,23 @@ if ask_yes_no "4. Run packaged P2P tests?" "y"; then
 fi
 
 BUMP_VERSION=false
+COMMIT_CHANGES=false
+TAG_RELEASE=false
+PUSH_ORIGIN=false
+
 if ask_yes_no "5. Bump version to v${NEW_VERSION} in configuration files?" "y"; then
   BUMP_VERSION=true
-fi
+  if ask_yes_no "6. Create a git commit for this release?" "y"; then
+    COMMIT_CHANGES=true
+  fi
 
-COMMIT_CHANGES=false
-if ask_yes_no "6. Create a git commit for this release?" "y"; then
-  COMMIT_CHANGES=true
-fi
+  if ask_yes_no "7. Tag this commit as v${NEW_VERSION}?" "y"; then
+    TAG_RELEASE=true
+  fi
 
-TAG_RELEASE=false
-if ask_yes_no "7. Tag this commit as v${NEW_VERSION}?" "y"; then
-  TAG_RELEASE=true
-fi
-
-PUSH_ORIGIN=false
-if ask_yes_no "8. Push commit and tag to origin?" "y"; then
-  PUSH_ORIGIN=true
+  if ask_yes_no "8. Push commit and tag to origin?" "y"; then
+    PUSH_ORIGIN=true
+  fi
 fi
 
 echo ""

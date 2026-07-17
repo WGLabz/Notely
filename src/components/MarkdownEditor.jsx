@@ -293,108 +293,6 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => {
-    if (!window.notesApi?.onContextMenuAction) return undefined;
-    const unsubscribe = window.notesApi.onContextMenuAction(({ action, payload }) => {
-      if (action === "jump-to-line") {
-        onJumpToLine?.(payload);
-      } else if (action === "copy-selection") {
-        if (viewRef.current) {
-          const { from, to } = viewRef.current.state.selection.main;
-          const text = viewRef.current.state.sliceDoc(from, to);
-          navigator.clipboard.writeText(text).then(() => {
-            onNotify?.("Copied to clipboard", "success");
-          }).catch(() => {
-            onNotify?.("Failed to copy text", "error");
-          });
-        }
-      } else if (action === "find-in-document") {
-        onSearchRequest?.(payload);
-      } else if (action === "configure-ai-settings") {
-        onOpenAISettings?.();
-      } else if (action === "ask-ai-selection") {
-        onOpenAIRequest?.({
-          initialQuery: "Help me improve this selection while preserving its meaning and intent.",
-          target: "selection",
-          autoRun: false,
-          source: "context-menu",
-        });
-      } else if (action === "rewrite-ai-selection") {
-        onOpenAIRequest?.({
-          initialQuery: "Rewrite this selection to be clearer and more polished while preserving meaning.",
-          target: "selection",
-          autoRun: true,
-          source: "context-menu",
-        });
-      } else if (action === "find-related-workspace-selection") {
-        onOpenAIRequest?.({
-          initialQuery: "Use the selected text as the focal point and find related ideas, contradictions, or supporting notes from the workspace.",
-          target: "workspace",
-          autoRun: true,
-          source: "context-menu",
-        });
-      } else if (action === "turn-selection-actions") {
-        onOpenAIRequest?.({
-          initialQuery: "Turn this selection into a concise action list with markdown bullets.",
-          target: "selection",
-          autoRun: true,
-          source: "context-menu",
-        });
-      } else if (action === "ask-ai-block") {
-        onOpenAIRequest?.({
-          initialQuery: "Help me think through this section, point out gaps, and suggest the strongest next move.",
-          target: "block",
-          autoRun: false,
-          source: "context-menu",
-        });
-      } else if (action === "continue-ai-block") {
-        onOpenAIRequest?.({
-          initialQuery: "Continue writing this section in the same tone and structure.",
-          target: "block",
-          autoRun: true,
-          source: "context-menu",
-        });
-      } else if (action === "explore-related-workspace-block") {
-        onOpenAIRequest?.({
-          initialQuery: "Use this note as the focal point and search the workspace for related notes, missing context, and useful connections.",
-          target: "workspace",
-          autoRun: true,
-          source: "context-menu",
-        });
-      } else if (action === "summarize-ai-block") {
-        onOpenAIRequest?.({
-          initialQuery: "Summarize the current block into a shorter, cleaner version.",
-          target: "block",
-          autoRun: true,
-          source: "context-menu",
-        });
-      } else if (action === "apply-issue-action") {
-        if (payload) {
-          applyIssueAction(payload);
-        }
-      } else if (action === "apply-suggestion") {
-        if (payload) {
-          applyIssueSuggestion(payload.issue, payload.suggestion);
-        }
-      } else if (action === "ignore-spelling") {
-        if (payload) {
-          onIgnoreSpellingWord?.(payload);
-        }
-      }
-    });
-    return unsubscribe;
-  }, [
-    onJumpToLine,
-    onSearchRequest,
-    onOpenAIRequest,
-    onOpenAISettings,
-    onNotify,
-    onIgnoreSpellingWord,
-    value,
-    onChange,
-    aiEnabled,
-  ]);
-
   const valueLength = String(value || "").length;
   const decorationsSynced = docLength === valueLength;
 
@@ -622,6 +520,110 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
       onNotify?.("No automatic fix available for this issue.", "warning");
     });
   };
+
+  useEffect(() => {
+    if (!window.notesApi?.onContextMenuAction) return undefined;
+    const unsubscribe = window.notesApi.onContextMenuAction(({ action, payload }) => {
+      if (action === "jump-to-line") {
+        onJumpToLine?.(payload);
+      } else if (action === "copy-selection") {
+        if (viewRef.current) {
+          const { from, to } = viewRef.current.state.selection.main;
+          const text = viewRef.current.state.sliceDoc(from, to);
+          navigator.clipboard.writeText(text).then(() => {
+            onNotify?.("Copied to clipboard", "success");
+          }).catch(() => {
+            onNotify?.("Failed to copy text", "error");
+          });
+        }
+      } else if (action === "find-in-document") {
+        onSearchRequest?.(payload);
+      } else if (action === "configure-ai-settings") {
+        onOpenAISettings?.();
+      } else if (action === "ask-ai-selection") {
+        onOpenAIRequest?.({
+          initialQuery: "Help me improve this selection while preserving its meaning and intent.",
+          target: "selection",
+          autoRun: false,
+          source: "context-menu",
+        });
+      } else if (action === "rewrite-ai-selection") {
+        onOpenAIRequest?.({
+          initialQuery: "Rewrite this selection to be clearer and more polished while preserving meaning.",
+          target: "selection",
+          autoRun: true,
+          source: "context-menu",
+        });
+      } else if (action === "find-related-workspace-selection") {
+        onOpenAIRequest?.({
+          initialQuery: "Use the selected text as the focal point and find related ideas, contradictions, or supporting notes from the workspace.",
+          target: "workspace",
+          autoRun: true,
+          source: "context-menu",
+        });
+      } else if (action === "turn-selection-actions") {
+        onOpenAIRequest?.({
+          initialQuery: "Turn this selection into a concise action list with markdown bullets.",
+          target: "selection",
+          autoRun: true,
+          source: "context-menu",
+        });
+      } else if (action === "ask-ai-block") {
+        onOpenAIRequest?.({
+          initialQuery: "Help me think through this section, point out gaps, and suggest the strongest next move.",
+          target: "block",
+          autoRun: false,
+          source: "context-menu",
+        });
+      } else if (action === "continue-ai-block") {
+        onOpenAIRequest?.({
+          initialQuery: "Continue writing this section in the same tone and structure.",
+          target: "block",
+          autoRun: true,
+          source: "context-menu",
+        });
+      } else if (action === "explore-related-workspace-block") {
+        onOpenAIRequest?.({
+          initialQuery: "Use this note as the focal point and search the workspace for related notes, missing context, and useful connections.",
+          target: "workspace",
+          autoRun: true,
+          source: "context-menu",
+        });
+      } else if (action === "summarize-ai-block") {
+        onOpenAIRequest?.({
+          initialQuery: "Summarize the current block into a shorter, cleaner version.",
+          target: "block",
+          autoRun: true,
+          source: "context-menu",
+        });
+      } else if (action === "apply-issue-action") {
+        if (payload) {
+          applyIssueAction(payload);
+        }
+      } else if (action === "apply-suggestion") {
+        if (payload) {
+          applyIssueSuggestion(payload.issue, payload.suggestion);
+        }
+      } else if (action === "ignore-spelling") {
+        if (payload) {
+          onIgnoreSpellingWord?.(payload);
+        }
+      }
+    });
+    return unsubscribe;
+  }, [
+    onJumpToLine,
+    onSearchRequest,
+    onOpenAIRequest,
+    onOpenAISettings,
+    onNotify,
+    onIgnoreSpellingWord,
+    value,
+    onChange,
+    aiEnabled,
+    applyIssueAction,
+    applyIssueSuggestion,
+  ]);
 
   const editorExtensions = useMemo(() => [
     markdown({ base: markdownLanguage }),
@@ -876,7 +878,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
         },
       },
     ]),
-  ], [findMatchDecorations, ghostSuggestionDecorations, onChange, onNotify, onOpenFind, onRedo, onToggleFind, onUndo, validationDecorations, validationIssues]);
+  ], [findMatchDecorations, ghostSuggestionDecorations, onChange, onNotify, onOpenFind, onRedo, onToggleFind, onUndo, validationDecorations, validationIssues, _activeLine, aiEnabled]);
 
   return (
     <div className="markdown-editor">
