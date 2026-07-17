@@ -6,6 +6,8 @@ All notable documentation and user-facing behavior changes are tracked in this f
 
 ### Added
 
+- Added a comprehensive `UI_UX_BACKLOG.md` tracking visual, structural, and desktop accessibility improvement tasks.
+- Added a built-in **Trash Bin** recovery modal allowing users to browse, restore, or permanently empty deleted notes and folders.
 - Added an inline markdown table editor overlay with grid-based cell/header editing
 - Added contextual row/column action chips and column alignment controls for table editing
 - Added regression tests for markdown table parsing/serialization behavior in `src/utils/tableUtils.test.js`

@@ -11,7 +11,7 @@
   <a href="https://github.com/WGLabz/Notely/actions">
     <img src="https://github.com/WGLabz/Notely/actions/workflows/cd.yml/badge.svg" alt="CD Status">
   </a>
-  <img src="https://img.shields.io/badge/version-v0.1.21-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/version-v0.1.22-blue" alt="Version" />
   <img src="https://img.shields.io/badge/license-CC--BY--NC--4.0-green" alt="License" />
   <img src="https://img.shields.io/badge/platform-Windows-lightgrey" alt="Platform" />
 
@@ -53,6 +53,7 @@ Notely is built with Electron + React and is designed for project notes, meeting
   - Open Tasks focuses on unchecked items.
   - All Tasks includes open + closed items with filtering and note grouping.
   - Dashboard widgets and note-level task summaries help you triage quickly.
+- Recover deleted files and folders with the built-in **Trash Bin** recovery modal, supporting restoration to original locations or permanently emptying the trash.
 - Export the workspace as a `.zip` bundle from the landing File menu with selectable format.
   - Notes as-is (`.md` + assets)
   - PDF-only (one PDF per note)
