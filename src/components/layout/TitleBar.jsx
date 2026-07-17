@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Minus, Square, Copy, X, Check, ChevronRight } from "lucide-react";
+import { Minus, Square, Copy, X, Check, ChevronRight, Globe } from "lucide-react";
 import notelyMark from "../../assets/branding/notely-mark.png";
 
-export function TitleBar({ title = "Notely" }) {
+export function TitleBar({ title = "Notely", onOpenWebsite }) {
   const [isMaximized, setIsMaximized] = useState(false);
   const [menuStructure, setMenuStructure] = useState([]);
   const [activeMenuIndex, setActiveMenuIndex] = useState(null);
@@ -231,6 +231,18 @@ export function TitleBar({ title = "Notely" }) {
       <div className="titlebar-title">{title}</div>
 
       <div className="titlebar-controls">
+        {onOpenWebsite && (
+          <button
+            className="titlebar-btn web-view"
+            onClick={onOpenWebsite}
+            type="button"
+            title="Open Website View"
+            aria-label="Open Website View"
+            style={{ marginRight: "4px" }}
+          >
+            <Globe size={14} />
+          </button>
+        )}
         <button
           className="titlebar-btn minimize"
           onClick={handleMinimize}

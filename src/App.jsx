@@ -107,6 +107,7 @@ import { useAIAssistant } from "./hooks/useAIAssistant";
 import { useDocumentManager } from "./hooks/useDocumentManager";
 import { useWorkspaceScopedStorage } from "./hooks/useWorkspaceScopedStorage";
 import { OnboardingFlow } from "./components/OnboardingFlow";
+import { useUIState } from "./contexts/UIStateContext";
 import { setupDemoWorkspace } from "./utils/demoWorkspace";
 
 function getPaletteUsageKey(commandId) {
@@ -327,23 +328,31 @@ export default function App() {
     window.addEventListener("app:toast", handleToast);
     return () => window.removeEventListener("app:toast", handleToast);
   }, [notify]);
-  const [landingAssetsOpen, setLandingAssetsOpen] = useState(false);
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
-  const [globalSearchQuery, setGlobalSearchQuery] = useState("");
-  const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false);
-  const [workspaceGraphOpen, setWorkspaceGraphOpen] = useState(false);
-  const [markdownGuideOpen, setMarkdownGuideOpen] = useState(false);
-  const [aboutOpen, setAboutOpen] = useState(false);
-  const [helpConfirmationOpen, setHelpConfirmationOpen] = useState(false);
-  const [gitVCOpen, setGitVCOpen] = useState(false);
-  const [gitVCInitialTab, setGitVCInitialTab] = useState("status");
-  const [globalCommitDialogOpen, setGlobalCommitDialogOpen] = useState(false);
-  const [tasksPanelOpen, setTasksPanelOpen] = useState(false);
-  const [allTasksPanelOpen, setAllTasksPanelOpen] = useState(false);
-  const [recentNotesPanelOpen, setRecentNotesPanelOpen] = useState(false);
-  const [favoritesPanelOpen, setFavoritesPanelOpen] = useState(false);
-  const [trashDialogOpen, setTrashDialogOpen] = useState(false);
+  const {
+    landingAssetsOpen, setLandingAssetsOpen,
+    commandPaletteOpen, setCommandPaletteOpen,
+    globalSearchOpen, setGlobalSearchOpen,
+    globalSearchQuery, setGlobalSearchQuery,
+    shortcutsModalOpen, setShortcutsModalOpen,
+    workspaceGraphOpen, setWorkspaceGraphOpen,
+    markdownGuideOpen, setMarkdownGuideOpen,
+    aboutOpen, setAboutOpen,
+    helpConfirmationOpen, setHelpConfirmationOpen,
+    gitVCOpen, setGitVCOpen,
+    gitVCInitialTab, setGitVCInitialTab,
+    globalCommitDialogOpen, setGlobalCommitDialogOpen,
+    tasksPanelOpen, setTasksPanelOpen,
+    allTasksPanelOpen, setAllTasksPanelOpen,
+    recentNotesPanelOpen, setRecentNotesPanelOpen,
+    favoritesPanelOpen, setFavoritesPanelOpen,
+    trashDialogOpen, setTrashDialogOpen,
+    onboardingComplete, setOnboardingCompleteState,
+    defaultNotesPath, setDefaultNotesPath,
+    themePreference, setThemePreferenceState,
+    effectiveTheme, setEffectiveTheme,
+    zoomFactor, setZoomFactorState,
+  } = useUIState();
+
   const [workspaceExportOpen, setWorkspaceExportOpen] = useState(false);
   const [workspaceExportBusy, setWorkspaceExportBusy] = useState(false);
   const [workspaceExportProgress, setWorkspaceExportProgress] = useState({ phase: "", percent: 0 });
@@ -359,11 +368,6 @@ export default function App() {
     commitHash: "",
     isPackaged: true,
   });
-  const [onboardingComplete, setOnboardingCompleteState] = useState(true);
-  const [defaultNotesPath, setDefaultNotesPath] = useState("");
-  const [themePreference, setThemePreferenceState] = useState("auto");
-  const [effectiveTheme, setEffectiveTheme] = useState("light");
-  const [zoomFactor, setZoomFactorState] = useState(1);
   const [workspaceTaskDocuments, setWorkspaceTaskDocuments] = useState([]);
   const [dashboardCache, setDashboardCache] = useState({ continueWriting: [], recentNotes: [] });
   const [gitWorkspaceMeta, setGitWorkspaceMeta] = useState({
@@ -2403,7 +2407,10 @@ export default function App() {
 
   return (
     <div className={`app-shell${showTerminal ? " terminal-open" : ""}${current ? " document-screen" : " landing-screen"}${focusModeEnabled && current ? " focus-mode-active" : ""}`}>
-      <TitleBar title={current ? current.title : (activeProject ? activeProject.name : "Notely")} />
+      <TitleBar
+        title={current ? current.title : (activeProject ? activeProject.name : "Notely")}
+        onOpenWebsite={current ? handleOpenWebsiteForCurrent : handleOpenWebsiteFromLanding}
+      />
       <div className="app-main-layout">
         <div className="toast-stack" aria-live="polite" aria-atomic="true">
         {toasts.map((toast) => {
