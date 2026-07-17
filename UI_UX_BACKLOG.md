@@ -11,10 +11,10 @@ This backlog outlines targeted, actionable, and testable improvements to make No
 
 ## UX
 
-- [ ] Add an Undo/Redo prompt banner or notification toast feedback when applying markdown quick fixes.
-- [ ] Implement an explicit "Discard Changes" warning dialog before closing unsaved note tabs.
-- [ ] Create a "Copy Link Path" context menu action for documents to make referencing other notes easier.
-- [ ] Support double-clicking on list items in table view mode to open them immediately.
+- [x] Add an Undo/Redo prompt banner or notification toast feedback when applying markdown quick fixes.
+- [x] Implement an explicit "Discard Changes" warning dialog before closing unsaved note tabs.
+- [x] Create a "Copy Link Path" context menu action for documents to make referencing other notes easier.
+- [x] Support double-clicking on list items in table view mode to open them immediately.
 
 ## Navigation
 

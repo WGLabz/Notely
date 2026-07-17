@@ -50,6 +50,7 @@ export function DocumentList({
   favorites = [],
   onToggleFavorite,
   emptyMessage,
+  onCopyLinkPath,
 }) {
   const { getMetadata, updateMetadata } = useWorkspaceMetadata();
   const [pickerState, setPickerState] = useState({ isOpen: false, entry: null });
@@ -238,6 +239,7 @@ export function DocumentList({
                   "--text-muted": getContrastColor(meta.color)
                 } : {}}
                 onClick={() => onOpen(doc)}
+                onDoubleClick={() => onOpen(doc)}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -324,6 +326,16 @@ export function DocumentList({
               }}
             >
               <LucideIcons.Palette size={14} /> Customize icon & color...
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                onCopyLinkPath?.(contextMenu.entry);
+                setContextMenu(null);
+              }}
+            >
+              <LucideIcons.Link size={14} /> Copy Link Path
             </button>
           </div>,
           document.body
@@ -415,6 +427,16 @@ export function DocumentList({
             }}
           >
             <LucideIcons.Palette size={14} /> Customize icon & color...
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              onCopyLinkPath?.(contextMenu.entry);
+              setContextMenu(null);
+            }}
+          >
+            <LucideIcons.Link size={14} /> Copy Link Path
           </button>
         </div>,
         document.getElementById('root') || document.body

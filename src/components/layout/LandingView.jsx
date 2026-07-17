@@ -43,6 +43,7 @@ export function LandingView({
   updateDetails,
   onShowUpdateModal,
   onDismissUpdate,
+  onCopyLinkPath,
 }) {
   return (
     <div className="landing-shell">
@@ -174,6 +175,7 @@ export function LandingView({
               favorites={favoriteNotes}
               onToggleFavorite={onToggleFavorite}
               emptyMessage="No notes or folders match your current filters."
+              onCopyLinkPath={onCopyLinkPath}
             />
           </div>
         </div>
@@ -234,6 +236,7 @@ export function LandingView({
             favorites={favoriteNotes}
             onToggleFavorite={onToggleFavorite}
             emptyMessage="No notes or folders match your current filters."
+            onCopyLinkPath={onCopyLinkPath}
           />
         </div>
       )}

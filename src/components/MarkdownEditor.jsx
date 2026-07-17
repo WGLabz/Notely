@@ -469,18 +469,50 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
     withViewportRestore((scheduleViewportRestore) => {
       const quickFixResult = applyMarkdownQuickFix(value, issue);
       if (quickFixResult.changed) {
-        onChange(quickFixResult.nextValue);
+        const previousValue = value;
+        const nextValue = quickFixResult.nextValue;
+        onChange(nextValue);
         scheduleViewportRestore();
-        onNotify?.(quickFixResult.message, "success");
+
+        const showUndoToast = (currVal, prevVal, isUndo) => {
+          onNotify?.(
+            isUndo ? "Reverted change." : quickFixResult.message,
+            "success",
+            {
+              label: isUndo ? "Redo" : "Undo",
+              onClick: () => {
+                onChange(isUndo ? currVal : prevVal);
+                showUndoToast(currVal, prevVal, !isUndo);
+              }
+            }
+          );
+        };
+        showUndoToast(nextValue, previousValue, false);
         setContextMenu(null);
         return;
       }
 
       const suggestionResult = applyValidationSuggestion(value, issue);
       if (suggestionResult.changed) {
-        onChange(suggestionResult.nextValue);
+        const previousValue = value;
+        const nextValue = suggestionResult.nextValue;
+        onChange(nextValue);
         scheduleViewportRestore();
-        onNotify?.(suggestionResult.message, "success");
+
+        const showUndoToast = (currVal, prevVal, isUndo) => {
+          onNotify?.(
+            isUndo ? "Reverted change." : suggestionResult.message,
+            "success",
+            {
+              label: isUndo ? "Redo" : "Undo",
+              onClick: () => {
+                onChange(isUndo ? currVal : prevVal);
+                showUndoToast(currVal, prevVal, !isUndo);
+              }
+            }
+          );
+        };
+        showUndoToast(nextValue, previousValue, false);
         setContextMenu(null);
         return;
       }

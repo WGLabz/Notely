@@ -8,7 +8,7 @@ export function MarkdownValidationBanner({ issues = [], status = "idle" }) {
   }
 
   if (!issues.length) {
-    return <div className="validation-banner ok">No issues detected (markdown, typos).</div>;
+    return null;
   }
 
   const firstIssue = issues[0];

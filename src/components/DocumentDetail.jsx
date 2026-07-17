@@ -718,6 +718,7 @@ export function DocumentDetail({
   onCloseAll,
   onOpenInEditor,
   onRevealInExplorer,
+  onCopyLinkPath,
 }) {
   const { confirm } = useConfirm();
   const MAX_EDITOR_HISTORY = 200;
@@ -1705,6 +1706,7 @@ export function DocumentDetail({
           onCloseAll={onCloseAll}
           onOpenInEditor={onOpenInEditor}
           onRevealInExplorer={onRevealInExplorer}
+          onCopyLinkPath={onCopyLinkPath}
         />
       )}
       {!isFocusMode && (

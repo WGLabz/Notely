@@ -5,9 +5,9 @@ export function useToast(autoDismissMs = 3000) {
   const [toasts, setToasts] = useState([]);
 
   const notify = useCallback(
-    (message, type = "info") => {
+    (message, type = "info", action = null) => {
       const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      setToasts((currentToasts) => [...currentToasts, { id, message, type }]);
+      setToasts((currentToasts) => [...currentToasts, { id, message, type, action }]);
       window.setTimeout(() => {
         setToasts((currentToasts) => currentToasts.filter((toast) => toast.id !== id));
       }, autoDismissMs);
@@ -15,5 +15,9 @@ export function useToast(autoDismissMs = 3000) {
     [autoDismissMs]
   );
 
-  return { toasts, notify };
+  const dismiss = useCallback((id) => {
+    setToasts((currentToasts) => currentToasts.filter((toast) => toast.id !== id));
+  }, []);
+
+  return { toasts, notify, dismiss };
 }

@@ -20,6 +20,7 @@ export function NoteTabBar({
   onCloseAll,
   onOpenInEditor,
   onRevealInExplorer,
+  onCopyLinkPath,
 }) {
   const barRef = useRef(null);
   const [containerWidth, setContainerWidth] = useState(800);
@@ -413,6 +414,17 @@ export function NoteTabBar({
           >
             <Edit2 size={14} />
             Set Icon & Color
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              onCopyLinkPath?.(contextMenu.filePath);
+              setContextMenu(null);
+            }}
+          >
+            <LucideIcons.Link size={14} />
+            Copy Link Path
           </button>
         </div>
       )}

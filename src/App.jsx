@@ -314,7 +314,7 @@ const EMPTY_OBJECT = {};
 const EMPTY_ARRAY = [];
 
 export default function App() {
-  const { toasts, notify } = useToast();
+  const { toasts, notify, dismiss } = useToast();
 
   useEffect(() => {
     const handleToast = (e) => {
@@ -448,6 +448,22 @@ export default function App() {
     selectedParentFolder,
     setSelectedParentFolder,
   } = useDocumentManager({ notify });
+
+  const handleCopyLinkPath = useCallback((target) => {
+    const filePath = typeof target === "object" ? target?.filePath : target;
+    if (!filePath || !notesFolderPath) return;
+    let relativePath = "";
+    const baseNorm = notesFolderPath.replace(/\\/g, "/").replace(/\/$/, "");
+    const fileNorm = filePath.replace(/\\/g, "/");
+    if (fileNorm.startsWith(baseNorm)) {
+      relativePath = fileNorm.slice(baseNorm.length).replace(/^\//, "");
+    } else {
+      relativePath = fileNorm;
+    }
+    const normalized = relativePath.split("/").map(encodeURIComponent).join("/");
+    navigator.clipboard.writeText(normalized);
+    notify(`Copied relative path: ${normalized}`, "success");
+  }, [notesFolderPath, notify]);
 
   const [activeDocumentChangedOnDisk, setActiveDocumentChangedOnDisk] = useState(false);
   const currentFilePath = current?.filePath;
@@ -2424,7 +2440,49 @@ export default function App() {
           return (
             <div className={`toast-item ${toast.type}`} key={toast.id}>
               <IconComponent size={16} style={{ flexShrink: 0 }} />
-              <span>{toast.message}</span>
+              <span style={{ flex: 1 }}>{toast.message}</span>
+              {toast.action && (
+                <button
+                  type="button"
+                  onClick={toast.action.onClick}
+                  style={{
+                    marginLeft: "8px",
+                    background: "var(--accent-solid)",
+                    color: "var(--text-on-accent)",
+                    border: "none",
+                    padding: "2px 6px",
+                    borderRadius: "var(--radius-sm)",
+                    fontSize: "11px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    whiteSpace: "nowrap"
+                  }}
+                >
+                  {toast.action.label}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => dismiss(toast.id)}
+                style={{
+                  background: "transparent",
+                  color: "inherit",
+                  opacity: 0.65,
+                  border: "none",
+                  padding: "4px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: "50%",
+                  marginLeft: "4px"
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.background = "rgba(0,0,0,0.05)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.65"; e.currentTarget.style.background = "transparent"; }}
+                aria-label="Dismiss notification"
+              >
+                <X size={12} />
+              </button>
             </div>
           );
         })}
@@ -2529,6 +2587,7 @@ export default function App() {
             updateDetails={updateDetails}
             onShowUpdateModal={() => setShowUpdateModal(true)}
             onDismissUpdate={() => setUpdateStatus("dismissed")}
+            onCopyLinkPath={handleCopyLinkPath}
           />
           {landingAssetsOpen ? (
             <OverlayDialog open={landingAssetsOpen} onClose={() => setLandingAssetsOpen(false)} ariaLabel="Assets" cardClassName="assets-dialog-card">
@@ -2577,6 +2636,7 @@ export default function App() {
             onCloseAll={handleCloseAll}
             onOpenInEditor={handleOpenInEditor}
             onRevealInExplorer={handleRevealInExplorer}
+            onCopyLinkPath={handleCopyLinkPath}
             history={history}
             workspacePath={notesFolderPath}
             branch={gitWorkspaceMeta.branch}

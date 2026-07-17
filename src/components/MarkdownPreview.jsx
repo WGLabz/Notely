@@ -437,6 +437,17 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
     annotationOnly: false,
   });
   const [contextMenu, setContextMenu] = useState(null);
+  const [activeLinkPopup, setActiveLinkPopup] = useState(null);
+  const linkHideTimerRef = useRef(null);
+  const handleLinkNavigateRef = useRef(null);
+
+  const handleCopyLinkFromPreview = (href) => {
+    if (!href) return;
+    navigator.clipboard.writeText(href);
+    onNotify?.(`Copied link path: ${href}`, "success");
+    setActiveLinkPopup(null);
+  };
+
   const [menuIndex, setMenuIndex] = useState(0);
   const [cropSaving, setCropSaving] = useState(false);
   const [replaceState, setReplaceState] = useState({ busy: false, assetPath: "" });
@@ -596,6 +607,59 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
 
       return true;
     };
+
+    handleLinkNavigateRef.current = async (linkElement) => {
+      const rawHref = (linkElement.getAttribute("href") || "").trim();
+      if (rawHref === "." || rawHref === "./") {
+        onNotify?.("Directory links like ./ are not supported here. Link a specific .md file.", "info");
+        return;
+      }
+
+      if (rawHref) {
+        try {
+          const resolvedDirPath = await checkIsDirectory(rawHref, basePath);
+          if (resolvedDirPath) {
+            const confirmed = await confirm({
+              title: "Open Folder?",
+              message: `Are you sure you want to open this folder in File Explorer?\n\nPath: ${resolvedDirPath}`,
+              confirmLabel: "Open",
+              cancelLabel: "Cancel",
+              variant: "primary"
+            });
+            if (confirmed) {
+              await openFolder(resolvedDirPath);
+            }
+            return;
+          }
+        } catch (dirCheckErr) {
+          console.warn("Failed to check if link is directory:", dirCheckErr);
+        }
+      }
+
+      if (inlineLinkedMarkdown) {
+        const fakeEvent = {
+          preventDefault: () => {},
+          stopPropagation: () => {}
+        };
+        const openedInline = await openInlineLinkedMarkdown(linkElement, fakeEvent);
+        if (openedInline) return;
+      }
+
+      if (rawHref) {
+        const normalizedHref = rawHref.split(/[?#]/)[0];
+        const ext = normalizedHref.split(".").pop()?.toLowerCase();
+        const mediaType = getMediaTypeFromExtension(ext);
+        if (mediaType) {
+          onMediaClick({ path: normalizedHref, type: mediaType });
+          return;
+        }
+
+        if (rawHref.startsWith("http://") || rawHref.startsWith("https://")) {
+          window.notesApi?.openExternal?.(rawHref);
+        }
+      }
+    };
+
 
     const openImageViewer = (imageElement, event) => {
       const src = getImagePath(imageElement);
@@ -863,53 +927,9 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
 
       const linkElement = target.closest("a");
       if (linkElement instanceof HTMLAnchorElement) {
-        const rawHref = (linkElement.getAttribute("href") || "").trim();
-        if (rawHref === "." || rawHref === "./") {
-          event.preventDefault();
-          event.stopPropagation();
-          onNotify?.("Directory links like ./ are not supported here. Link a specific .md file.", "info");
-          return;
-        }
-
-        if (rawHref) {
-          try {
-            const resolvedDirPath = await checkIsDirectory(rawHref, basePath);
-            if (resolvedDirPath) {
-              event.preventDefault();
-              event.stopPropagation();
-              const confirmed = await confirm({
-                title: "Open Folder?",
-                message: `Are you sure you want to open this folder in File Explorer?\n\nPath: ${resolvedDirPath}`,
-                confirmLabel: "Open",
-                cancelLabel: "Cancel",
-                variant: "primary"
-              });
-              if (confirmed) {
-                await openFolder(resolvedDirPath);
-              }
-              return;
-            }
-          } catch (dirCheckErr) {
-            console.warn("Failed to check if link is directory:", dirCheckErr);
-          }
-        }
-
-        if (inlineLinkedMarkdown) {
-          const openedInline = await openInlineLinkedMarkdown(linkElement, event);
-          if (openedInline) return;
-        }
-
-        if (rawHref) {
-          const normalizedHref = rawHref.split(/[?#]/)[0];
-          const ext = normalizedHref.split(".").pop()?.toLowerCase();
-          const mediaType = getMediaTypeFromExtension(ext);
-          if (mediaType) {
-            event.preventDefault();
-            event.stopPropagation();
-            onMediaClick({ path: normalizedHref, type: mediaType });
-            return;
-          }
-        }
+        event.preventDefault();
+        event.stopPropagation();
+        return;
       }
 
       const imageElement = getImageActionElement(target);
@@ -939,6 +959,59 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
       previewElement.removeEventListener("click", handleMediaClick);
     };
   }, [basePath, inlineLinkedMarkdown, onMediaClick, onNotify, content, onContentChange, confirm]);
+
+  useEffect(() => {
+    const previewElement = previewRef.current;
+    if (!previewElement) return;
+
+    const handleMouseOver = (e) => {
+      const link = e.target.closest("a");
+      if (link && previewElement.contains(link)) {
+        if (linkHideTimerRef.current) {
+          clearTimeout(linkHideTimerRef.current);
+          linkHideTimerRef.current = null;
+        }
+        const href = link.getAttribute("href");
+        if (!href) return;
+
+        const rect = link.getBoundingClientRect();
+
+        setActiveLinkPopup({
+          href,
+          text: link.innerText,
+          element: link,
+          position: {
+            top: rect.top - 6,
+            left: rect.left + (rect.width / 2)
+          }
+        });
+      }
+    };
+
+    const handleMouseOut = (e) => {
+      const link = e.target.closest("a");
+      if (link) {
+        linkHideTimerRef.current = setTimeout(() => {
+          setActiveLinkPopup(null);
+        }, 500);
+      }
+    };
+
+    const handleScroll = () => {
+      setActiveLinkPopup(null);
+    };
+
+    previewElement.addEventListener("mouseover", handleMouseOver);
+    previewElement.addEventListener("mouseout", handleMouseOut);
+    previewElement.addEventListener("scroll", handleScroll);
+
+    return () => {
+      previewElement.removeEventListener("mouseover", handleMouseOver);
+      previewElement.removeEventListener("mouseout", handleMouseOut);
+      previewElement.removeEventListener("scroll", handleScroll);
+      if (linkHideTimerRef.current) clearTimeout(linkHideTimerRef.current);
+    };
+  }, [content, basePath]);
 
   useEffect(() => {
     if (!contextMenu) return undefined;
@@ -1792,6 +1865,45 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
           }
         }}
       />
+      {activeLinkPopup && (
+        <div
+          className="link-hover-popup"
+          style={{
+            top: activeLinkPopup.position.top,
+            left: activeLinkPopup.position.left
+          }}
+          onMouseEnter={() => {
+            if (linkHideTimerRef.current) {
+              clearTimeout(linkHideTimerRef.current);
+              linkHideTimerRef.current = null;
+            }
+          }}
+          onMouseLeave={() => {
+            setActiveLinkPopup(null);
+          }}
+        >
+          <button
+            type="button"
+            className="link-hover-popup-btn"
+            onClick={() => handleCopyLinkFromPreview(activeLinkPopup.href)}
+          >
+            <Copy size={11} style={{ marginRight: "4px" }} />
+            <span>Copy</span>
+          </button>
+          <div className="link-hover-popup-separator" />
+          <button
+            type="button"
+            className="link-hover-popup-btn"
+            onClick={() => {
+              handleLinkNavigateRef.current?.(activeLinkPopup.element);
+              setActiveLinkPopup(null);
+            }}
+          >
+            <ExternalLink size={11} style={{ marginRight: "4px" }} />
+            <span>Navigate</span>
+          </button>
+        </div>
+      )}
     </>
   );
 });
