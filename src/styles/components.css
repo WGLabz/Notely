@@ -4434,3 +4434,94 @@
   fill: var(--custom-bg-color) !important;
 }
 
+/* Help Tab Forms for Issue/Feedback reporting */
+.settings-help-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 10px;
+  max-width: 480px;
+}
+
+.settings-input {
+  height: 32px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  font-size: var(--font-size-body-sm);
+  background: var(--surface-elevated);
+  color: var(--app-text);
+  transition: border-color var(--motion-fast) ease;
+}
+
+.settings-input:focus {
+  border-color: var(--accent-solid);
+  outline: none;
+}
+
+.settings-textarea {
+  min-height: 80px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  font-size: var(--font-size-body-sm);
+  font-family: inherit;
+  background: var(--surface-elevated);
+  color: var(--app-text);
+  resize: vertical;
+  transition: border-color var(--motion-fast) ease;
+}
+
+.settings-textarea:focus {
+  border-color: var(--accent-solid);
+  outline: none;
+}
+
+.settings-info-box {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  padding: 12px;
+  font-size: var(--font-size-body-sm);
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+
+.settings-info-title {
+  font-weight: 600;
+  color: var(--text-strong);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-info-details {
+  font-family: var(--font-family-mono, monospace);
+  font-size: var(--font-size-caption);
+  color: var(--text-muted);
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Feedback Modal Styling */
+.feedback-dialog-card {
+  max-width: 520px;
+  width: 90vw;
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-bg);
+  border: 1px solid var(--border-default);
+  color: var(--app-text);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+
+

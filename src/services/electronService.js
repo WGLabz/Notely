@@ -1039,3 +1039,12 @@ export async function openFolder(folderPath) {
   return api.openFolder({ folderPath });
 }
 
+export async function openExternal(url) {
+  const api = getNotesApi();
+  if (typeof api.openExternal !== "function") {
+    window.open(url, "_blank");
+    return { success: true };
+  }
+  return api.openExternal(url);
+}
+

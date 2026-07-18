@@ -205,6 +205,14 @@ Planned additions and improvements for upcoming iterations:
 - OCR-assisted alt text suggestions for inserted images.
 - Command palette automation macros for repeated authoring tasks.
 
+## Contributing and Reporting Issues
+
+We welcome feedback, bug reports, and feature requests!
+
+- **In-App Reporting:** Open **Help -> Report Bug / Feedback** (or search in the Command Palette) to access the built-in issue reporting form, which automatically collects system details and opens a pre-populated issue draft on GitHub.
+- **Manual Reports:** Go directly to our [GitHub Issues](https://github.com/TheNotelyApp/Notely/issues) page to open a new issue.
+- **Templates:** Use the pre-configured issue templates (Bug report or Feature request) when submitting reports. When opening a Pull Request, please follow the PR template checklist.
+
 ## License and ownership
 
 This repository is maintained for Notely use.

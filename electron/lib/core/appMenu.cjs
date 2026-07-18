@@ -652,6 +652,11 @@ function buildAppMenuTemplate(win, context = {}) {
         },
         { type: "separator" },
         {
+          label: "Report Bug / Feedback",
+          click: () => sendMenuAction(win, "open-feedback")
+        },
+        { type: "separator" },
+        {
           label: "Check for Updates",
           click: () => sendMenuAction(win, "check-for-updates")
         },

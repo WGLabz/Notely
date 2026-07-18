@@ -242,5 +242,6 @@ contextBridge.exposeInMainWorld("notesApi", {
   browseExportDestination: (payload) => ipcRenderer.invoke("note-package:browse-export-destination", payload),
   browseImportFile: () => ipcRenderer.invoke("note-package:browse-import-file"),
   getNotePackageDefaults: () => ipcRenderer.invoke("note-package:get-defaults"),
+  openExternal: (url) => ipcRenderer.invoke("shell:open-external", { url }),
 });
 

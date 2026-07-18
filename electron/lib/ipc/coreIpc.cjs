@@ -532,6 +532,14 @@ function registerCoreIpcHandlers(ipcMain, deps) {
     return { success: false };
   });
 
+  registerTrustedHandler("shell:open-external", async (_event, payload) => {
+    if (typeof payload?.url === "string" && /^https?:\/\//i.test(payload.url)) {
+      await shell.openExternal(payload.url);
+      return { success: true };
+    }
+    return { success: false };
+  });
+
   return {
     getActiveProjectSlug,
   };
