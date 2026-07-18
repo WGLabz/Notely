@@ -70,7 +70,7 @@ export function useP2PSync({ notify, setError, loadDocumentsData, syncStateRef }
     } finally {
       setP2PStatusLoading(false);
     }
-  }, []);
+  }, [setError]);
 
   async function handleOpenWorkspaceActivity() {
     setWorkspaceActivityOpen(true);
