@@ -2416,7 +2416,7 @@
 
 .landing-workspace-layout {
   display: grid;
-  grid-template-columns: minmax(200px, 20%) 8px minmax(0, 1fr);
+  grid-template-columns: var(--landing-sidebar-width, 260px) 8px minmax(0, 1fr);
   gap: 0;
   flex: 1;
   height: 100%;
@@ -2501,10 +2501,122 @@
   border-top: 1px solid #d3e0db;
 }
 
+/* Compact styles for sidebar (rail) view */
 .dashboard-panels.rail .dashboard-panel-head {
-  margin-bottom: var(--space-3);
-  align-items: flex-start;
-  flex-wrap: wrap;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  margin-bottom: var(--space-2);
+}
+
+.dashboard-panels.rail .dashboard-panel-head h3 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #143238;
+}
+
+.dashboard-panels.rail .dashboard-panel.quick-actions {
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+.dashboard-panels.rail .dashboard-panel.quick-actions .dashboard-panel-head {
+  margin-bottom: 4px;
+}
+
+.dashboard-panels.rail .dashboard-action-grid.row-mode {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.dashboard-panels.rail .dashboard-action-grid.row-mode button {
+  flex: 1;
+  min-height: 28px;
+  height: 28px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 6px;
+}
+
+.dashboard-panels.rail .dashboard-continue-card {
+  padding: 6px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  height: 30px;
+}
+
+.dashboard-panels.rail .dashboard-continue-card strong {
+  font-size: 11px;
+  margin: 0;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dashboard-panels.rail .dashboard-continue-card em {
+  font-size: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.dashboard-panels.rail .dashboard-recent-list button,
+.dashboard-panels.rail .dashboard-task-list button {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 0 6px;
+  min-height: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.dashboard-panels.rail .dashboard-recent-list button:hover,
+.dashboard-panels.rail .dashboard-task-list button:hover {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: transparent;
+}
+
+.dashboard-panels.rail .dashboard-recent-list button span,
+.dashboard-panels.rail .dashboard-task-list button span {
+  font-size: 11px;
+  margin: 0;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.dashboard-panels.rail .dashboard-item-open-indicator {
+  display: inline-flex;
+  align-items: center;
+  font-style: normal;
+  color: #1d5360;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.dashboard-panels.rail button:hover .dashboard-item-open-indicator {
+  opacity: 1;
 }
 
 .dashboard-panel-head {
@@ -2563,11 +2675,17 @@
   font-size: 15px;
   color: #173238;
   font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dashboard-continue-card span {
   font-size: 12px;
   color: #5f767e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dashboard-continue-card em {
@@ -2583,10 +2701,6 @@
 .dashboard-continue-card:hover {
   border-color: #b8cec7;
   background: #eaf3ef;
-}
-
-.dashboard-recent-list.continue-list {
-  margin-top: 8px;
 }
 .dashboard-recent-list {
   list-style: none;

@@ -116,7 +116,7 @@ export function LandingView({
         className="landing-workspace-layout"
         ref={landingLayoutRef}
         style={{
-          gridTemplateColumns: `${landingSidebarWidth}px 8px minmax(0, 1fr)`,
+          "--landing-sidebar-width": `${landingSidebarWidth}px`,
         }}
       >
         <aside className="landing-dashboard-rail" aria-label="Workspace dashboard rail">

@@ -1,4 +1,4 @@
-import { ArrowRight, CheckSquare, Clock3, FilePlus2, FolderPlus, Image as ImageIcon, Search, Trash2 } from "lucide-react";
+import { ArrowRight, CheckSquare, Clock3, FilePlus2, FolderPlus, Image as ImageIcon, Search, Trash2, FileText, Star } from "lucide-react";
 import { useMemo } from "react";
 import { formatDate } from "../utils/dateUtils";
 import { extractOpenTasksFromDocuments, getTaskCountsFromDocuments } from "../utils/taskUtils";
@@ -35,10 +35,12 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
   const continueCandidates = safeContinueNotes
     .filter((item) => item?.entryType === "file" && item?.filePath);
   const continueCandidate = continueCandidates[0] || recentNotes[0] || null;
-  const continueHistory = [];
-  const recentSlice = recentNotes.slice(0, DASHBOARD_SECTION_LIMIT);
+
+  const limit = layout === "rail" ? 5 : DASHBOARD_SECTION_LIMIT;
+
+  const recentSlice = recentNotes.slice(0, limit);
   const allOpenTasks = useMemo(() => extractOpenTasksFromDocuments(safeTaskDocuments), [safeTaskDocuments]);
-  const openTasks = useMemo(() => allOpenTasks.slice(0, DASHBOARD_SECTION_LIMIT), [allOpenTasks]);
+  const openTasks = useMemo(() => allOpenTasks.slice(0, limit), [allOpenTasks, limit]);
   const taskCounts = useMemo(() => getTaskCountsFromDocuments(safeTaskDocuments), [safeTaskDocuments]);
   
   const favoriteSlice = useMemo(() => {
@@ -66,10 +68,10 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
       });
   }, [safeFavorites, recentNotes, safeContinueNotes]);
 
-  const visibleFavorites = favoriteSlice.slice(0, DASHBOARD_SECTION_LIMIT);
+  const visibleFavorites = favoriteSlice.slice(0, limit);
 
   function renderSectionToggle(items, onOpenPanel) {
-    if (!Array.isArray(items) || items.length <= DASHBOARD_SECTION_LIMIT) {
+    if (!Array.isArray(items) || items.length <= limit) {
       return null;
     }
 
@@ -86,69 +88,50 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
   if (layout === "rail") {
     return (
       <section className="dashboard-panels rail" aria-label="Workspace dashboard">
+        <article className="dashboard-panel quick-actions">
+          <div className="dashboard-panel-head">
+            <h3>Quick Actions</h3>
+          </div>
+          <div className="dashboard-action-grid row-mode">
+            <button type="button" onClick={() => onAction("new-note")} data-tooltip="New Note" aria-label="New Note">
+              <FilePlus2 size={14} />
+            </button>
+            <button type="button" onClick={() => onAction("new-folder")} data-tooltip="New Folder" aria-label="New Folder">
+              <FolderPlus size={14} />
+            </button>
+            <button type="button" onClick={() => onAction("search")} data-tooltip="Search" aria-label="Search">
+              <Search size={14} />
+            </button>
+            <button type="button" onClick={() => onAction("assets")} data-tooltip="Assets" aria-label="Assets">
+              <ImageIcon size={14} />
+            </button>
+            <button type="button" onClick={() => onAction("trash")} data-tooltip="Trash" aria-label="Trash">
+              <Trash2 size={14} />
+            </button>
+          </div>
+        </article>
+
         <article className="dashboard-panel continue">
           <div className="dashboard-panel-head">
             <h3>Continue Writing</h3>
             <Clock3 size={14} />
           </div>
           {continueCandidate ? (
-            <>
-              <button
-                className="dashboard-continue-card"
-                type="button"
-                onClick={() => onOpen(continueCandidate)}
-              >
-                <strong>{continueCandidate.title}</strong>
-                <span>Last edited {formatDate(continueCandidate.updatedAt)}</span>
-                <em>
-                  Open
-                  <ArrowRight size={14} />
-                </em>
-              </button>
-              {continueHistory.length ? (
-                <ul className="dashboard-recent-list compact continue-list">
-                  {continueHistory.map((note) => (
-                    <li key={note.filePath}>
-                      <button type="button" onClick={() => onOpen(note)}>
-                        <span>{note.title}</span>
-                        <small>{formatDate(note.updatedAt)}</small>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </>
+            <button
+              className="dashboard-continue-card"
+              type="button"
+              onClick={() => onOpen(continueCandidate)}
+              data-tooltip={`Last edited: ${formatDate(continueCandidate.updatedAt)}`}
+            >
+              <strong>{continueCandidate.title}</strong>
+              <em>
+                Open
+                <ArrowRight size={14} />
+              </em>
+            </button>
           ) : (
             <p className="dashboard-empty">No notes yet. Create one to get started.</p>
           )}
-        </article>
-
-        <article className="dashboard-panel quick-actions">
-          <div className="dashboard-panel-head">
-            <h3>Quick Actions</h3>
-          </div>
-          <div className="dashboard-action-grid">
-            <button type="button" onClick={() => onAction("new-note")}>
-              <FilePlus2 size={14} />
-              New Note
-            </button>
-            <button type="button" onClick={() => onAction("new-folder")}>
-              <FolderPlus size={14} />
-              New Folder
-            </button>
-            <button type="button" onClick={() => onAction("search")}>
-              <Search size={14} />
-              Search
-            </button>
-            <button type="button" onClick={() => onAction("assets")}>
-              <ImageIcon size={14} />
-              Assets
-            </button>
-            <button type="button" onClick={() => onAction("trash")}>
-              <Trash2 size={14} />
-              Trash
-            </button>
-          </div>
         </article>
 
         <article className="dashboard-panel recent">
@@ -160,9 +143,16 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
             <ul className="dashboard-recent-list compact">
               {recentSlice.map((note) => (
                 <li key={note.filePath}>
-                  <button type="button" onClick={() => onOpen(note)}>
+                  <button
+                    type="button"
+                    onClick={() => onOpen(note)}
+                    data-tooltip={`Last edited: ${formatDate(note.updatedAt)}`}
+                  >
+                    <FileText size={12} style={{ flexShrink: 0, color: "var(--text-muted)", opacity: 0.8 }} />
                     <span>{note.title}</span>
-                    <small>{formatDate(note.updatedAt)}</small>
+                    <em className="dashboard-item-open-indicator">
+                      <ArrowRight size={12} />
+                    </em>
                   </button>
                 </li>
               ))}
@@ -181,9 +171,16 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
             <ul className="dashboard-recent-list compact">
               {visibleFavorites.map((note) => (
                 <li key={note.filePath}>
-                  <button type="button" onClick={() => onOpen(note)}>
+                  <button
+                    type="button"
+                    onClick={() => onOpen(note)}
+                    data-tooltip={`Last edited: ${formatDate(note.updatedAt)}`}
+                  >
+                    <Star size={12} style={{ flexShrink: 0, color: "#f5a623", opacity: 0.9 }} />
                     <span>{note.displayName}</span>
-                    <small>{formatDate(note.updatedAt)}</small>
+                    <em className="dashboard-item-open-indicator">
+                      <ArrowRight size={12} />
+                    </em>
                   </button>
                 </li>
               ))}
@@ -198,15 +195,18 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
             <h3>Open Tasks</h3>
             <div className="dashboard-task-head-actions">
               {taskCounts.total > 0 && (
-                <div
+                <button
+                  type="button"
                   className="dashboard-task-badge dashboard-task-summary"
-                  data-tooltip={`${taskCounts.open} open | ${taskCounts.closed} closed`}
+                  onClick={onOpenAllTasks}
+                  data-tooltip={`View all tasks (${taskCounts.open} open | ${taskCounts.closed} closed)`}
                   aria-label={`${taskCounts.open} open tasks and ${taskCounts.closed} closed tasks`}
+                  style={{ cursor: "pointer" }}
                 >
                   <span className="task-open">{taskCounts.open}</span>
                   <span className="dashboard-task-separator" aria-hidden="true">|</span>
                   <span className="task-closed">{taskCounts.closed}</span>
-                </div>
+                </button>
               )}
               {renderSectionToggle(allOpenTasks, onOpenAllTasks)}
             </div>
@@ -215,10 +215,16 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
             <ul className="dashboard-task-list compact">
               {openTasks.map((task, idx) => (
                 <li key={`${task.filePath}-${idx}`}>
-                  <button type="button" onClick={() => (onOpenTask || onOpen)?.(task)}>
+                  <button
+                    type="button"
+                    onClick={() => (onOpenTask || onOpen)?.(task)}
+                    data-tooltip={`Folder: ${getDisplayName(task.filePath)}`}
+                  >
                     <CheckSquare size={12} />
                     <span>{task.text}</span>
-                    <small>{getDisplayName(task.filePath)}</small>
+                    <em className="dashboard-item-open-indicator">
+                      <ArrowRight size={12} />
+                    </em>
                   </button>
                 </li>
               ))}
@@ -240,32 +246,18 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
             <Clock3 size={14} />
           </div>
           {continueCandidate ? (
-            <>
-              <button
-                className="dashboard-continue-card"
-                type="button"
-                onClick={() => onOpen(continueCandidate)}
-              >
-                <strong>{continueCandidate.title}</strong>
-                <span>Last edited {formatDate(continueCandidate.updatedAt)}</span>
-                <em>
-                  Open
-                  <ArrowRight size={14} />
-                </em>
-              </button>
-              {continueHistory.length ? (
-                <ul className="dashboard-recent-list compact continue-list">
-                  {continueHistory.map((note) => (
-                    <li key={note.filePath}>
-                      <button type="button" onClick={() => onOpen(note)}>
-                        <span>{note.title}</span>
-                        <small>{formatDate(note.updatedAt)}</small>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </>
+            <button
+              className="dashboard-continue-card"
+              type="button"
+              onClick={() => onOpen(continueCandidate)}
+            >
+              <strong>{continueCandidate.title}</strong>
+              <span>Last edited {formatDate(continueCandidate.updatedAt)}</span>
+              <em>
+                Open
+                <ArrowRight size={14} />
+              </em>
+            </button>
           ) : (
             <p className="dashboard-empty">No notes yet. Create one to get started.</p>
           )}
@@ -345,17 +337,18 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
           <div className="dashboard-panel-head">
             <h3>Open Tasks</h3>
             <div className="dashboard-task-head-actions">
-              {taskCounts.total > 0 && (
-                <div
+                <button
+                  type="button"
                   className="dashboard-task-badge dashboard-task-summary"
-                  data-tooltip={`${taskCounts.open} open | ${taskCounts.closed} closed`}
+                  onClick={onOpenAllTasks}
+                  data-tooltip={`View all tasks (${taskCounts.open} open | ${taskCounts.closed} closed)`}
                   aria-label={`${taskCounts.open} open tasks and ${taskCounts.closed} closed tasks`}
+                  style={{ cursor: "pointer" }}
                 >
                   <span className="task-open">{taskCounts.open}</span>
                   <span className="dashboard-task-separator" aria-hidden="true">|</span>
                   <span className="task-closed">{taskCounts.closed}</span>
-                </div>
-              )}
+                </button>
               {renderSectionToggle(allOpenTasks, onOpenAllTasks)}
             </div>
           </div>
