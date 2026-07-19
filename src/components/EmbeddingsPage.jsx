@@ -5,7 +5,6 @@ import {
   Database,
   Pause,
   Play,
-  Download,
   AlertCircle,
   FileText
 } from 'lucide-react';
@@ -115,32 +114,7 @@ export default function EmbeddingsPage({ onBack }) {
     };
   }, [loadModelAndPrefs]);
 
-  const handleProviderChange = async (e) => {
-    const val = e.target.value;
-    try {
-      const updatedPrefs = { ...preferences, embeddingProvider: val };
-      setPreferences(updatedPrefs);
-      await aiSetPreferences(updatedPrefs);
-      window.dispatchEvent(new CustomEvent('app:toast', {
-        detail: { message: `Embedding provider changed to ${val}`, type: 'success' }
-      }));
-    } catch (err) {
-      window.dispatchEvent(new CustomEvent('app:toast', {
-        detail: { message: `Failed to save provider: ${err.message}`, type: 'error' }
-      }));
-    }
-  };
 
-  const handleDownloadModel = async () => {
-    try {
-      const res = await aiDownloadModel();
-      if (res.success) {
-        setModelStatus(prev => ({ ...prev, isDownloading: true, progress: 0 }));
-      }
-    } catch (err) {
-      setError(`Failed to trigger model download: ${err.message}`);
-    }
-  };
 
   const handlePauseResume = async () => {
     try {
