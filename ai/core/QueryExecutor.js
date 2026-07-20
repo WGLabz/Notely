@@ -2,6 +2,8 @@
  * QueryExecutor - Routes queries to AI models with multi-step tool execution
  */
 
+const fs = require('fs');
+const path = require('path');
 const { getTools } = require('../tools/ToolRegistry');
 
 class QueryExecutor {
@@ -33,23 +35,55 @@ class QueryExecutor {
         console.warn('[QueryExecutor] ContextEngine.buildContext failed, falling back:', ceErr.message);
       }
     }
-    if (!systemPrompt) {
-      systemPrompt = context.systemPrompt || 'You are a helpful AI assistant for Notely, a modern markdown notes application.';
+    // Load core system instructions from markdown file
+    let baseInstructions = '';
+    try {
+      const promptPath = path.join(__dirname, 'system_prompt.md');
+      if (fs.existsSync(promptPath)) {
+        baseInstructions = fs.readFileSync(promptPath, 'utf8');
+      }
+    } catch (readErr) {
+      console.warn('[QueryExecutor] Failed to read system_prompt.md:', readErr.message);
     }
 
-    // 2. ALWAYS append workspace context metadata and guidelines
-    systemPrompt += `\n\nWorkspace context:
-- Workspace folder: ${this.agent.workspaceRoot || 'none'}
-- Current open note path: ${context.currentFile || 'none'}
+    // Combine base instructions with the active persona instructions
+    let finalSystemPrompt = baseInstructions || 'You are a helpful AI assistant for Notely, a modern markdown notes application.';
+    if (systemPrompt) {
+      finalSystemPrompt += `\n\n---\nACTIVE PERSONA ROLE/INSTRUCTIONS:\n${systemPrompt}`;
+    } else if (context.systemPrompt) {
+      finalSystemPrompt += `\n\n---\nACTIVE PERSONA ROLE/INSTRUCTIONS:\n${context.systemPrompt}`;
+    }
 
-Guidelines:
-- Review the conversation history carefully. If the information needed to answer the user's request (like previously retrieved tasks or note contents) is already present in the chat history, do NOT call the same tool again. Reuse the existing information.
-- Keep the conversation fluid, natural, and friendly. Avoid repeating lists of items or recapping the same information multiple times unless explicitly requested.`;
+    // Append workspace context metadata
+    finalSystemPrompt += `\n\nWorkspace context:
+- Workspace folder: ${this.agent.workspaceRoot || 'none'}
+- Current open note path: ${context.currentFile || 'none'}`;
+
+    systemPrompt = finalSystemPrompt;
 
     const mergedTools = {
       ...tools,
       ...contextEngineTools
     };
+
+    // Prune tools for conversational follow-up queries to prevent redundant tool execution
+    const cleanQuery = query.toLowerCase().trim();
+    const followUpKeywords = [
+      'suggest', 'pick', 'choose', 'first', 'second', 'third', 'next', 'which',
+      'ok', 'great', 'fine', 'yes', 'no', 'sure', 'why', 'how about', 'what do you think'
+    ];
+    const isFollowUp = cleanQuery.length < 50 && followUpKeywords.some(kw => cleanQuery.includes(kw));
+    
+    if (isFollowUp && ceMessages.length > 0) {
+      const historyStr = ceMessages.map(m => m.content || '').join(' ').toLowerCase();
+      if (historyStr.includes('task') || historyStr.includes('todo')) {
+        delete mergedTools.get_tasks;
+      }
+      if (historyStr.includes('note') || historyStr.includes('content') || historyStr.includes('read')) {
+        delete mergedTools.read_note;
+        delete mergedTools.searchNotes;
+      }
+    }
 
     // Build messages array
     let messages = [];
