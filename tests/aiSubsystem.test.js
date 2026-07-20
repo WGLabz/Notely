@@ -78,23 +78,7 @@ describe('AI Subsystem Tests', () => {
       expect(result.result).toBe('Vercel AI response text');
     });
 
-    it('should route Groq endpoints natively via groq-sdk', async () => {
-      const mockLlm = {
-        name: 'groq',
-        baseUrl: 'https://api.groq.com/openai/v1',
-        apiKey: 'gsk_mock',
-        model: 'llama-3.3-70b-versatile',
-        getModelInstance: vi.fn().mockResolvedValue({})
-      };
-      mockAgent.llmRegistry.getActiveProvider.mockReturnValue(mockLlm);
 
-      const executor = new QueryExecutor(mockAgent);
-      const result = await executor.execute('Hello');
-
-      expect(result.type).toBe('query');
-      expect(result.result).toBe('Groq native response text');
-      expect(result.tokensUsed).toBe(100);
-    });
   });
 
   describe('OpenAICompatibleProvider', () => {

@@ -221,7 +221,7 @@ export default function AIChatPanel({
                     }}
                     style={{ background: "transparent", border: "none", color: "var(--text-subtle)", cursor: "pointer", padding: "4px", display: "flex", alignItems: "center" }}
                   >
-                    <Trash2 size={11} />
+                    <Trash2 size={12} />
                   </button>
                 </div>
               ))

@@ -51,6 +51,31 @@ export function EditorPane({
   const [selectedMediaPreview, setSelectedMediaPreview] = useState(null);
   const [scrollSyncEnabled, setScrollSyncEnabled] = useState(true);
 
+  const jumpToLine = useCallback((line) => {
+    const editor = textareaRef?.current;
+    if (!editor) return;
+
+    const safeLine = Math.max(Number(line) || 1, 1);
+    const lines = (value || "").split(/\r?\n/);
+    let startIndex = 0;
+    for (let index = 0; index < Math.min(safeLine - 1, lines.length); index += 1) {
+      startIndex += lines[index].length + 1;
+    }
+
+    editor.focus();
+    editor.selectionStart = startIndex;
+    editor.selectionEnd = startIndex;
+
+    const lineHeight = typeof editor.getLineHeight === "function"
+      ? editor.getLineHeight()
+      : parseFloat(window.getComputedStyle(editor).lineHeight) || 20;
+    const viewportHeight = Number(editor.clientHeight) || lineHeight * 20;
+    const targetTop = (safeLine - 1) * lineHeight - viewportHeight * 0.66;
+    const maxScroll = Math.max(0, (Number(editor.scrollHeight) || 0) - viewportHeight);
+    editor.scrollTop = Math.max(0, Math.min(targetTop, maxScroll));
+    setFocusedLine(safeLine);
+  }, [textareaRef, value]);
+
   useEffect(() => {
     if (initialLine && editorReadyTick) {
       jumpToLine(initialLine);
@@ -79,31 +104,6 @@ export function EditorPane({
   const previewContent = isSplitMode ? deferredValue : value;
 
   const clampSplitRatio = (nextRatio) => Math.min(Math.max(Number(nextRatio) || 50, 30), 70);
-
-  const jumpToLine = useCallback((line) => {
-    const editor = textareaRef?.current;
-    if (!editor) return;
-
-    const safeLine = Math.max(Number(line) || 1, 1);
-    const lines = (value || "").split(/\r?\n/);
-    let startIndex = 0;
-    for (let index = 0; index < Math.min(safeLine - 1, lines.length); index += 1) {
-      startIndex += lines[index].length + 1;
-    }
-
-    editor.focus();
-    editor.selectionStart = startIndex;
-    editor.selectionEnd = startIndex;
-
-    const lineHeight = typeof editor.getLineHeight === "function"
-      ? editor.getLineHeight()
-      : parseFloat(window.getComputedStyle(editor).lineHeight) || 20;
-    const viewportHeight = Number(editor.clientHeight) || lineHeight * 20;
-    const targetTop = (safeLine - 1) * lineHeight - viewportHeight * 0.66;
-    const maxScroll = Math.max(0, (Number(editor.scrollHeight) || 0) - viewportHeight);
-    editor.scrollTop = Math.max(0, Math.min(targetTop, maxScroll));
-    setFocusedLine(safeLine);
-  }, [textareaRef, value]);
 
   useEffect(() => {
     if (mode !== "split" || !scrollSyncEnabled) return undefined;
