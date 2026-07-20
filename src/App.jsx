@@ -19,9 +19,10 @@ const ConflictResolutionPanel = lazy(() =>
   import("./components/ConflictResolutionPanel").then((m) => ({ default: m.ConflictResolutionPanel }))
 );
 const AIChatPanel = lazy(() => import("./components/AIChatPanel"));
-const WorkspaceGraphPanel = lazy(() =>
-  import("./components/WorkspaceGraphPanel").then((m) => ({ default: m.WorkspaceGraphPanel }))
-);
+const KnowledgeGraph = lazy(() => import("./components/KnowledgeGraph"));
+const EmbeddingsPage = lazy(() => import("./components/EmbeddingsPage"));
+const AIPersonasManager = lazy(() => import("./components/AIPersonasManager"));
+const AIHealthPage = lazy(() => import("./components/AIHealthPage"));
 
 import { SettingsModal } from "./components/SettingsModal";
 import { LandingView } from "./components/layout/LandingView";
@@ -46,6 +47,7 @@ const GitCommitDialog = lazy(() =>
   import("./components/GitCommitDialog").then((m) => ({ default: m.GitCommitDialog }))
 );
 import { GitStatusBar } from "./components/GitStatusBar";
+import { AIStatusBar } from "./components/AIStatusBar";
 
 const TasksPanel = lazy(() =>
   import("./components/TasksPanel").then((m) => ({ default: m.TasksPanel }))
@@ -100,6 +102,8 @@ import {
   gitGetStatus,
   gitCommit,
   checkForUpdates,
+  aiSetPreferences,
+  aiSetProviderModel,
 } from "./services/electronService";
 import UpdateModal from "./components/UpdateModal";
 import { useToast } from "./hooks/useToast";
@@ -335,12 +339,15 @@ export default function App() {
     globalSearchOpen, setGlobalSearchOpen,
     globalSearchQuery, setGlobalSearchQuery,
     shortcutsModalOpen, setShortcutsModalOpen,
-    workspaceGraphOpen, setWorkspaceGraphOpen,
     markdownGuideOpen, setMarkdownGuideOpen,
     aboutOpen, setAboutOpen,
     helpConfirmationOpen, setHelpConfirmationOpen,
     gitVCOpen, setGitVCOpen,
     gitVCInitialTab, setGitVCInitialTab,
+    graphPanelOpen, setGraphPanelOpen,
+    embeddingsPageOpen, setEmbeddingsPageOpen,
+    personasPageOpen, setPersonasPageOpen,
+    healthPageOpen, setHealthPageOpen,
     globalCommitDialogOpen, setGlobalCommitDialogOpen,
     tasksPanelOpen, setTasksPanelOpen,
     allTasksPanelOpen, setAllTasksPanelOpen,
@@ -453,6 +460,8 @@ export default function App() {
     workspaceFolders,
     selectedParentFolder,
     setSelectedParentFolder,
+    initialLine,
+    setInitialLine,
   } = useDocumentManager({ notify });
 
   const handleCopyLinkPath = useCallback((target) => {
@@ -768,15 +777,23 @@ export default function App() {
     refreshAIConfiguration,
     handleAIEmbeddings,
     handleAIGraph,
-    handleAIPatterns,
     handleAIClearCache,
     handleOpenAIPalette,
     handleInlineAIRequest,
     handleApplyAIResult,
     handleAIChatSend,
+    handleAIChatAbort,
     handleClearAIChat,
     handleRejectInlineGhost,
     handleAcceptInlineGhost,
+    activeProvider,
+    activePersona,
+    setActivePersona,
+    activeQueryId,
+    conversations,
+    loadConversations,
+    loadConversation,
+    deleteConversation,
   } = useAIAssistant({
     current,
     activeTab,
@@ -880,8 +897,8 @@ export default function App() {
     }
   }
 
-  async function handleOpenReferencedDocumentFromUI(filePath) {
-    await handleOpenReferencedDocument(filePath);
+  async function handleOpenReferencedDocumentFromUI(filePath, lineNumber) {
+    await handleOpenReferencedDocument(filePath, lineNumber);
     setLandingAssetsOpen(false);
   }
 
@@ -1346,8 +1363,19 @@ export default function App() {
         return;
       }
 
+
       if (action === "open-workspace-graph") {
-        setWorkspaceGraphOpen(true);
+        setGraphPanelOpen(true);
+        return;
+      }
+
+      if (action === "open-embeddings-page") {
+        setEmbeddingsPageOpen(true);
+        return;
+      }
+
+      if (action === "open-personas-page") {
+        setPersonasPageOpen(true);
         return;
       }
 
@@ -1653,6 +1681,11 @@ export default function App() {
         return;
       }
 
+      if (action === "open-knowledge-graph") {
+        setGraphPanelOpen(true);
+        return;
+      }
+
       if (action === "open-ai-palette") {
         handleOpenAIPalette({ forceOpen: true });
         return;
@@ -1668,8 +1701,14 @@ export default function App() {
         return;
       }
 
-      if (action === "ai-detect-patterns") {
-        handleAIPatterns();
+
+      if (action === "open-personas-page") {
+        setPersonasPageOpen(true);
+        return;
+      }
+
+      if (action === "open-health-page") {
+        setHealthPageOpen(true);
         return;
       }
 
@@ -1851,6 +1890,8 @@ export default function App() {
     { id: "open-assets", label: "Open Assets Library", group: "Workspace", aliases: "media images assets" },
     { id: "open-workspace-activity", label: "Open Workspace Activity", group: "Sync", aliases: "activity timeline sync events" },
     { id: "open-p2p-status", label: "Open P2P Status", group: "Sync", aliases: "peer status p2p" },
+    { id: "open-knowledge-graph", label: "Open Knowledge Graph", group: "AI", aliases: "workspace graph mind map network relations nodes" },
+    { id: "open-embeddings-page", label: "Open Embeddings Dashboard", group: "AI", aliases: "vector database indexing onnx local bge segments" },
     { id: "open-ai-settings", label: "Open AI Settings", group: "AI", aliases: "llm ai config" },
     { id: "toggle-terminal", label: showTerminal ? "Hide Terminal" : "Show Terminal", group: "View", aliases: "console shell" },
     {
@@ -2181,8 +2222,19 @@ export default function App() {
       return;
     }
 
+
     if (resolvedCommandId === "open-workspace-graph") {
-      setWorkspaceGraphOpen(true);
+      setGraphPanelOpen(true);
+      return;
+    }
+
+    if (resolvedCommandId === "open-embeddings-page") {
+      setEmbeddingsPageOpen(true);
+      return;
+    }
+
+    if (resolvedCommandId === "open-personas-page") {
+      setPersonasPageOpen(true);
       return;
     }
 
@@ -2219,6 +2271,11 @@ export default function App() {
 
     if (resolvedCommandId === "open-p2p-status") {
       await handleOpenP2PStatus();
+      return;
+    }
+
+    if (resolvedCommandId === "open-knowledge-graph") {
+      setGraphPanelOpen(true);
       return;
     }
 
@@ -2359,6 +2416,16 @@ export default function App() {
       return;
     }
 
+    if (action === "ai") {
+      if (!isAIConfigured) {
+        notify("Configure an AI provider key in AI Settings to use AI chat.", "warning");
+        setAiSettingsOpen(true);
+        return;
+      }
+      setAiPanelVisible((visible) => !visible);
+      return;
+    }
+
     if (action === "trash") {
       setTrashDialogOpen(true);
     }
@@ -2442,7 +2509,7 @@ export default function App() {
     [favoriteNotes, recentDashboardNotes, continueDashboardNotes]
   );
 
-  const handleOnboardingComplete = async ({ workspacePath, theme, setupDemo }) => {
+  const handleOnboardingComplete = async ({ workspacePath, theme, setupDemo, aiEnabled, aiProvider, enableEmbeddings }) => {
     try {
       const themeResult = await persistThemePreference(theme);
       const appliedPreference = ["auto", "light", "dark"].includes(themeResult?.themePreference)
@@ -2451,6 +2518,24 @@ export default function App() {
       const appliedTheme = themeResult?.effectiveTheme === "dark" ? "dark" : "light";
       setThemePreferenceState(appliedPreference);
       setEffectiveTheme(appliedTheme);
+
+      // Save AI onboarding preferences
+      try {
+        await aiSetPreferences({
+          aiEnabled: aiEnabled !== false,
+          enableEmbeddings: enableEmbeddings !== false,
+          enablePatternLearning: true,
+          enableRelationshipDiscovery: true,
+          maxTokensPerQuery: 2048,
+          temperature: 0.7
+        });
+        if (aiEnabled && aiProvider) {
+          await aiSetProviderModel(aiProvider, '');
+        }
+        await refreshAIConfiguration();
+      } catch (aiErr) {
+        console.error("Failed to save AI onboarding preferences:", aiErr);
+      }
 
       if (workspacePath) {
         await setNotesRootSetting(workspacePath);
@@ -2481,6 +2566,37 @@ export default function App() {
       notify("Failed to reset onboarding.", "error");
     }
   };
+
+  const aiSidebarComponent = aiPanelVisible && isAIConfigured ? (
+    <ErrorBoundary label="AI chat">
+      <Suspense fallback={<div className="lazy-loading">Loading AI…</div>}>
+        <AIChatPanel
+          onHide={() => setAiPanelVisible(false)}
+          onClear={handleClearAIChat}
+          onSend={handleAIChatSend}
+          onAbort={handleAIChatAbort}
+          activeQueryId={activeQueryId}
+          onApply={handleApplyAIResult}
+          onOpenDocument={handleOpenReferencedDocumentFromUI}
+          isLoading={aiQueryLoading}
+          error={aiQueryError || null}
+          contextSummary={aiContextSummary}
+          intent={aiPaletteIntent}
+          messages={aiChatMessages}
+          noteTitle={current?.title || "Current Note"}
+          activeProvider={activeProvider}
+          activePersona={activePersona}
+          setActivePersona={setActivePersona}
+          workspaceStorageScope={workspaceStorageScope}
+          conversations={conversations}
+          onLoadConversations={loadConversations}
+          onLoadConversation={loadConversation}
+          onDeleteConversation={deleteConversation}
+        />
+
+      </Suspense>
+    </ErrorBoundary>
+  ) : null;
 
   return (
     <div className={`app-shell${showTerminal ? " terminal-open" : ""}${current ? " document-screen" : " landing-screen"}${focusModeEnabled && current ? " focus-mode-active" : ""}`}>
@@ -2575,6 +2691,7 @@ export default function App() {
               }}
               onClick={() => setGitVCOpen(true)}
             />
+            <AIStatusBar onClick={() => setAiSettingsOpen(true)} />
             {current ? (
               <>
                 <span className="terminal-meta-pill" data-tooltip="Editor mode and active tab">
@@ -2616,6 +2733,17 @@ export default function App() {
             documents={documents}
             workspaceTaskDocuments={workspaceTaskDocuments}
             loading={loading}
+            aiSidebar={aiSidebarComponent}
+            aiPanelVisible={aiPanelVisible}
+            isAIConfigured={isAIConfigured}
+            onShowAI={() => {
+              if (!isAIConfigured) {
+                notify("Configure an AI provider key in AI Settings to use AI chat.", "warning");
+                setAiSettingsOpen(true);
+                return;
+              }
+              setAiPanelVisible((visible) => !visible);
+            }}
             onOpenListItem={handleOpenListItem}
             onOpenReferencedDocument={(task) => handleOpenReferencedDocument(task?.filePath)}
             onOpenAllTasks={() => setAllTasksPanelOpen(true)}
@@ -2753,10 +2881,12 @@ export default function App() {
                 setAiSettingsOpen(true);
                 return;
               }
-              setAiPanelVisible(true);
+              setAiPanelVisible((visible) => !visible);
             }}
             onOpenAISettings={() => setAiSettingsOpen(true)}
             onOpenDocument={handleOpenReferencedDocumentFromUI}
+            initialLine={initialLine}
+            onLineJumped={() => setInitialLine(null)}
             workspaceTagSuggestions={workspaceTagSuggestions}
             workspaceStorageScope={workspaceStorageScope}
             typoCheckEnabled={typoCheckEnabled}
@@ -2767,24 +2897,7 @@ export default function App() {
             onOutlineEnabledChange={setOutlineEnabled}
             focusModeEnabled={focusModeEnabled}
             onFocusModeChange={setFocusModeEnabled}
-            aiSidebar={aiPanelVisible && isAIConfigured ? (
-              <ErrorBoundary label="AI chat">
-                <Suspense fallback={<div className="lazy-loading">Loading AI…</div>}>
-                  <AIChatPanel
-                    onHide={() => setAiPanelVisible(false)}
-                    onClear={handleClearAIChat}
-                    onSend={handleAIChatSend}
-                    onApply={handleApplyAIResult}
-                    isLoading={aiQueryLoading}
-                    error={aiQueryError || null}
-                    contextSummary={aiContextSummary}
-                    intent={aiPaletteIntent}
-                    messages={aiChatMessages}
-                    noteTitle={current?.title || "Current Note"}
-                  />
-                </Suspense>
-              </ErrorBoundary>
-            ) : null}
+            aiSidebar={aiSidebarComponent}
           />
         </Suspense>
       )}
@@ -3221,18 +3334,6 @@ export default function App() {
         </Suspense>
       ) : null}
 
-      {workspaceGraphOpen && (
-        <Suspense fallback={null}>
-          <WorkspaceGraphPanel
-            onClose={() => setWorkspaceGraphOpen(false)}
-            onOpenDocument={async (filePath) => {
-              setWorkspaceGraphOpen(false);
-              const target = documents.find((d) => d.filePath === filePath && d.entryType === "file");
-              if (target) await handleOpenListItem(target);
-            }}
-          />
-        </Suspense>
-      )}
 
       {tasksPanelOpen ? (
         <Suspense fallback={null}>
@@ -3405,7 +3506,7 @@ export default function App() {
       )}
 
       {gitVCOpen && (
-        <div style={{ position: "fixed", top: "32px", right: 0, bottom: 0, left: 0, zIndex: 1000, display: "flex", flexDirection: "column", background: "var(--app-bg)", color: "var(--app-text)" }}>
+        <div style={{ position: "fixed", top: "32px", right: 0, bottom: "28px", left: 0, zIndex: 1000, display: "flex", flexDirection: "column", background: "var(--app-bg)", color: "var(--app-text)" }}>
           <Suspense fallback={<div className="lazy-loading">Loading Version Control…</div>}>
             <GitVersionControlPage
               workspacePath={notesFolderPath}
@@ -3437,6 +3538,47 @@ export default function App() {
           />
         </Suspense>
       )}
+
+      {graphPanelOpen && (
+        <div style={{ position: "fixed", top: "32px", right: 0, bottom: "28px", left: 0, zIndex: 1000, display: "flex", flexDirection: "column", background: "var(--app-bg)", color: "var(--app-text)" }}>
+          <Suspense fallback={<div className="lazy-loading">Loading Knowledge Graph…</div>}>
+            <KnowledgeGraph
+              onBack={() => setGraphPanelOpen(false)}
+            />
+          </Suspense>
+        </div>
+      )}
+
+      {embeddingsPageOpen && (
+        <div style={{ position: "fixed", top: "32px", right: 0, bottom: "28px", left: 0, zIndex: 1000, display: "flex", flexDirection: "column", background: "var(--app-bg)", color: "var(--app-text)" }}>
+          <Suspense fallback={<div className="lazy-loading">Loading Embeddings Engine…</div>}>
+            <EmbeddingsPage
+              onBack={() => setEmbeddingsPageOpen(false)}
+            />
+          </Suspense>
+        </div>
+      )}
+
+      {personasPageOpen && (
+        <div style={{ position: "fixed", top: "32px", right: 0, bottom: "28px", left: 0, zIndex: 1000, display: "flex", flexDirection: "column", background: "var(--app-bg)", color: "var(--app-text)" }}>
+          <Suspense fallback={<div className="lazy-loading">Loading Personas…</div>}>
+            <AIPersonasManager
+              onBack={() => setPersonasPageOpen(false)}
+            />
+          </Suspense>
+        </div>
+      )}
+
+      {healthPageOpen && (
+        <div style={{ position: "fixed", top: "32px", right: 0, bottom: "28px", left: 0, zIndex: 1000, display: "flex", flexDirection: "column", background: "var(--app-bg)", color: "var(--app-text)" }}>
+          <Suspense fallback={<div className="lazy-loading">Loading Health & Diagnostics…</div>}>
+            <AIHealthPage
+              onBack={() => setHealthPageOpen(false)}
+            />
+          </Suspense>
+        </div>
+      )}
+
 
       </div>
       <GlobalTooltip />

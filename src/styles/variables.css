@@ -82,6 +82,23 @@
   --color-amber-bg: #fff8e6;
   --color-amber-border: #e0c76a;
   --color-amber-text: #7a5d10;
+  
+  /* Semantic Entity solid backgrounds for Knowledge Graph (Light Theme) */
+  --kg-note-bg: #eef2ff;
+  --kg-note-border: #4f46e5;
+  --kg-person-bg: #fdf2f8;
+  --kg-person-border: #db2777;
+  --kg-project-bg: #ecfdf5;
+  --kg-project-border: #059669;
+  --kg-tech-bg: #fffbeb;
+  --kg-tech-border: #d97706;
+  --kg-company-bg: #eff6ff;
+  --kg-company-border: #2563eb;
+  --kg-concept-bg: #f5f3ff;
+  --kg-concept-border: #7c3aed;
+  --kg-task-bg: #fef2f2;
+  --kg-task-border: #dc2626;
+
   color: var(--app-text);
   background: var(--app-bg);
   font-family:
@@ -149,6 +166,23 @@
   --color-amber-text: #e8cb8b;
   --tooltip-bg: rgba(18, 28, 31, 0.95);
   --tooltip-text: #ecf6f2;
+
+  /* Semantic Entity solid backgrounds for Knowledge Graph (Dark Theme overrides) */
+  --kg-note-bg: #1e1b4b;
+  --kg-note-border: #818cf8;
+  --kg-person-bg: #4c0519;
+  --kg-person-border: #f472b6;
+  --kg-project-bg: #064e3b;
+  --kg-project-border: #34d399;
+  --kg-tech-bg: #451a03;
+  --kg-tech-border: #fbbf24;
+  --kg-company-bg: #1e3a8a;
+  --kg-company-border: #60a5fa;
+  --kg-concept-bg: #2e1065;
+  --kg-concept-border: #a78bfa;
+  --kg-task-bg: #7f1d1d;
+  --kg-task-border: #f87171;
+
   color: var(--app-text);
   background: var(--app-bg);
 }

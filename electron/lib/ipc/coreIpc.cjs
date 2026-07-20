@@ -203,6 +203,16 @@ function registerCoreIpcHandlers(ipcMain, deps) {
     return result.filePaths[0];
   });
 
+  registerTrustedHandler("dialog:show-open", async (_event, opts) => {
+    const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+    return dialog.showOpenDialog(win, opts ?? {});
+  });
+
+  registerTrustedHandler("dialog:show-save", async (_event, opts) => {
+    const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+    return dialog.showSaveDialog(win, opts ?? {});
+  });
+
   registerTrustedHandler("workspace:open-in-editor", async (_event, payload) => {
     const resolved = resolveWorkspaceFolderPath(payload?.folderPath);
 

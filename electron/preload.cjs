@@ -55,15 +55,61 @@ contextBridge.exposeInMainWorld("notesApi", {
     return () => ipcRenderer.removeListener("window:menu-updated", listener);
   },
   aiQuery: (payload) => ipcRenderer.invoke("ai:query", payload),
+  aiQueryStream: (payload) => ipcRenderer.invoke("ai:query:stream", payload),
+  aiQueryAbort: (payload) => ipcRenderer.invoke("ai:query:abort", payload),
+  onChatStreamChunk: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('ai:chat:chunk', listener);
+    return () => ipcRenderer.removeListener('ai:chat:chunk', listener);
+  },
   aiGetApiKey: (payload) => ipcRenderer.invoke("ai:config:get-api-key", payload),
   aiSetApiKey: (payload) => ipcRenderer.invoke("ai:config:set-api-key", payload),
   aiGetPreferences: (payload) => ipcRenderer.invoke("ai:config:get-preferences", payload),
   aiSetPreferences: (payload) => ipcRenderer.invoke("ai:config:set-preferences", payload),  aiGetProviderModel: (payload) => ipcRenderer.invoke('ai:config:get-provider-model', payload),
   aiSetProviderModel: (payload) => ipcRenderer.invoke('ai:config:set-provider-model', payload),  aiTestConnection: (payload) => ipcRenderer.invoke("ai:config:test-connection", payload),
   aiClearData: (payload) => ipcRenderer.invoke("ai:config:clear-data", payload),
+  aiGetProviderList: () => ipcRenderer.invoke("ai:config:get-provider-list"),
+  aiEnable: () => ipcRenderer.invoke("ai:enable"),
+  aiDisable: () => ipcRenderer.invoke("ai:disable"),
+  aiGetHealth: () => ipcRenderer.invoke("ai:health:get"),
   aiGenerateEmbeddings: (payload) => ipcRenderer.invoke("ai:embeddings:generate", payload),
+  aiRebuildEmbeddings: () => ipcRenderer.invoke("ai:embeddings:rebuild"),
+  aiGetEmbeddingsStatus: (payload) => ipcRenderer.invoke("ai:embeddings:status", payload),
+  aiPauseWorker: () => ipcRenderer.invoke("ai:worker:pause"),
+  aiResumeWorker: () => ipcRenderer.invoke("ai:worker:resume"),
+  aiDownloadModel: () => ipcRenderer.invoke("ai:model:download"),
+  aiGetModelStatus: () => ipcRenderer.invoke("ai:model:status"),
+  onModelDownloadProgress: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('ai:model:progress', listener);
+    return () => ipcRenderer.removeListener('ai:model:progress', listener);
+  },
   aiBuildGraph: (payload) => ipcRenderer.invoke("ai:graph:build", payload),
+  aiGetGraph: (payload) => ipcRenderer.invoke("ai:graph:get", payload),
+  aiGetGraphStatus: (payload) => ipcRenderer.invoke("ai:graph:status", payload),
   aiDetectPatterns: (payload) => ipcRenderer.invoke("ai:patterns:detect", payload),
+  // Phase 5 — Conversations
+  aiListConversations: () => ipcRenderer.invoke("ai:conversation:list"),
+  aiGetConversation: (p) => ipcRenderer.invoke("ai:conversation:get", p),
+  aiCreateConversation: (p) => ipcRenderer.invoke("ai:conversation:create", p),
+  aiDeleteConversation: (p) => ipcRenderer.invoke("ai:conversation:delete", p),
+  aiClearConversations: () => ipcRenderer.invoke("ai:conversation:clear"),
+  aiSetConversationPersona: (p) => ipcRenderer.invoke("ai:conversation:set-persona", p),
+  aiGetMessages: (p) => ipcRenderer.invoke("ai:conversation:get-messages", p),
+  aiAddMessage: (p) => ipcRenderer.invoke("ai:conversation:add-message", p),
+  // Phase 5 — Personas
+  aiListPersonas: () => ipcRenderer.invoke("ai:persona:list"),
+  aiGetPersona: (p) => ipcRenderer.invoke("ai:persona:get", p),
+  aiSavePersona: (p) => ipcRenderer.invoke("ai:persona:save", p),
+  aiDeletePersona: (p) => ipcRenderer.invoke("ai:persona:delete", p),
+  aiImportPersona: (p) => ipcRenderer.invoke("ai:persona:import", p),
+  aiExportPersona: (p) => ipcRenderer.invoke("ai:persona:export", p),
+  // Phase 5 — Candidate Knowledge
+  aiListPendingKnowledge: () => ipcRenderer.invoke("ai:knowledge:list-pending"),
+  aiApproveKnowledge: (p) => ipcRenderer.invoke("ai:knowledge:approve", p),
+  aiRejectKnowledge: (p) => ipcRenderer.invoke("ai:knowledge:reject", p),
   getNotesRootSetting: () => ipcRenderer.invoke("settings:get-notes-root"),
   getAppInfo: () => ipcRenderer.invoke("settings:get-app-info"),
   checkForUpdates: () => ipcRenderer.invoke("app:check-for-updates"),
@@ -72,6 +118,8 @@ contextBridge.exposeInMainWorld("notesApi", {
   setAutoIgnoreGitMetadata: (payload) => ipcRenderer.invoke("settings:set-auto-ignore-git-metadata", payload),
   captureCurrentDisplay: () => ipcRenderer.invoke("screen:capture-current-display"),
   pickFolder: () => ipcRenderer.invoke("settings:pick-folder"),
+  showOpenDialog: (opts) => ipcRenderer.invoke("dialog:show-open", opts),
+  showSaveDialog: (opts) => ipcRenderer.invoke("dialog:show-save", opts),
   openReferenceNoteWindow: (payload) => ipcRenderer.invoke("window:open-reference-note", payload),
   listProjects: () => ipcRenderer.invoke("projects:list"),
   setActiveProject: (payload) => ipcRenderer.invoke("projects:set-active", payload),
@@ -104,8 +152,6 @@ contextBridge.exposeInMainWorld("notesApi", {
   getWorkspaceActivity: (payload) => ipcRenderer.invoke("activity:get-workspace", payload),
   openWorkspaceInEditor: (payload) => ipcRenderer.invoke("workspace:open-in-editor", payload),
   revealWorkspaceInExplorer: (payload) => ipcRenderer.invoke("workspace:reveal-in-explorer", payload),
-  getWorkspaceGraph: () => ipcRenderer.invoke("workspace:graph-data"),
-  getSemanticGraph: () => ipcRenderer.invoke("workspace:semantic-graph"),
   listDocuments: (payload) => ipcRenderer.invoke("documents:list", payload),
   listWorkspaceTaskDocuments: () => ipcRenderer.invoke("documents:list-task-sources"),
   getDashboardCache: () => ipcRenderer.invoke("documents:get-dashboard-cache"),

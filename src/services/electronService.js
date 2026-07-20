@@ -106,12 +106,62 @@ export async function aiQuery(query, context = {}) {
   return api.aiQuery({ query, context });
 }
 
+export async function aiQueryStream(query, context = {}, queryId) {
+  const api = getNotesApi();
+  if (typeof api.aiQueryStream !== "function") {
+    throw new Error("AI streaming queries are unavailable. Please restart the app.");
+  }
+  return api.aiQueryStream({ query, context, queryId });
+}
+
+export async function aiQueryAbort(queryId) {
+  const api = getNotesApi();
+  if (typeof api.aiQueryAbort !== "function") {
+    throw new Error("AI query cancellation is unavailable. Please restart the app.");
+  }
+  return api.aiQueryAbort({ queryId });
+}
+
+export function onChatStreamChunk(callback) {
+  const api = getNotesApi();
+  if (typeof api.onChatStreamChunk !== "function") {
+    return () => {};
+  }
+  return api.onChatStreamChunk(callback);
+}
+
 export async function aiGetApiKey(provider) {
   const api = getNotesApi();
   if (typeof api.aiGetApiKey !== "function") {
     throw new Error("AI configuration is unavailable. Please restart the app.");
   }
   return api.aiGetApiKey({ provider });
+}
+
+export async function aiGetProviderList() {
+  const api = getNotesApi();
+  if (typeof api.aiGetProviderList !== "function") {
+    throw new Error("AI configuration is unavailable. Please restart the app.");
+  }
+  return api.aiGetProviderList();
+}
+
+export async function aiEnable() {
+  const api = getNotesApi();
+  if (typeof api.aiEnable !== "function") return { success: false };
+  return api.aiEnable();
+}
+
+export async function aiDisable() {
+  const api = getNotesApi();
+  if (typeof api.aiDisable !== "function") return { success: false };
+  return api.aiDisable();
+}
+
+export async function aiGetHealth() {
+  const api = getNotesApi();
+  if (typeof api.aiGetHealth !== "function") return { success: false };
+  return api.aiGetHealth();
 }
 
 export async function aiSetApiKey(provider, apiKey) {
@@ -174,12 +224,71 @@ export async function aiGenerateEmbeddings(forceRefresh = true) {
   return api.aiGenerateEmbeddings({ forceRefresh });
 }
 
+export async function aiRebuildEmbeddings() {
+  const api = getNotesApi();
+  if (typeof api.aiRebuildEmbeddings !== 'function') throw new Error('AI embeddings are unavailable.');
+  return api.aiRebuildEmbeddings();
+}
+
+export async function aiGetEmbeddingsStatus(payload = {}) {
+  const api = getNotesApi();
+  if (typeof api.aiGetEmbeddingsStatus !== 'function') throw new Error('AI embeddings are unavailable.');
+  return api.aiGetEmbeddingsStatus(payload);
+}
+
+export async function aiPauseWorker() {
+  const api = getNotesApi();
+  if (typeof api.aiPauseWorker !== 'function') throw new Error('AI worker is unavailable.');
+  return api.aiPauseWorker();
+}
+
+export async function aiResumeWorker() {
+  const api = getNotesApi();
+  if (typeof api.aiResumeWorker !== 'function') throw new Error('AI worker is unavailable.');
+  return api.aiResumeWorker();
+}
+
+export async function aiDownloadModel() {
+  const api = getNotesApi();
+  if (typeof api.aiDownloadModel !== 'function') throw new Error('ONNX downloader is unavailable.');
+  return api.aiDownloadModel();
+}
+
+export async function aiGetModelStatus() {
+  const api = getNotesApi();
+  if (typeof api.aiGetModelStatus !== 'function') throw new Error('ONNX downloader is unavailable.');
+  return api.aiGetModelStatus();
+}
+
+export function onModelDownloadProgress(callback) {
+  const api = getNotesApi();
+  if (typeof api.onModelDownloadProgress !== 'function') return () => {};
+  return api.onModelDownloadProgress(callback);
+}
+
+
 export async function aiBuildGraph() {
   const api = getNotesApi();
   if (typeof api.aiBuildGraph !== "function") {
     throw new Error("AI graph operations are unavailable. Please restart the app.");
   }
   return api.aiBuildGraph({});
+}
+
+export async function aiGetGraph() {
+  const api = getNotesApi();
+  if (typeof api.aiGetGraph !== "function") {
+    throw new Error("AI graph operations are unavailable. Please restart the app.");
+  }
+  return api.aiGetGraph({});
+}
+
+export async function aiGetGraphStatus() {
+  const api = getNotesApi();
+  if (typeof api.aiGetGraphStatus !== "function") {
+    throw new Error("AI graph operations are unavailable. Please restart the app.");
+  }
+  return api.aiGetGraphStatus({});
 }
 
 export async function aiDetectPatterns() {
@@ -488,21 +597,6 @@ export async function getWorkspaceActivity(limit = 200) {
   return api.getWorkspaceActivity({ limit });
 }
 
-export async function getWorkspaceGraph() {
-  const api = getNotesApi();
-  if (typeof api.getWorkspaceGraph !== "function") {
-    throw new Error("Workspace graph unavailable. Please restart the app.");
-  }
-  return api.getWorkspaceGraph();
-}
-
-export async function getSemanticGraph() {
-  const api = getNotesApi();
-  if (typeof api.getSemanticGraph !== "function") {
-    throw new Error("Semantic graph unavailable. Please restart the app.");
-  }
-  return api.getSemanticGraph();
-}
 
 export async function readDocument(filePath) {
   const api = getNotesApi();
@@ -1048,3 +1142,110 @@ export async function openExternal(url) {
   return api.openExternal(url);
 }
 
+// ─── Phase 5: Conversations ───────────────────────────────────────────────
+
+export async function aiListConversations() {
+  const api = getNotesApi();
+  if (typeof api.aiListConversations !== 'function') throw new Error('Conversation API unavailable.');
+  return api.aiListConversations();
+}
+
+export async function aiGetConversation(id) {
+  const api = getNotesApi();
+  if (typeof api.aiGetConversation !== 'function') throw new Error('Conversation API unavailable.');
+  return api.aiGetConversation({ id });
+}
+
+export async function aiCreateConversation(title, persona) {
+  const api = getNotesApi();
+  if (typeof api.aiCreateConversation !== 'function') throw new Error('Conversation API unavailable.');
+  return api.aiCreateConversation({ title, persona });
+}
+
+export async function aiDeleteConversation(id) {
+  const api = getNotesApi();
+  if (typeof api.aiDeleteConversation !== 'function') throw new Error('Conversation API unavailable.');
+  return api.aiDeleteConversation({ id });
+}
+
+export async function aiClearConversations() {
+  const api = getNotesApi();
+  if (typeof api.aiClearConversations !== 'function') throw new Error('Conversation API unavailable.');
+  return api.aiClearConversations();
+}
+
+export async function aiSetConversationPersona(conversationId, personaId) {
+  const api = getNotesApi();
+  if (typeof api.aiSetConversationPersona !== 'function') throw new Error('Conversation API unavailable.');
+  return api.aiSetConversationPersona({ conversationId, personaId });
+}
+
+export async function aiGetMessages(conversationId) {
+  const api = getNotesApi();
+  if (typeof api.aiGetMessages !== 'function') throw new Error('Conversation API unavailable.');
+  return api.aiGetMessages({ conversationId });
+}
+
+export async function aiAddMessage(conversationId, role, content, metadata = null) {
+  const api = getNotesApi();
+  if (typeof api.aiAddMessage !== 'function') throw new Error('Conversation API unavailable.');
+  return api.aiAddMessage({ conversationId, role, content, metadata });
+}
+
+// ─── Phase 5: Personas ────────────────────────────────────────────────────
+
+export async function aiListPersonas() {
+  const api = getNotesApi();
+  if (typeof api.aiListPersonas !== 'function') throw new Error('Persona API unavailable.');
+  return api.aiListPersonas();
+}
+
+export async function aiGetPersona(id) {
+  const api = getNotesApi();
+  if (typeof api.aiGetPersona !== 'function') throw new Error('Persona API unavailable.');
+  return api.aiGetPersona({ id });
+}
+
+export async function aiSavePersona(persona) {
+  const api = getNotesApi();
+  if (typeof api.aiSavePersona !== 'function') throw new Error('Persona API unavailable.');
+  return api.aiSavePersona(persona);
+}
+
+export async function aiDeletePersona(id) {
+  const api = getNotesApi();
+  if (typeof api.aiDeletePersona !== 'function') throw new Error('Persona API unavailable.');
+  return api.aiDeletePersona({ id });
+}
+
+export async function aiImportPersona(filePath) {
+  const api = getNotesApi();
+  if (typeof api.aiImportPersona !== 'function') throw new Error('Persona API unavailable.');
+  return api.aiImportPersona({ filePath });
+}
+
+export async function aiExportPersona(id, destPath) {
+  const api = getNotesApi();
+  if (typeof api.aiExportPersona !== 'function') throw new Error('Persona API unavailable.');
+  return api.aiExportPersona({ id, destPath });
+}
+
+// ─── Phase 5: Candidate Knowledge ────────────────────────────────────────
+
+export async function aiListPendingKnowledge() {
+  const api = getNotesApi();
+  if (typeof api.aiListPendingKnowledge !== 'function') throw new Error('Knowledge API unavailable.');
+  return api.aiListPendingKnowledge();
+}
+
+export async function aiApproveKnowledge(id) {
+  const api = getNotesApi();
+  if (typeof api.aiApproveKnowledge !== 'function') throw new Error('Knowledge API unavailable.');
+  return api.aiApproveKnowledge({ id });
+}
+
+export async function aiRejectKnowledge(id) {
+  const api = getNotesApi();
+  if (typeof api.aiRejectKnowledge !== 'function') throw new Error('Knowledge API unavailable.');
+  return api.aiRejectKnowledge({ id });
+}

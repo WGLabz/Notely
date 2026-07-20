@@ -25,6 +25,7 @@ import {
   Type,
   Maximize,
   Minimize,
+  Sparkles,
 } from "lucide-react";
 import AppButton from "./AppButton";
 import AppIconButton from "./AppIconButton";
@@ -686,6 +687,8 @@ export function DocumentDetail({
   onShowAI,
   onOpenAISettings,
   onOpenDocument,
+  initialLine = null,
+  onLineJumped,
   workspaceTagSuggestions = [],
   workspaceStorageScope = "default",
   typoCheckEnabled = true,
@@ -750,10 +753,10 @@ export function DocumentDetail({
   const [aiSidebarWidth, setAiSidebarWidth] = useWorkspaceScopedStorage({
     workspaceScope: workspaceStorageScope,
     key: "notes:ai-sidebar-width",
-    defaultValue: 340,
+    defaultValue: 380,
     normalize: (value) => {
       const parsed = parseInt(value, 10);
-      return Number.isNaN(parsed) ? 340 : parsed;
+      return Number.isNaN(parsed) ? 380 : parsed;
     },
   });
   const workspaceLayoutRef = useRef(null);
@@ -1013,6 +1016,7 @@ export function DocumentDetail({
       currentBlock,
       cursorOffset: selectionEnd,
       contentLength: currentValue.length,
+      value: currentValue,
     };
   };
 
@@ -1847,6 +1851,16 @@ export function DocumentDetail({
             {showMetadataPanel ? <EyeOff size={14} /> : <ListTree size={14} />}
             {showMetadataPanel ? "Hide details" : "Show details"}
           </AppButton>
+          <AppButton
+            variant="small"
+            className={aiPanelVisible ? "active" : ""}
+            data-tooltip={aiEnabled ? "Toggle AI Assistant Chat" : "Configure AI to toggle Assistant"}
+            onClick={onShowAI}
+            style={{ marginLeft: "6px" }}
+          >
+            <Sparkles size={14} />
+            {aiPanelVisible ? "Hide Assistant" : "AI Assistant"}
+          </AppButton>
         </div>
       </header>
       )}
@@ -2082,6 +2096,8 @@ export function DocumentDetail({
             onRemoveIgnoredSpellingWord={onRemoveIgnoredSpellingWord}
             onClearIgnoredSpellingWords={onClearIgnoredSpellingWords}
             onForceSaveDocument={onForceSaveDocument}
+            initialLine={initialLine}
+            onLineJumped={onLineJumped}
           />
         </main>
 
@@ -2123,7 +2139,11 @@ export function DocumentDetail({
             onKeyDown={handleAiResizerKeyDown}
           />
         )}
-        {aiSidebar}
+        {aiSidebar && (
+          <div style={{ width: `${aiSidebarWidth}px`, flexShrink: 0, height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            {aiSidebar}
+          </div>
+        )}
         {!aiPanelVisible && aiEnabled ? (
           <button
             type="button"

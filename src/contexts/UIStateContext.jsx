@@ -9,12 +9,15 @@ export function UIStateProvider({ children }) {
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
   const [globalSearchQuery, setGlobalSearchQuery] = useState("");
   const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false);
-  const [workspaceGraphOpen, setWorkspaceGraphOpen] = useState(false);
   const [markdownGuideOpen, setMarkdownGuideOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [helpConfirmationOpen, setHelpConfirmationOpen] = useState(false);
   const [gitVCOpen, setGitVCOpen] = useState(false);
   const [gitVCInitialTab, setGitVCInitialTab] = useState("status");
+  const [graphPanelOpen, setGraphPanelOpen] = useState(false);
+  const [embeddingsPageOpen, setEmbeddingsPageOpen] = useState(false);
+  const [personasPageOpen, setPersonasPageOpen] = useState(false);
+  const [healthPageOpen, setHealthPageOpen] = useState(false);
   const [globalCommitDialogOpen, setGlobalCommitDialogOpen] = useState(false);
   const [tasksPanelOpen, setTasksPanelOpen] = useState(false);
   const [allTasksPanelOpen, setAllTasksPanelOpen] = useState(false);
@@ -40,12 +43,15 @@ export function UIStateProvider({ children }) {
     globalSearchOpen, setGlobalSearchOpen,
     globalSearchQuery, setGlobalSearchQuery,
     shortcutsModalOpen, setShortcutsModalOpen,
-    workspaceGraphOpen, setWorkspaceGraphOpen,
     markdownGuideOpen, setMarkdownGuideOpen,
     aboutOpen, setAboutOpen,
     helpConfirmationOpen, setHelpConfirmationOpen,
     gitVCOpen, setGitVCOpen,
     gitVCInitialTab, setGitVCInitialTab,
+    graphPanelOpen, setGraphPanelOpen,
+    embeddingsPageOpen, setEmbeddingsPageOpen,
+    personasPageOpen, setPersonasPageOpen,
+    healthPageOpen, setHealthPageOpen,
     globalCommitDialogOpen, setGlobalCommitDialogOpen,
     tasksPanelOpen, setTasksPanelOpen,
     allTasksPanelOpen, setAllTasksPanelOpen,

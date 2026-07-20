@@ -1,4 +1,4 @@
-import { ArrowRight, CheckSquare, Clock3, FilePlus2, FolderPlus, Image as ImageIcon, Search, Trash2, FileText, Star } from "lucide-react";
+import { ArrowRight, CheckSquare, Clock3, FilePlus2, FolderPlus, Image as ImageIcon, Search, Trash2, FileText, Star, Sparkles } from "lucide-react";
 import { useMemo } from "react";
 import { formatDate } from "../utils/dateUtils";
 import { extractOpenTasksFromDocuments, getTaskCountsFromDocuments } from "../utils/taskUtils";
@@ -70,11 +70,9 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
 
   const visibleFavorites = favoriteSlice.slice(0, limit);
 
-  function renderSectionToggle(items, onOpenPanel) {
-    if (!Array.isArray(items) || items.length <= limit) {
-      return null;
-    }
 
+
+  function renderBarSectionToggle(onOpenPanel) {
     return (
       <button type="button" className="dashboard-inline-action" onClick={onOpenPanel}>
         View all
@@ -101,6 +99,9 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
             </button>
             <button type="button" onClick={() => onAction("search")} data-tooltip="Search" aria-label="Search">
               <Search size={14} />
+            </button>
+            <button type="button" onClick={() => onAction("ai")} data-tooltip="AI Assistant" aria-label="AI Assistant">
+              <Sparkles size={14} />
             </button>
             <button type="button" onClick={() => onAction("assets")} data-tooltip="Assets" aria-label="Assets">
               <ImageIcon size={14} />
@@ -137,7 +138,7 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
         <article className="dashboard-panel recent">
           <div className="dashboard-panel-head">
             <h3>Recent Notes</h3>
-            {renderSectionToggle(recentNotes, onOpenRecentNotes)}
+            {renderBarSectionToggle(onOpenRecentNotes)}
           </div>
           {recentSlice.length ? (
             <ul className="dashboard-recent-list compact">
@@ -165,7 +166,7 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
         <article className="dashboard-panel favorites">
           <div className="dashboard-panel-head">
             <h3>Favorites</h3>
-            {renderSectionToggle(favoriteSlice, onOpenFavorites)}
+            {renderBarSectionToggle(onOpenFavorites)}
           </div>
           {visibleFavorites.length ? (
             <ul className="dashboard-recent-list compact">
@@ -208,7 +209,7 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
                   <span className="task-closed">{taskCounts.closed}</span>
                 </button>
               )}
-              {renderSectionToggle(allOpenTasks, onOpenAllTasks)}
+              {renderBarSectionToggle(onOpenAllTasks)}
             </div>
           </div>
           {openTasks.length ? (
@@ -294,7 +295,7 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
         <article className="dashboard-bar-section recent">
           <div className="dashboard-panel-head">
             <h3>Recent Notes</h3>
-            {renderSectionToggle(recentNotes, onOpenRecentNotes)}
+            {renderBarSectionToggle(onOpenRecentNotes)}
           </div>
           {recentSlice.length ? (
             <ul className="dashboard-recent-list compact">
@@ -315,7 +316,7 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
         <article className="dashboard-bar-section favorites">
           <div className="dashboard-panel-head">
             <h3>Favorites</h3>
-            {renderSectionToggle(favoriteSlice, onOpenFavorites)}
+            {renderBarSectionToggle(onOpenFavorites)}
           </div>
           {visibleFavorites.length ? (
             <ul className="dashboard-recent-list compact">
@@ -337,6 +338,7 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
           <div className="dashboard-panel-head">
             <h3>Open Tasks</h3>
             <div className="dashboard-task-head-actions">
+              {taskCounts.total > 0 && (
                 <button
                   type="button"
                   className="dashboard-task-badge dashboard-task-summary"
@@ -349,7 +351,8 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
                   <span className="dashboard-task-separator" aria-hidden="true">|</span>
                   <span className="task-closed">{taskCounts.closed}</span>
                 </button>
-              {renderSectionToggle(allOpenTasks, onOpenAllTasks)}
+              )}
+              {renderBarSectionToggle(onOpenAllTasks)}
             </div>
           </div>
           {openTasks.length ? (

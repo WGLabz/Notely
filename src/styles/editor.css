@@ -3939,7 +3939,9 @@
 }
 
 .git-status-bar--warn {
-  color: var(--status-warning-text);
+  background: var(--status-warning-bg) !important;
+  color: var(--status-warning-text) !important;
+  border: 1px solid var(--status-warning-border) !important;
 }
 
 .git-status-bar--pending {

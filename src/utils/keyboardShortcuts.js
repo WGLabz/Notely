@@ -224,6 +224,12 @@ export const DEFAULT_KEYBOARD_SHORTCUTS = [
     group: "AI",
   },
   {
+    keys: "Ctrl/Cmd+J",
+    action: "Toggle AI Assistant Chat",
+    group: "AI",
+    notes: "Available on document screens.",
+  },
+  {
     keys: "Ctrl/Cmd+Shift+G",
     action: "Open Workspace Graph",
     group: "Workspace",

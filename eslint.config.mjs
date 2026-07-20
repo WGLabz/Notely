@@ -35,7 +35,6 @@ export default [
   // Renderer (React) source — browser environment, ESM modules.
   {
     files: ["src/**/*.{js,jsx}"],
-    ignores: ["src/ai/**"],
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: "module",
@@ -57,7 +56,7 @@ export default [
 
   // AI subsystem — CommonJS, runs in the Electron main (Node) process.
   {
-    files: ["src/ai/**/*.js"],
+    files: ["ai/**/*.js"],
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: "commonjs",
@@ -93,7 +92,7 @@ export default [
 
   // Test files — Vitest globals plus jsdom browser environment.
   {
-    files: ["**/*.test.{js,jsx,cjs}"],
+    files: ["**/*.test.{js,jsx,cjs}", "**/*.spec.{js,jsx,cjs}"],
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: "module",

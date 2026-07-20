@@ -1,26 +1,35 @@
 ---
-title: AI Features Overview
-description: Understand AI capabilities, writing support, and search enhancers in Notely.
-keywords: ai, writing assistant, LLM, local llm, OpenAI, HuggingFace
+title: AI Overview
+description: Learn about Notely's modular, local-first AI platform.
+keywords: ai, local llm, openai, huggingface, vector database, knowledge graph
 category: AI
 ---
 
-# AI Overview
+# AI Subsystem Overview
 
-Notely includes an integrated AI layer that enhances writing speed, assists in searching, and uncovers visual relationships between notes.
-
-## What AI Can Do
-
-- **AI Chat Panel**: Ask questions about your workspace notes or brainstorm topics.
-- **AI Palette Actions**: Refactor, rewrite, summarize, or change the tone of selected text in the editor.
-- **Semantic Search**: Search by intent and meaning rather than exact word matching.
-- **Semantic Clustering**: Automates grouping of visually related files in the Workspace Graph.
+Notely features a modular, local-first AI platform designed around private data control. Markdown files remain the absolute source of truth, parsed and indexed into offline-first databases to fuel assistant reasoning.
 
 ---
 
-## Technical Security & Offline Compatibility
+## Capabilities at a Glance
 
-Notely supports local models to keep your note data fully private:
-- Configure a local API endpoint (e.g., via Ollama, LM Studio) to run AI entirely offline.
-- Alternatively, connect to cloud services like OpenAI or HuggingFace.
-- Requests are only triggered when you actively launch an AI action.
+### 1. Global Workspace Chat & Note Assistant
+- Chat inside individual notes or launch **Global Chat** from the left panel sidebar on the landing page to query across the entire workspace.
+- View referred notes chips under assistant message bubbles so you always know where facts were sourced.
+
+### 2. SQLite Knowledge Graph
+- Outbound relations, tags, and CTE traversals mapped into `ai-graph.db`.
+- Visualized interactively in the sidebar sidebar.
+
+### 3. Local Embedding Indexer
+- High-performance `ai-embeddings.db` storing note chunk vectors.
+- Runs entirely offline using a local ONNX runtime for `BGE-small-en-v1.5` embeddings, or falls back to HuggingFace APIs.
+- Background Index Worker priority queues processing note changes debounced.
+
+### 4. Custom Persona Registry
+- Customize instructions, descriptions, and preset avatar icons (🤖, 💻, 🧠, etc.).
+- Import and export personas as Markdown templates.
+
+### 5. Diagnostics & Trace Logs
+- Professional **AI Health** panel to verify subsystem initialization.
+- Full trace logs displaying exact tool calls, arguments, and return values for all queries.

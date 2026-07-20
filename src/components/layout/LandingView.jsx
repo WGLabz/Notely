@@ -3,6 +3,7 @@ import { Eye, X } from "lucide-react";
 import { DashboardPanels } from "../DashboardPanels";
 import { LandingListControls } from "../LandingListControls";
 import { DocumentList } from "../DocumentList";
+import { useWorkspaceScopedStorage } from "../../hooks/useWorkspaceScopedStorage";
 
 export function LandingView({
   isRootLandingView,
@@ -44,7 +45,41 @@ export function LandingView({
   onShowUpdateModal,
   onDismissUpdate,
   onCopyLinkPath,
+  aiSidebar = null,
+  _aiPanelVisible = false,
+  _isAIConfigured = false,
+  _onShowAI = null,
 }) {
+  const [aiSidebarWidth, setAiSidebarWidth] = useWorkspaceScopedStorage({
+    workspaceScope: "global",
+    key: "notes:landing-ai-sidebar-width",
+    defaultValue: 380,
+    normalize: (value) => {
+      const parsed = parseInt(value, 10);
+      return Number.isNaN(parsed) ? 380 : parsed;
+    },
+  });
+
+  const startAiResize = (pointerDownEvent) => {
+    pointerDownEvent.preventDefault();
+    const startX = pointerDownEvent.clientX;
+    const startWidth = aiSidebarWidth;
+
+    const onPointerMove = (moveEvent) => {
+      const deltaX = startX - moveEvent.clientX;
+      const nextWidth = Math.min(Math.max(startWidth + deltaX, 260), 600);
+      setAiSidebarWidth(nextWidth);
+    };
+
+    const onPointerUp = () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+    };
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+  };
+
   return (
     <div className="landing-shell">
       {updateStatus === "available" && (
@@ -56,7 +91,8 @@ export function LandingView({
             justifyContent: "space-between",
             background: "var(--surface-accent)",
             border: "1px solid var(--border-soft)",
-            borderRadius: "var(--radius-md)",
+            borderBottomLeftRadius: "var(--radius-md)",
+            borderBottomRightRadius: "var(--radius-md)",
             padding: "var(--space-3) var(--space-5)",
             fontSize: "var(--font-size-body-sm)",
             color: "var(--accent-strong)",
@@ -117,6 +153,9 @@ export function LandingView({
         ref={landingLayoutRef}
         style={{
           "--landing-sidebar-width": `${landingSidebarWidth}px`,
+          gridTemplateColumns: aiSidebar
+            ? `var(--landing-sidebar-width, 260px) 8px minmax(0, 1fr) 8px ${aiSidebarWidth}px`
+            : undefined
         }}
       >
         <aside className="landing-dashboard-rail" aria-label="Workspace dashboard rail">
@@ -209,6 +248,25 @@ export function LandingView({
             onCopyLinkPath={onCopyLinkPath}
           />
         </div>
+        {aiSidebar && (
+          <>
+            <div
+              className="split-resizer"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize AI sidebar"
+              aria-valuemin={260}
+              aria-valuemax={600}
+              aria-valuenow={aiSidebarWidth}
+              aria-valuetext={`${aiSidebarWidth}px AI width`}
+              tabIndex={0}
+              onPointerDown={startAiResize}
+            />
+            <div style={{ width: `${aiSidebarWidth}px`, flexShrink: 0, height: "100%", display: "flex", flexDirection: "column", overflow: "hidden", borderLeft: "1px solid var(--border-soft)", background: "var(--surface-bg)" }}>
+              {aiSidebar}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

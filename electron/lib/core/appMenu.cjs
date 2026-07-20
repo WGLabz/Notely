@@ -475,11 +475,6 @@ function buildAppMenuTemplate(win, context = {}) {
       label: "Workspace",
       submenu: [
         {
-          label: "Workspace Graph",
-          accelerator: "CmdOrCtrl+Shift+G",
-          click: () => sendMenuAction(win, "open-workspace-graph")
-        },
-        {
           label: "Workspace Activity",
           accelerator: "CmdOrCtrl+Shift+A",
           click: () => sendMenuAction(win, "open-workspace-activity")
@@ -613,17 +608,23 @@ function buildAppMenuTemplate(win, context = {}) {
           click: () => sendMenuAction(win, "open-ai-settings")
         },
         { type: "separator" },
+
         {
-          label: "Generate Embeddings",
-          click: () => sendMenuAction(win, "ai-generate-embeddings")
+          label: "Knowledge Graph",
+          click: () => sendMenuAction(win, "open-knowledge-graph")
         },
         {
-          label: "Build Relationship Graph",
-          click: () => sendMenuAction(win, "ai-build-graph")
+          label: "Embeddings",
+          click: () => sendMenuAction(win, "open-embeddings-page")
         },
         {
-          label: "Detect Patterns",
-          click: () => sendMenuAction(win, "ai-detect-patterns")
+          label: "Personas",
+          click: () => sendMenuAction(win, "open-personas-page")
+        },
+        { type: "separator" },
+        {
+          label: "Diagnostics",
+          click: () => sendMenuAction(win, "open-health-page")
         },
         { type: "separator" },
         {

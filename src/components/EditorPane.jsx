@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useRef, useState } from "react";
+import { useDeferredValue, useCallback, useEffect, useRef, useState } from "react";
 import { MarkdownEditor } from "./MarkdownEditor";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { MarkdownToolbar } from "./MarkdownToolbar";
@@ -40,6 +40,8 @@ export function EditorPane({
   ignoredSpellingWords = [],
   onIgnoreSpellingWord,
   onForceSaveDocument,
+  initialLine = null,
+  onLineJumped,
 }) {
   const previewRef = useRef(null);
   const splitPaneRef = useRef(null);
@@ -49,29 +51,7 @@ export function EditorPane({
   const [selectedMediaPreview, setSelectedMediaPreview] = useState(null);
   const [scrollSyncEnabled, setScrollSyncEnabled] = useState(true);
 
-  useEffect(() => {
-    if (textareaRef?.current) return undefined;
-    const interval = setInterval(() => {
-      if (textareaRef?.current) {
-        setEditorReadyTick((prev) => prev + 1);
-        clearInterval(interval);
-      }
-    }, 100);
-    return () => clearInterval(interval);
-  }, [textareaRef]);
-  const deferredValue = useDeferredValue(value);
-  const isSplitMode = mode === "split";
-  const { issues: validationIssues, status: validationStatus } = useMarkdownValidation(value, {
-    spellCheck: typoCheckEnabled,
-    ignoredWords: ignoredSpellingWords,
-    strategy: "debounce",
-    debounceMs: isSplitMode ? 1200 : 500,
-  });
-  const previewContent = isSplitMode ? deferredValue : value;
-
-  const clampSplitRatio = (nextRatio) => Math.min(Math.max(Number(nextRatio) || 50, 30), 70);
-
-  const jumpToLine = (line) => {
+  const jumpToLine = useCallback((line) => {
     const editor = textareaRef?.current;
     if (!editor) return;
 
@@ -94,7 +74,36 @@ export function EditorPane({
     const maxScroll = Math.max(0, (Number(editor.scrollHeight) || 0) - viewportHeight);
     editor.scrollTop = Math.max(0, Math.min(targetTop, maxScroll));
     setFocusedLine(safeLine);
-  };
+  }, [textareaRef, value]);
+
+  useEffect(() => {
+    if (initialLine && editorReadyTick) {
+      jumpToLine(initialLine);
+      onLineJumped?.();
+    }
+  }, [initialLine, editorReadyTick, jumpToLine, onLineJumped]);
+
+  useEffect(() => {
+    if (textareaRef?.current) return undefined;
+    const interval = setInterval(() => {
+      if (textareaRef?.current) {
+        setEditorReadyTick((prev) => prev + 1);
+        clearInterval(interval);
+      }
+    }, 100);
+    return () => clearInterval(interval);
+  }, [textareaRef]);
+  const deferredValue = useDeferredValue(value);
+  const isSplitMode = mode === "split";
+  const { issues: validationIssues, status: validationStatus } = useMarkdownValidation(value, {
+    spellCheck: typoCheckEnabled,
+    ignoredWords: ignoredSpellingWords,
+    strategy: "debounce",
+    debounceMs: isSplitMode ? 1200 : 500,
+  });
+  const previewContent = isSplitMode ? deferredValue : value;
+
+  const clampSplitRatio = (nextRatio) => Math.min(Math.max(Number(nextRatio) || 50, 30), 70);
 
   useEffect(() => {
     if (mode !== "split" || !scrollSyncEnabled) return undefined;

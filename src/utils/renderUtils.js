@@ -7,9 +7,25 @@ import hljs from "highlight.js";
 
 const md = new MarkdownIt({
   html: false,
-  linkify: true,
+  linkify: false,
   typographer: true,
 });
+
+md.validateLink = (url) => {
+  const urlLower = String(url || "").trim().toLowerCase();
+  if (
+    urlLower.startsWith("http://") ||
+    urlLower.startsWith("https://") ||
+    urlLower.startsWith("mailto:") ||
+    urlLower.startsWith("ftp://") ||
+    urlLower.startsWith("file://")
+  ) {
+    return true;
+  }
+  // Allow relative and local paths (e.g. ./path, ../path, path/to/file)
+  // Ensure no unsafe protocol schemes like javascript: are allowed
+  return !/^[a-z+.-]+:/i.test(urlLower);
+};
 
 function escapeHtml(value) {
   return String(value || "")

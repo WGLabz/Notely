@@ -270,35 +270,14 @@
 
 .api-key-combined-row .provider-model-select {
   flex: 0 0 auto;
-  width: 195px;
+  width: 250px;
 }
 
 .api-key-combined-row .btn {
   flex-shrink: 0;
 }
 
-.provider-model-select {
-  height: 28px;
-  padding: 0 6px;
-  border: 1px solid #d9dedb;
-  border-radius: 6px;
-  font-size: 11px;
-  font-family: inherit;
-  background: #fff;
-  color: #183036;
-  cursor: pointer;
-  outline: none;
-}
 
-.provider-model-select:focus {
-  border-color: #2f5d62;
-  box-shadow: 0 0 0 3px rgba(47, 93, 98, 0.1);
-}
-
-.provider-model-select:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
 
 .api-key-input-group {
   display: flex;

@@ -144,25 +144,42 @@ function readGeneratedVersionInfo() {
 
 async function initializeAIForWorkspace() {
   try {
-    const { initializeAISystem, shutdownAISystem } = require("../src/ai/index.js");
-    const AIConfig = require("../src/ai/utils/AIConfig");
-    const { PROVIDER_REGISTRY } = require("../src/ai/llm/providerRegistry");
+    const { aiService } = require("../ai/core/AIService.js");
+    const AIConfig = require("../ai/core/AIConfig");
+    const { PROVIDER_REGISTRY } = require("../ai/providers/ProviderRegistry");
     const config = new AIConfig();
 
-    shutdownAISystemRef = shutdownAISystem;
+    const prefs = config.loadPreferences();
+    if (prefs.aiEnabled === false) {
+      console.log("[AI] AI is disabled by master switch. Skipping initialization.");
+      initializeAIHandlers(app, null);
+      return;
+    }
 
-    // Pick the first text provider that has a configured API key.
+    const activeProviderName = prefs.aiProvider || 'gemini';
+
     let llmProvider = null;
-    for (const entry of Object.values(PROVIDER_REGISTRY)) {
-      if (!entry.available) continue;
-      const apiKey = config.getAPIKey(entry.id);
-      if (apiKey) {
-        const savedModel = config.getProviderModel(entry.id);
-        llmProvider = {
-          name: entry.id,
-          config: { apiKey, model: savedModel || entry.defaultModel },
-        };
-        break;
+    const activeApiKey = config.getAPIKey(activeProviderName);
+
+    if (activeApiKey) {
+      const savedModel = config.getProviderModel(activeProviderName);
+      const entry = PROVIDER_REGISTRY[activeProviderName];
+      llmProvider = {
+        name: activeProviderName,
+        config: { apiKey: activeApiKey, model: savedModel || entry?.defaultModel },
+      };
+    } else {
+      for (const entry of Object.values(PROVIDER_REGISTRY)) {
+        if (!entry.available) continue;
+        const apiKey = config.getAPIKey(entry.id);
+        if (apiKey) {
+          const savedModel = config.getProviderModel(entry.id);
+          llmProvider = {
+            name: entry.id,
+            config: { apiKey, model: savedModel || entry.defaultModel },
+          };
+          break;
+        }
       }
     }
 
@@ -170,12 +187,17 @@ async function initializeAIForWorkspace() {
     const hfToken = config.getAPIKey("huggingface");
     const embeddingConfig = hfToken ? { token: hfToken } : null;
 
-    const result = await initializeAISystem(appDataDir, notesRoot, llmProvider, embeddingConfig);
+    const resolvedAppDataDir = path.join(app.getPath('appData'), 'Notely');
+    const result = await aiService.initialize(resolvedAppDataDir, notesRoot, llmProvider, embeddingConfig);
     aiAgent = result.agent;
+
+    const activeEmb = aiAgent?.embeddingService?.isAvailable()
+      ? (prefs.embeddingProvider === 'internal' ? 'Local BGE Model' : 'HuggingFace')
+      : 'unavailable';
     console.log(
       "[AI] System initialized",
       llmProvider ? `text: ${llmProvider.name}` : "(no text provider)",
-      embeddingConfig ? "| embeddings: HuggingFace" : "| embeddings: unavailable"
+      `| embeddings: ${activeEmb}`
     );
   } catch (error) {
     aiAgent = null;
