@@ -687,6 +687,8 @@ export function DocumentDetail({
   onShowAI,
   onOpenAISettings,
   onOpenDocument,
+  initialLine = null,
+  onLineJumped,
   workspaceTagSuggestions = [],
   workspaceStorageScope = "default",
   typoCheckEnabled = true,
@@ -2093,6 +2095,8 @@ export function DocumentDetail({
             onRemoveIgnoredSpellingWord={onRemoveIgnoredSpellingWord}
             onClearIgnoredSpellingWords={onClearIgnoredSpellingWords}
             onForceSaveDocument={onForceSaveDocument}
+            initialLine={initialLine}
+            onLineJumped={onLineJumped}
           />
         </main>
 

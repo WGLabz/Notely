@@ -347,7 +347,10 @@ export default function AIChatPanel({
         {messages.length ? (
           <>
             {messages.map((message) => {
-              const cleanText = String(message.text || "").trim().replace(/\n{3,}/g, "\n\n");
+              const cleanText = String(message.text || "")
+                .replace(/[ \t\r]+\n/g, "\n")
+                .replace(/\n{3,}/g, "\n\n")
+                .trim();
               return (
                 <div key={message.id} className={`ai-chat-message ${message.role}`}>
                   <div className="ai-chat-message-head">
@@ -362,6 +365,22 @@ export default function AIChatPanel({
                   <div
                     className="ai-chat-message-body markdown-body"
                     dangerouslySetInnerHTML={{ __html: renderMarkdown(cleanText) }}
+                    onClick={(event) => {
+                      const link = event.target.closest('a');
+                      if (link && link.href && link.href.startsWith('file://')) {
+                        event.preventDefault();
+                        let rawPath = decodeURIComponent(link.href.replace('file:///', ''));
+                        rawPath = rawPath.replace(/\//g, '\\');
+                        
+                        let lineNum = null;
+                        const hashMatch = rawPath.match(/#L(\d+)/i);
+                        if (hashMatch) {
+                          lineNum = parseInt(hashMatch[1], 10);
+                          rawPath = rawPath.replace(/#L\d+/i, '');
+                        }
+                        onOpenDocument?.(rawPath, lineNum);
+                      }
+                    }}
                   />
                   {message.role === "assistant" && message.references && message.references.length > 0 && (
                     <div className="ai-chat-message-references" style={{ marginTop: "6px", paddingTop: "5px", borderTop: "1px solid var(--border-soft)", fontSize: "10px" }}>

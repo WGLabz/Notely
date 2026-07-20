@@ -74,15 +74,9 @@ class QueryExecutor {
     ];
     const isFollowUp = cleanQuery.length < 50 && followUpKeywords.some(kw => cleanQuery.includes(kw));
     
+    let toolChoice = 'auto';
     if (isFollowUp && ceMessages.length > 0) {
-      const historyStr = ceMessages.map(m => m.content || '').join(' ').toLowerCase();
-      if (historyStr.includes('task') || historyStr.includes('todo')) {
-        delete mergedTools.get_tasks;
-      }
-      if (historyStr.includes('note') || historyStr.includes('content') || historyStr.includes('read')) {
-        delete mergedTools.read_note;
-        delete mergedTools.searchNotes;
-      }
+      toolChoice = 'none';
     }
 
     // Build messages array
@@ -96,7 +90,7 @@ class QueryExecutor {
       messages = [{ role: 'user', content: query }];
     }
 
-    return { model, systemPrompt, messages, mergedTools, llm };
+    return { model, systemPrompt, messages, mergedTools, llm, toolChoice };
   }
 
   /**
@@ -105,13 +99,14 @@ class QueryExecutor {
   async execute(query, context = {}) {
     try {
       const { generateText } = await import('ai');
-      const { model, systemPrompt, messages, mergedTools, llm } = await this._prepareConfig(query, context);
+      const { model, systemPrompt, messages, mergedTools, llm, toolChoice } = await this._prepareConfig(query, context);
 
       const result = await generateText({
         model,
         system: systemPrompt,
         messages,
         tools: mergedTools,
+        toolChoice,
         maxSteps: 5 // Allow multi-step tool calls
       });
 
@@ -242,13 +237,14 @@ class QueryExecutor {
   async stream(query, context = {}, onChunk, abortSignal) {
     try {
       const { streamText } = await import('ai');
-      const { model, systemPrompt, messages, mergedTools, llm } = await this._prepareConfig(query, context);
+      const { model, systemPrompt, messages, mergedTools, llm, toolChoice } = await this._prepareConfig(query, context);
 
       const result = await streamText({
         model,
         system: systemPrompt,
         messages,
         tools: mergedTools,
+        toolChoice,
         maxSteps: 5,
         abortSignal
       });
@@ -257,9 +253,10 @@ class QueryExecutor {
       try {
         for await (const part of result.fullStream) {
           if (part.type === 'text-delta') {
-            fullText += part.textDelta;
+            const delta = part.textDelta !== undefined ? part.textDelta : (part.text || '');
+            fullText += delta;
             if (onChunk) {
-              onChunk({ type: 'text', content: part.textDelta });
+              onChunk({ type: 'text', content: delta });
             }
           }
         }

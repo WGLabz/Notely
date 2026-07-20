@@ -460,6 +460,8 @@ export default function App() {
     workspaceFolders,
     selectedParentFolder,
     setSelectedParentFolder,
+    initialLine,
+    setInitialLine,
   } = useDocumentManager({ notify });
 
   const handleCopyLinkPath = useCallback((target) => {
@@ -896,8 +898,8 @@ export default function App() {
     }
   }
 
-  async function handleOpenReferencedDocumentFromUI(filePath) {
-    await handleOpenReferencedDocument(filePath);
+  async function handleOpenReferencedDocumentFromUI(filePath, lineNumber) {
+    await handleOpenReferencedDocument(filePath, lineNumber);
     setLandingAssetsOpen(false);
   }
 
@@ -2888,6 +2890,8 @@ export default function App() {
             }}
             onOpenAISettings={() => setAiSettingsOpen(true)}
             onOpenDocument={handleOpenReferencedDocumentFromUI}
+            initialLine={initialLine}
+            onLineJumped={() => setInitialLine(null)}
             workspaceTagSuggestions={workspaceTagSuggestions}
             workspaceStorageScope={workspaceStorageScope}
             typoCheckEnabled={typoCheckEnabled}

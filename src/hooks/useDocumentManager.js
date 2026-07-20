@@ -79,6 +79,7 @@ export function useDocumentManager({ notify }) {
   const [savingNotesFolder, setSavingNotesFolder] = useState(false);
   const [documentMenuAction, setDocumentMenuAction] = useState(null);
   const [landingFolderPath, setLandingFolderPath] = useState("");
+  const [initialLine, setInitialLine] = useState(null);
 
   const workspaceStorageScope = useMemo(() => {
     const rawWorkspaceId = activeProject?.slug || activeProject?.rootPath || notesFolderPath || "default";
@@ -324,6 +325,7 @@ export function useDocumentManager({ notify }) {
   async function openDocument(filePath, options = {}) {
     setError("");
     setDocumentMenuAction(null);
+    setInitialLine(options.lineNumber || null);
 
     setOpenTabs((prev) => {
       if (prev.includes(filePath)) return prev;
@@ -1068,7 +1070,7 @@ export function useDocumentManager({ notify }) {
     }
   }
 
-  async function handleOpenReferencedDocument(filePath) {
+  async function handleOpenReferencedDocument(filePath, lineNumber) {
     if (!filePath) return;
     if (current && dirty && current.filePath !== filePath) {
       const confirmed = await confirm({
@@ -1080,7 +1082,7 @@ export function useDocumentManager({ notify }) {
       });
       if (!confirmed) return;
     }
-    await openDocument(filePath);
+    await openDocument(filePath, { lineNumber });
   }
 
   async function handleLandingNavigateUp() {
@@ -1207,5 +1209,7 @@ export function useDocumentManager({ notify }) {
     workspaceFolders,
     selectedParentFolder,
     setSelectedParentFolder,
+    initialLine,
+    setInitialLine,
   };
 }

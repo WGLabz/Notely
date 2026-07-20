@@ -40,6 +40,8 @@ export function EditorPane({
   ignoredSpellingWords = [],
   onIgnoreSpellingWord,
   onForceSaveDocument,
+  initialLine = null,
+  onLineJumped,
 }) {
   const previewRef = useRef(null);
   const splitPaneRef = useRef(null);
@@ -48,6 +50,13 @@ export function EditorPane({
   const [editorReadyTick, setEditorReadyTick] = useState(0);
   const [selectedMediaPreview, setSelectedMediaPreview] = useState(null);
   const [scrollSyncEnabled, setScrollSyncEnabled] = useState(true);
+
+  useEffect(() => {
+    if (initialLine && editorReadyTick) {
+      jumpToLine(initialLine);
+      onLineJumped?.();
+    }
+  }, [initialLine, editorReadyTick]);
 
   useEffect(() => {
     if (textareaRef?.current) return undefined;

@@ -7,9 +7,20 @@ import hljs from "highlight.js";
 
 const md = new MarkdownIt({
   html: false,
-  linkify: true,
+  linkify: false,
   typographer: true,
 });
+
+md.validateLink = (url) => {
+  const urlLower = String(url || "").trim().toLowerCase();
+  return (
+    urlLower.startsWith("http://") ||
+    urlLower.startsWith("https://") ||
+    urlLower.startsWith("mailto:") ||
+    urlLower.startsWith("ftp://") ||
+    urlLower.startsWith("file://")
+  );
+};
 
 function escapeHtml(value) {
   return String(value || "")
