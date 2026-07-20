@@ -3,6 +3,7 @@ import { Eye, X } from "lucide-react";
 import { DashboardPanels } from "../DashboardPanels";
 import { LandingListControls } from "../LandingListControls";
 import { DocumentList } from "../DocumentList";
+import { useWorkspaceScopedStorage } from "../../hooks/useWorkspaceScopedStorage";
 
 export function LandingView({
   isRootLandingView,
@@ -49,7 +50,15 @@ export function LandingView({
   isAIConfigured = false,
   onShowAI = null,
 }) {
-  const [aiSidebarWidth, setAiSidebarWidth] = React.useState(380);
+  const [aiSidebarWidth, setAiSidebarWidth] = useWorkspaceScopedStorage({
+    workspaceScope: "global",
+    key: "notes:landing-ai-sidebar-width",
+    defaultValue: 380,
+    normalize: (value) => {
+      const parsed = parseInt(value, 10);
+      return Number.isNaN(parsed) ? 380 : parsed;
+    },
+  });
 
   const startAiResize = (pointerDownEvent) => {
     pointerDownEvent.preventDefault();

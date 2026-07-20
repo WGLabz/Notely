@@ -1,12 +1,15 @@
 
 .dashboard-action-grid.inline {
-  grid-template-columns: minmax(0, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
 .dashboard-action-grid.inline button {
-  min-height: 30px;
+  min-height: 28px;
   font-size: 12px;
+  flex: 1 1 auto;
+  white-space: nowrap;
 }
 
 .dashboard-task-count {

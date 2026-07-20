@@ -149,7 +149,7 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
         <article className="dashboard-panel recent">
           <div className="dashboard-panel-head">
             <h3>Recent Notes</h3>
-            {renderSectionToggle(recentNotes, onOpenRecentNotes)}
+            {renderBarSectionToggle(onOpenRecentNotes)}
           </div>
           {recentSlice.length ? (
             <ul className="dashboard-recent-list compact">
@@ -177,7 +177,7 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
         <article className="dashboard-panel favorites">
           <div className="dashboard-panel-head">
             <h3>Favorites</h3>
-            {renderSectionToggle(favoriteSlice, onOpenFavorites)}
+            {renderBarSectionToggle(onOpenFavorites)}
           </div>
           {visibleFavorites.length ? (
             <ul className="dashboard-recent-list compact">
@@ -220,7 +220,7 @@ export function DashboardPanels({ documents, taskDocuments = documents, loading,
                   <span className="task-closed">{taskCounts.closed}</span>
                 </button>
               )}
-              {renderSectionToggle(allOpenTasks, onOpenAllTasks)}
+              {renderBarSectionToggle(onOpenAllTasks)}
             </div>
           </div>
           {openTasks.length ? (
