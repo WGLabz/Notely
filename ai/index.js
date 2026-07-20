@@ -75,6 +75,23 @@ async function initializeAISystem(appDataDir, workspaceRoot, llmProvider, embedd
 
     const result = await aiAgent.initialize(workspaceRoot, llmProvider);
 
+    // Boot local BGE embeddings SQLite database & worker queue
+    try {
+      const EmbeddingDB = require("./embeddings/EmbeddingDB");
+      const IndexQueue = require("./queue/IndexQueue");
+      const IndexWorker = require("./queue/IndexWorker");
+
+      aiAgent.embeddingDb = new EmbeddingDB(workspaceRoot);
+      aiAgent.embeddingDb.initialize();
+
+      const queue = new IndexQueue(aiAgent.embeddingDb);
+      aiAgent.indexWorker = new IndexWorker(aiAgent.embeddingDb, queue, aiAgent.embeddingService);
+      aiAgent.indexWorker.start();
+      console.log('[AI System] Embedding DB and Index Worker booted');
+    } catch (embBootErr) {
+      console.warn('[AI System] Embedding DB or Index Worker failed to boot:', embBootErr.message);
+    }
+
     // Phase 5 — Context Engine subsystem
     try {
       const path = require('path');

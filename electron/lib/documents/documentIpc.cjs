@@ -201,6 +201,12 @@ function registerDocumentIpcHandlers(ipcMain, deps) {
     const previousFilePath = payload?.filePath;
     const renamed = renameDocumentFile(previousFilePath, payload);
     dashboardCache?.renameEntry?.(previousFilePath, renamed);
+    try {
+      const { aiService } = require("../../../ai/core/AIService.js");
+      aiService.onNoteRename(previousFilePath, renamed.filePath);
+    } catch (aiErr) {
+      console.error("[documentIpc] Failed to trigger AI onNoteRename:", aiErr.message);
+    }
     return renamed;
   });
 
@@ -217,6 +223,13 @@ function registerDocumentIpcHandlers(ipcMain, deps) {
     const previous = fs.readFileSync(resolved, "utf8");
     const previousHash = hashContent(previous);
     const result = deleteDocumentFile(resolved);
+
+    try {
+      const { aiService } = require("../../../ai/core/AIService.js");
+      aiService.onNoteDelete(resolved);
+    } catch (aiErr) {
+      console.error("[documentIpc] Failed to trigger AI onNoteDelete:", aiErr.message);
+    }
 
     emitLocalP2PSyncEvent({
       op: "delete",
@@ -314,6 +327,13 @@ function registerDocumentIpcHandlers(ipcMain, deps) {
 
     lastAppHashes.set(resolved, hashContent(next));
     fs.writeFileSync(resolved, next, "utf8");
+
+    try {
+      const { aiService } = require("../../../ai/core/AIService.js");
+      aiService.onNoteSave(resolved);
+    } catch (aiErr) {
+      console.error("[documentIpc] Failed to trigger AI onNoteSave:", aiErr.message);
+    }
 
     emitLocalP2PSyncEvent({
       op: "update",

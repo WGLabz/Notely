@@ -61,6 +61,9 @@ ${content}
       const cleanedJson = this._cleanJsonResponse(resultText);
       const parsedData = JSON.parse(cleanedJson);
 
+      // Clear existing outgoing relationships for this note to prevent stale accumulation
+      this.graphDb.db.prepare('DELETE FROM relationships WHERE source_id = ?').run(noteId);
+
       // Save note entity first
       this.graphDb.upsertEntity({
         id: noteId,

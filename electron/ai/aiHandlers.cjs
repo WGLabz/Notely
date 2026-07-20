@@ -305,23 +305,6 @@ async function handleInitialize(event, payload) {
 
     const result = await aiService.initialize(appDataDir, workspaceRoot, llmProvider, embeddingConfig);
 
-    // Boot local BGE embeddings SQLite database & worker queue
-    if (aiService.agent) {
-      const agent = aiService.agent;
-      if (!agent.embeddingDb) {
-        const EmbeddingDB = require('../../ai/embeddings/EmbeddingDB');
-        agent.embeddingDb = new EmbeddingDB(workspaceRoot);
-        agent.embeddingDb.initialize();
-      }
-      if (!agent.indexWorker && agent.embeddingDb) {
-        const IndexQueue = require('../../ai/queue/IndexQueue');
-        const IndexWorker = require('../../ai/queue/IndexWorker');
-        const queue = new IndexQueue(agent.embeddingDb);
-        agent.indexWorker = new IndexWorker(agent.embeddingDb, queue, agent.embeddingService);
-        agent.indexWorker.start();
-      }
-    }
-
     return new AIQueryResponse(true, result);
   } catch (error) {
     console.error('[AI IPC] Initialization failed:', error);

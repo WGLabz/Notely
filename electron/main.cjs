@@ -144,14 +144,18 @@ function readGeneratedVersionInfo() {
 
 async function initializeAIForWorkspace() {
   try {
-    const { initializeAISystem, shutdownAISystem } = require("../ai/index.js");
+    const { aiService } = require("../ai/core/AIService.js");
     const AIConfig = require("../ai/core/AIConfig");
     const { PROVIDER_REGISTRY } = require("../ai/providers/ProviderRegistry");
     const config = new AIConfig();
 
-    shutdownAISystemRef = shutdownAISystem;
-
     const prefs = config.loadPreferences();
+    if (prefs.aiEnabled === false) {
+      console.log("[AI] AI is disabled by master switch. Skipping initialization.");
+      initializeAIHandlers(app, null);
+      return;
+    }
+
     const activeProviderName = prefs.aiProvider || 'gemini';
 
     let llmProvider = null;
@@ -184,22 +188,8 @@ async function initializeAIForWorkspace() {
     const embeddingConfig = hfToken ? { token: hfToken } : null;
 
     const resolvedAppDataDir = path.join(app.getPath('appData'), 'Notely');
-    const result = await initializeAISystem(resolvedAppDataDir, notesRoot, llmProvider, embeddingConfig);
+    const result = await aiService.initialize(resolvedAppDataDir, notesRoot, llmProvider, embeddingConfig);
     aiAgent = result.agent;
-
-    // Boot local BGE embeddings SQLite database & worker queue
-    if (aiAgent) {
-      const EmbeddingDB = require("../ai/embeddings/EmbeddingDB");
-      const IndexQueue = require("../ai/queue/IndexQueue");
-      const IndexWorker = require("../ai/queue/IndexWorker");
-      
-      aiAgent.embeddingDb = new EmbeddingDB(notesRoot);
-      aiAgent.embeddingDb.initialize();
-      
-      const queue = new IndexQueue(aiAgent.embeddingDb);
-      aiAgent.indexWorker = new IndexWorker(aiAgent.embeddingDb, queue, aiAgent.embeddingService);
-      aiAgent.indexWorker.start();
-    }
 
     const activeEmb = aiAgent?.embeddingService?.isAvailable()
       ? (prefs.embeddingProvider === 'internal' ? 'Local BGE Model' : 'HuggingFace')

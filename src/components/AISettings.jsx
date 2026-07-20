@@ -17,7 +17,9 @@ import {
   aiGetHealth,
   aiGetModelStatus,
   aiDownloadModel,
-  onModelDownloadProgress
+  onModelDownloadProgress,
+  aiEnable,
+  aiDisable
 } from '../services/electronService';
 
 const defaultPreferences = {
@@ -326,6 +328,8 @@ export const AISettingsContent = ({ _onClose }) => {
     return warnings;
   };
 
+  const isAIEnabled = preferences.aiEnabled !== false;
+
   return (
     <div className="ai-settings-inner-wrap">
         {status ? (
@@ -334,6 +338,55 @@ export const AISettingsContent = ({ _onClose }) => {
           </div>
         ) : null}
 
+        {/* AI Master Switch */}
+        <div className="ai-settings-master-switch-card" style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "12px 16px",
+          borderRadius: "8px",
+          border: "1px solid var(--border-soft)",
+          background: "var(--background-soft)",
+          marginBottom: "16px"
+        }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+            <span style={{ fontWeight: "700", color: "var(--text-strong)", fontSize: "14px" }}>
+              Enable AI Subsystem
+            </span>
+            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+              Toggle the global switch to enable or disable all background AI services, embeddings, and chat.
+            </span>
+          </div>
+          <label style={{ display: "inline-flex", alignItems: "center", cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={isAIEnabled}
+              onChange={async (e) => {
+                const checked = e.target.checked;
+                const nextPrefs = { ...preferences, aiEnabled: checked };
+                setPreferences(nextPrefs);
+                try {
+                  if (checked) {
+                    await aiEnable();
+                  } else {
+                    await aiDisable();
+                  }
+                  await aiSetPreferences(nextPrefs);
+                  window.dispatchEvent(new CustomEvent('app:toast', {
+                    detail: { message: `AI Subsystem ${checked ? 'enabled' : 'disabled'}.`, type: 'success' }
+                  }));
+                } catch (err) {
+                  window.dispatchEvent(new CustomEvent('app:toast', {
+                    detail: { message: `Failed to toggle AI: ${err.message}`, type: 'error' }
+                  }));
+                }
+              }}
+              style={{ width: "20px", height: "20px", cursor: "pointer" }}
+            />
+          </label>
+        </div>
+
+        <div style={{ opacity: isAIEnabled ? 1 : 0.5, pointerEvents: isAIEnabled ? "auto" : "none", transition: "opacity var(--motion-standard)" }}>
         <div className="ai-subtabs-nav" role="tablist" style={{ display: "flex", gap: "16px", marginBottom: "16px", borderBottom: "1px solid var(--border-soft)", paddingBottom: "8px" }}>
           <button
             type="button"
@@ -834,6 +887,7 @@ export const AISettingsContent = ({ _onClose }) => {
               </section>
             </>
           )}
+        </div>
         </div>
     </div>
   );

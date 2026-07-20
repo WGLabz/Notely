@@ -125,6 +125,113 @@ class AIService {
   }
 
   /**
+   * Note save hook - enqueues embeddings indexing and triggers incremental graph update
+   */
+  onNoteSave(filePath) {
+    if (!this.enabled || !this.agent) return;
+
+    // 1. Enqueue in background embeddings index
+    if (this.agent.embeddingDb) {
+      try {
+        this.agent.embeddingDb.enqueue(filePath, 0);
+        if (this.agent.indexWorker) {
+          this.agent.indexWorker.triggerNext();
+        }
+      } catch (err) {
+        log.error(`Failed to enqueue note for embedding indexing: ${filePath}`, err.message);
+      }
+    }
+
+    // 2. Trigger background graph relationship extraction
+    if (this.agent.graphService) {
+      const fs = require('fs');
+      if (fs.existsSync(filePath)) {
+        try {
+          const content = fs.readFileSync(filePath, 'utf8');
+          this.agent.graphService.processNote(filePath, content).catch(err => {
+            log.error(`Incremental graph extraction failed for ${filePath}:`, err.message);
+          });
+        } catch (err) {
+          log.error(`Failed to read file for graph extraction: ${filePath}`, err.message);
+        }
+      }
+    }
+  }
+
+  /**
+   * Note delete hook - purges note chunks and graph relationships
+   */
+  onNoteDelete(filePath) {
+    if (!this.enabled || !this.agent) return;
+
+    // 1. Purge embedding DB chunks
+    if (this.agent.embeddingDb) {
+      try {
+        this.agent.embeddingDb.deleteNoteData(filePath);
+        log.info(`Deleted note embeddings from index for: ${filePath}`);
+      } catch (err) {
+        log.error(`Failed to delete note embeddings: ${filePath}`, err.message);
+      }
+    }
+
+    // 2. Purge knowledge graph nodes & relationships
+    if (this.agent.graphDb) {
+      try {
+        const path = require('path');
+        const noteName = path.basename(filePath, '.md');
+        const noteId = noteName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        this.agent.graphDb.deleteEntity(noteId);
+        log.info(`Deleted note from Knowledge Graph: ${noteId}`);
+      } catch (err) {
+        log.error(`Failed to delete note from Knowledge Graph: ${filePath}`, err.message);
+      }
+    }
+  }
+
+  /**
+   * Note rename hook - updates note path mappings in both DBs
+   */
+  onNoteRename(oldPath, newPath) {
+    if (!this.enabled || !this.agent) return;
+
+    // 1. Update embedding DB tables
+    if (this.agent.embeddingDb && this.agent.embeddingDb.db) {
+      try {
+        const db = this.agent.embeddingDb.db;
+        db.exec('BEGIN');
+        db.prepare('UPDATE chunks SET note_path = ? WHERE note_path = ?').run(newPath, oldPath);
+        db.prepare('UPDATE note_hashes SET note_path = ? WHERE note_path = ?').run(newPath, oldPath);
+        db.prepare('UPDATE indexing_queue SET note_path = ? WHERE note_path = ?').run(newPath, oldPath);
+        db.prepare('UPDATE indexing_log SET note_path = ? WHERE note_path = ?').run(newPath, oldPath);
+        db.exec('COMMIT');
+        log.info(`Renamed note paths in embedding DB from ${oldPath} to ${newPath}`);
+      } catch (err) {
+        try {
+          this.agent.embeddingDb.db.exec('ROLLBACK');
+        } catch (rollbackErr) {
+          log.error('DB rollback failed:', rollbackErr.message);
+        }
+        log.error(`Failed to rename note paths in embedding DB:`, err.message);
+      }
+    }
+
+    // 2. Update knowledge graph entities
+    if (this.agent.graphDb && this.agent.graphDb.db) {
+      try {
+        const path = require('path');
+        const db = this.agent.graphDb.db;
+        const newName = path.basename(newPath, '.md');
+
+        db.prepare('UPDATE entities SET note_path = ?, name = ?, updated_at = datetime(\'now\') WHERE note_path = ?')
+          .run(newPath, newName, oldPath);
+        log.info(`Renamed note path in GraphDB from ${oldPath} to ${newPath}`);
+      } catch (err) {
+        log.error(`Failed to rename note path in GraphDB:`, err.message);
+      }
+    }
+  }
+
+  /**
    * Main chat query wrapper
    */
   async chat(message, context = {}) {

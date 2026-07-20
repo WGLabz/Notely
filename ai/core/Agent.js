@@ -236,6 +236,14 @@ class Agent {
   shutdown() {
     try {
       this.reset();
+      if (this.indexWorker) {
+        this.indexWorker.pause();
+        this.indexWorker = null;
+      }
+      if (this.embeddingDb) {
+        this.embeddingDb.close();
+        this.embeddingDb = null;
+      }
       if (this.graphDb) {
         this.graphDb.close();
       }
