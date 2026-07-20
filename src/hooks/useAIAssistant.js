@@ -246,10 +246,6 @@ export function useAIAssistant({
   const [activePersona, setActivePersona] = useState(null);
 
   async function handleAIQuery({ query, target, systemPrompt }) {
-    if (!current?.filePath) {
-      throw new Error("Open a note to use AI.");
-    }
-
     if (!isAIConfigured) {
       notify("Configure an AI provider key in AI Settings to use AI chat.", "warning");
       setAiPanelVisible(false);
@@ -262,14 +258,21 @@ export function useAIAssistant({
 
     try {
       const editorContext = aiEditorRef.current?.getContext?.() || {};
-      const resolvedTarget = resolveAITarget(editorContext, target || "auto", current, activeTab);
+      const resolvedTarget = current?.filePath
+        ? resolveAITarget(editorContext, target || "auto", current, activeTab)
+        : {
+            requestedTarget: "workspace",
+            effectiveTarget: "document",
+            targetText: "",
+            scopeLabel: "workspace",
+          };
 
       const response = await aiQuery(query, {
-        currentFile: current.filePath,
+        currentFile: current?.filePath || null,
         workspaceRoot: activeProject?.rootPath || landingFolderPath || notesFolderPath || null,
-        activeTab,
-        editorMode: mode,
-        documentTitle: current.title,
+        activeTab: current ? activeTab : "preview",
+        editorMode: current ? mode : "preview",
+        documentTitle: current?.title || "Global Context",
         selectedText: editorContext.selectedText || null,
         currentBlock: editorContext.currentBlock?.text || null,
         selectionStart: editorContext.selectionStart ?? null,
@@ -277,7 +280,7 @@ export function useAIAssistant({
         cursorOffset: editorContext.cursorOffset ?? null,
         requestedTarget: resolvedTarget.requestedTarget,
         resolvedTarget: resolvedTarget.effectiveTarget,
-        workspaceContext: resolvedTarget.requestedTarget === "workspace",
+        workspaceContext: !current || resolvedTarget.requestedTarget === "workspace",
         targetText: resolvedTarget.targetText || null,
         systemPrompt: systemPrompt || activePersona?.prompt || null,
       });
@@ -297,6 +300,7 @@ export function useAIAssistant({
         response,
         text: resultText,
         trace: response?.data?.trace || [],
+        references: response?.data?.context?.relatedDocuments || [],
         scopeLabel: resolvedTarget.scopeLabel,
       };
     } catch (err) {
@@ -377,6 +381,7 @@ export function useAIAssistant({
           scope,
           scopeLabel: result?.scopeLabel || scope,
           avatar: activePersona?.avatar || "🤖",
+          references: result?.references || [],
         },
       ]);
       // Persist assistant message with trace metadata
@@ -445,6 +450,9 @@ export function useAIAssistant({
   useEffect(() => {
     setInlineGhostSuggestion(null);
     setAiChatMessages([]);
+    const editorContext = aiEditorRef.current?.getContext?.() || null;
+    const summary = buildAIContextSummary(editorContext, current);
+    setAiContextSummary(summary);
   }, [current?.filePath, activeTab]);
 
   useEffect(() => {

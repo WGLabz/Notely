@@ -4,6 +4,18 @@ All notable documentation and user-facing behavior changes are tracked in this f
 
 ## Unreleased
 
+### Added
+
+- Added modular, local-first **AI Platform** overhaul:
+  - **Global AI Chat**: Open AI Assistant panel from the left sidebar on the landing screen to search/chat across the entire workspace.
+  - **Sourced References**: Render referred notes chips under assistant message bubbles so users can inspect note relevance.
+  - **Tool Traces Log**: Interactive **AI Health** diagnostic panel displaying database connection states, requests/tokens counts, and collapsible tool execution logs (name, arguments, output) for all chat queries.
+  - **Local Embedding Vectorizer**: SQLite-backed local embeddings queue utilizing a local ONNX runtime for `BGE-small-en-v1.5` vectors.
+  - **Knowledge Graph**: SQLite-backed relation indexes supporting recursive CTE graph traversals.
+  - **Rich Personas**: Select preset emoji avatar icons (🤖, 💻, 🧠, etc.) inside the custom Persona Manager registry.
+  - **Performance Caches**: In-memory caching for hot vectors in `EmbeddingService` and 60-second TTL-based cache on CTE graph queries in `GraphRetriever`.
+- Added Vitest test suites covering chunking, database vectors, indexing queues, background worker loops, semantic search matches, provider registry loading, and tool execution.
+
 ## 2026-07-17
 
 ### Added

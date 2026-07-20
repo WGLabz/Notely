@@ -35,7 +35,6 @@ export default [
   // Renderer (React) source — browser environment, ESM modules.
   {
     files: ["src/**/*.{js,jsx}"],
-    ignores: ["src/ai/**"],
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: "module",
@@ -57,7 +56,7 @@ export default [
 
   // AI subsystem — CommonJS, runs in the Electron main (Node) process.
   {
-    files: ["ai/**/*.js", "src/ai/**/*.js"],
+    files: ["ai/**/*.js"],
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: "commonjs",

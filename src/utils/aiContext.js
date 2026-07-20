@@ -4,7 +4,8 @@
 export function buildAIContextSummary(editorContext, current) {
   if (!current?.filePath) {
     return {
-      label: "Open a note to use AI.",
+      label: "No active note. AI will search the full workspace context.",
+      hasActiveDocument: false,
       hasSelection: false,
       hasCurrentBlock: false,
     };
@@ -17,6 +18,7 @@ export function buildAIContextSummary(editorContext, current) {
     const compact = selectedPreview.replace(/\s+/g, " ");
     return {
       label: `Selection in ${editorContext?.tab || "note"}: ${compact.slice(0, 120)}${compact.length > 120 ? "..." : ""}`,
+      hasActiveDocument: true,
       hasSelection: true,
       hasCurrentBlock: Boolean(blockPreview),
       suggestedPreset: "research",
@@ -27,6 +29,7 @@ export function buildAIContextSummary(editorContext, current) {
     const compact = blockPreview.replace(/\s+/g, " ");
     return {
       label: `Current block in ${editorContext?.tab || "note"}: ${compact.slice(0, 120)}${compact.length > 120 ? "..." : ""}`,
+      hasActiveDocument: true,
       hasSelection: false,
       hasCurrentBlock: true,
       suggestedPreset: /meeting|agenda|decision|attendee|follow-up/i.test(compact) ? "meeting" : "research",
@@ -35,6 +38,7 @@ export function buildAIContextSummary(editorContext, current) {
 
   return {
     label: `Whole ${editorContext?.tab || "note"} note will be used for context in ${current.title}.`,
+    hasActiveDocument: true,
     hasSelection: false,
     hasCurrentBlock: false,
     suggestedPreset: /meeting|standup|sync|minutes/i.test(current.title || "") ? "meeting" : /plan|roadmap|tasks|action/i.test(current.title || "") ? "action-plan" : "research",

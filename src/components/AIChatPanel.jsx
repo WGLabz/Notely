@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Send, X } from "lucide-react";
 import AppButton from "./AppButton";
 import AppTextarea from "./AppTextarea";
 import { renderMarkdown } from "../utils/renderUtils";
@@ -13,6 +14,14 @@ const SCOPE_OPTIONS = [
 ];
 
 function buildStarterPrompts(contextSummary) {
+  if (!contextSummary?.hasActiveDocument) {
+    return [
+      "Summarize key tasks across my workspace.",
+      "List all active projects in this workspace.",
+      "Find links or references related to design plans.",
+    ];
+  }
+
   if (contextSummary?.hasSelection) {
     return [
       "Make this clearer without changing the meaning.",
@@ -37,6 +46,10 @@ function buildStarterPrompts(contextSummary) {
 }
 
 function getScopeHelp(scope, contextSummary) {
+  if (!contextSummary?.hasActiveDocument) {
+    return "Workspace scope searches and maps conceptual matches across all notes in the workspace.";
+  }
+
   if (scope === "workspace") {
     return contextSummary?.hasSelection
       ? "Uses the selected text as the focal point, then widens to the whole workspace."
@@ -89,9 +102,15 @@ export default function AIChatPanel({
 
   useEffect(() => {
     setDraft(intent?.query || "");
-    setScope(intent?.target || "auto");
+    setScope(intent?.target || (contextSummary?.hasActiveDocument ? "auto" : "workspace"));
     requestAnimationFrame(() => inputRef.current?.focus());
-  }, [intent]);
+  }, [intent, contextSummary]);
+
+  useEffect(() => {
+    if (!contextSummary?.hasActiveDocument) {
+      setScope("workspace");
+    }
+  }, [contextSummary]);
 
   // Load available personas for the dropdown selector
   useEffect(() => {
@@ -129,9 +148,29 @@ export default function AIChatPanel({
               {activePersona?.description || "Grounded assistant instructions."}
             </div>
           </div>
-          <div className="ai-chat-header-actions" style={{ display: "flex", gap: "4px" }}>
+          <div className="ai-chat-header-actions" style={{ display: "flex", gap: "6px", alignItems: "center" }}>
             <AppButton variant="small" onClick={onClear}>Clear</AppButton>
-            <AppButton variant="small" onClick={onHide}>Hide</AppButton>
+            <button
+              onClick={onHide}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "var(--text-muted)",
+                cursor: "pointer",
+                padding: "4px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: "4px",
+                transition: "background 0.2s"
+              }}
+              className="ai-chat-close-btn"
+              title="Close panel"
+              aria-label="Close AI panel"
+              type="button"
+            >
+              <X size={16} />
+            </button>
           </div>
         </div>
 
@@ -166,7 +205,7 @@ export default function AIChatPanel({
 
       <div className="ai-chat-context-bar">
         <div className="ai-chat-scope-row" role="group" aria-label="AI context scope">
-          {SCOPE_OPTIONS.map((option) => (
+          {SCOPE_OPTIONS.filter(o => contextSummary?.hasActiveDocument || o.id === "workspace").map((option) => (
             <button
               key={option.id}
               type="button"
@@ -177,7 +216,11 @@ export default function AIChatPanel({
             </button>
           ))}
         </div>
-        <div className="ai-chat-context-copy">{contextSummary?.label || "Use the current note as AI context."}</div>
+        <div className="ai-chat-context-copy">
+          {contextSummary?.hasActiveDocument 
+            ? (contextSummary?.label || "Use the current note as AI context.")
+            : "No active note. AI queries full workspace context."}
+        </div>
         <div className="ai-chat-scope-help">{getScopeHelp(scope, contextSummary)}</div>
       </div>
 
@@ -195,6 +238,33 @@ export default function AIChatPanel({
               className="ai-chat-message-body markdown-body"
               dangerouslySetInnerHTML={{ __html: renderMarkdown(message.text) }}
             />
+            {message.role === "assistant" && message.references && message.references.length > 0 && (
+              <div className="ai-chat-message-references" style={{ marginTop: "8px", paddingTop: "6px", borderTop: "1px solid var(--border-soft)", fontSize: "11px" }}>
+                <div style={{ fontWeight: 600, color: "var(--text-muted)", marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>Referred Notes:</div>
+                <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                  {message.references.map((ref, idx) => {
+                    const name = ref.path.split(/[\\/]/).pop();
+                    return (
+                      <span
+                        key={idx}
+                        title={`${ref.path} (${(ref.relevance * 100).toFixed(0)}% relevance)`}
+                        style={{
+                          background: "var(--surface-accent)",
+                          color: "var(--accent-solid)",
+                          padding: "2px 6px",
+                          borderRadius: "4px",
+                          border: "1px solid var(--border-soft)",
+                          fontFamily: "monospace",
+                          fontSize: "10.5px"
+                        }}
+                      >
+                        📄 {name}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             {message.role === "assistant" && message.text ? (
               <div className="ai-chat-apply-row">
                 <AppButton variant="small" onClick={() => onApply?.({ text: message.text, mode: "insert" })}>Insert</AppButton>
@@ -242,7 +312,7 @@ export default function AIChatPanel({
           rows={4}
           disabled={isLoading}
           onKeyDown={(event) => {
-            if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+            if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();
               if (!draft.trim() || isLoading) return;
               onSend?.({ message: draft, target: scope, personaPrompt: activePersona?.prompt });
@@ -251,7 +321,7 @@ export default function AIChatPanel({
           }}
         />
         <div className="ai-chat-composer-actions">
-          <span className="ai-chat-hint">Ctrl/Cmd+Enter to send</span>
+          <span className="ai-chat-hint">Enter to send, Shift+Enter for new line</span>
           <AppButton
             variant="primary"
             disabled={isLoading || !draft.trim()}
@@ -260,8 +330,14 @@ export default function AIChatPanel({
               onSend?.({ message: draft, target: scope, personaPrompt: activePersona?.prompt });
               setDraft("");
             }}
+            style={{ display: "flex", alignItems: "center", gap: "6px" }}
           >
-            {isLoading ? "Thinking..." : "Send"}
+            {isLoading ? "Thinking..." : (
+              <>
+                <Send size={12} />
+                <span>Send</span>
+              </>
+            )}
           </AppButton>
         </div>
       </div>

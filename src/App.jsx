@@ -2412,6 +2412,16 @@ export default function App() {
       return;
     }
 
+    if (action === "ai") {
+      if (!isAIConfigured) {
+        notify("Configure an AI provider key in AI Settings to use AI chat.", "warning");
+        setAiSettingsOpen(true);
+        return;
+      }
+      setAiPanelVisible((visible) => !visible);
+      return;
+    }
+
     if (action === "trash") {
       setTrashDialogOpen(true);
     }
@@ -2552,6 +2562,28 @@ export default function App() {
     }
   };
 
+  const aiSidebarComponent = aiPanelVisible && isAIConfigured ? (
+    <ErrorBoundary label="AI chat">
+      <Suspense fallback={<div className="lazy-loading">Loading AI…</div>}>
+        <AIChatPanel
+          onHide={() => setAiPanelVisible(false)}
+          onClear={handleClearAIChat}
+          onSend={handleAIChatSend}
+          onApply={handleApplyAIResult}
+          isLoading={aiQueryLoading}
+          error={aiQueryError || null}
+          contextSummary={aiContextSummary}
+          intent={aiPaletteIntent}
+          messages={aiChatMessages}
+          noteTitle={current?.title || "Current Note"}
+          activeProvider={activeProvider}
+          activePersona={activePersona}
+          setActivePersona={setActivePersona}
+        />
+      </Suspense>
+    </ErrorBoundary>
+  ) : null;
+
   return (
     <div className={`app-shell${showTerminal ? " terminal-open" : ""}${current ? " document-screen" : " landing-screen"}${focusModeEnabled && current ? " focus-mode-active" : ""}`}>
       <TitleBar
@@ -2686,6 +2718,17 @@ export default function App() {
             documents={documents}
             workspaceTaskDocuments={workspaceTaskDocuments}
             loading={loading}
+            aiSidebar={aiSidebarComponent}
+            aiPanelVisible={aiPanelVisible}
+            isAIConfigured={isAIConfigured}
+            onShowAI={() => {
+              if (!isAIConfigured) {
+                notify("Configure an AI provider key in AI Settings to use AI chat.", "warning");
+                setAiSettingsOpen(true);
+                return;
+              }
+              setAiPanelVisible((visible) => !visible);
+            }}
             onOpenListItem={handleOpenListItem}
             onOpenReferencedDocument={(task) => handleOpenReferencedDocument(task?.filePath)}
             onOpenAllTasks={() => setAllTasksPanelOpen(true)}
@@ -2837,27 +2880,7 @@ export default function App() {
             onOutlineEnabledChange={setOutlineEnabled}
             focusModeEnabled={focusModeEnabled}
             onFocusModeChange={setFocusModeEnabled}
-            aiSidebar={aiPanelVisible && isAIConfigured ? (
-              <ErrorBoundary label="AI chat">
-                <Suspense fallback={<div className="lazy-loading">Loading AI…</div>}>
-                  <AIChatPanel
-                    onHide={() => setAiPanelVisible(false)}
-                    onClear={handleClearAIChat}
-                    onSend={handleAIChatSend}
-                    onApply={handleApplyAIResult}
-                    isLoading={aiQueryLoading}
-                    error={aiQueryError || null}
-                    contextSummary={aiContextSummary}
-                    intent={aiPaletteIntent}
-                    messages={aiChatMessages}
-                    noteTitle={current?.title || "Current Note"}
-                    activeProvider={activeProvider}
-                    activePersona={activePersona}
-                    setActivePersona={setActivePersona}
-                  />
-                </Suspense>
-              </ErrorBoundary>
-            ) : null}
+            aiSidebar={aiSidebarComponent}
           />
         </Suspense>
       )}

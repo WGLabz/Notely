@@ -48,7 +48,7 @@ Notely is built with Electron + React and is designed for project notes, meeting
 - Preview Mermaid diagrams and rendered Markdown content.
 - Create and edit structured technical diagrams with **Draw.io integration** directly from markdown previews, supporting drag-and-drop import for `.drawio` and `.drawio.xml` files, image export, and offline drawing.
 - Visualize the workspace as an interactive note graph.
-- Use built-in AI features powered by Gemini or Groq for chat, queries, and semantic search.
+- Use built-in AI features powered by Vercel AI SDK (Gemini, Groq, OpenAI) with a local-first **Embeddings Engine** (offline `BGE-small-en-v1.5` ONNX model), recursive SQLite **Knowledge Graph**, global workspace chat, referred source chips, and a diagnostics panel with tool execution traces.
 - Aggregate tasks across notes with **Open Tasks** and **All Tasks** panels.
   - Open Tasks focuses on unchecked items.
   - All Tasks includes open + closed items with filtering and note grouping.

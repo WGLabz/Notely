@@ -11,7 +11,7 @@ class MarkdownChunker {
    */
   static chunk(content, notePath, options = {}) {
     const maxChunkSize = options.maxChunkSize || 800; // character length threshold
-    const minChunkSize = options.minChunkSize || 30;
+    const minChunkSize = options.minChunkSize !== undefined ? options.minChunkSize : 30;
     
     if (!content || !content.trim()) return [];
 

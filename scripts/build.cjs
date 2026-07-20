@@ -30,8 +30,8 @@ child.on("exit", (code, signal) => {
     return;
   }
   
-  // Copy src/ai to dist/ai so electron-builder includes it
-  const srcAiPath = path.join(__dirname, "..", "src", "ai");
+  // Copy ai to dist/ai so electron-builder includes it
+  const srcAiPath = path.join(__dirname, "..", "ai");
   const distAiPath = path.join(__dirname, "..", "dist", "ai");
   
   try {
@@ -40,7 +40,7 @@ child.on("exit", (code, signal) => {
       fs.rmSync(distAiPath, { recursive: true, force: true });
     }
     
-    // Recursively copy src/ai to dist/ai
+    // Recursively copy ai to dist/ai
     function copyDirRecursive(src, dest) {
       fs.mkdirSync(dest, { recursive: true });
       const entries = fs.readdirSync(src, { withFileTypes: true });
@@ -58,9 +58,9 @@ child.on("exit", (code, signal) => {
     }
     
     copyDirRecursive(srcAiPath, distAiPath);
-    console.log("[build] Copied src/ai to dist/ai for packaging");
+    console.log("[build] Copied ai to dist/ai for packaging");
   } catch (err) {
-    console.warn("[build] Warning: Could not copy src/ai:", err.message);
+    console.warn("[build] Warning: Could not copy ai:", err.message);
   }
   
   process.exit(0);

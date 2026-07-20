@@ -107,7 +107,6 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
-      "src/ai/**/*",
       "ai/**/*",
       "node_modules/node-pty/**/*",
       "node_modules/node-addon-api/**/*",

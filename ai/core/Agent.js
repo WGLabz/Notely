@@ -104,6 +104,11 @@ class Agent {
         userQuery,
         context.currentFile
       );
+      
+      // Preserve the frontend persona system prompt
+      if (context.systemPrompt) {
+        queryContext.systemPrompt = context.systemPrompt;
+      }
 
       // Execute query
       const result = await this.queryExecutor.execute(userQuery, queryContext);

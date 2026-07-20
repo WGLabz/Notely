@@ -50,7 +50,12 @@ class EmbeddingService {
     if (!this.isAvailable()) {
       throw new Error('Embedding provider not configured.');
     }
-    return this.embeddingProvider.generateEmbeddings(text);
+    const cached = this.embeddingCache.get(text);
+    if (cached) return cached;
+
+    const vector = await this.embeddingProvider.generateEmbeddings(text);
+    this.embeddingCache.set(text, vector);
+    return vector;
   }
 
   /**

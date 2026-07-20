@@ -3,7 +3,7 @@ const { createLogger } = require('../core/logger');
 const log = createLogger('GraphRetriever');
 
 /**
- * GraphRetriever — recursive CTE traversal over ai-graph.db
+ * GraphRetriever ï¿½ recursive CTE traversal over ai-graph.db
  * Exposed as an LLM tool via ContextEngine.
  */
 class GraphRetriever {
@@ -12,6 +12,7 @@ class GraphRetriever {
    */
   constructor(graphDB) {
     this.graphDB = graphDB;
+    this.cache = new Map();
   }
 
   /**
@@ -21,6 +22,12 @@ class GraphRetriever {
    * @returns {Array<{from_path: string, relation: string, to_path: string, depth: number}>}
    */
   traverse(notePath, maxDepth = 2) {
+    const now = Date.now();
+    const cacheKey = `${notePath}:${maxDepth}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached && now - cached.timestamp < 60000) {
+      return cached.rows;
+    }
     try {
       const db = this.graphDB.db;
       // Recursive CTE: walk outbound links from the anchor note
@@ -41,6 +48,7 @@ class GraphRetriever {
         LIMIT 50
       `).all(notePath, maxDepth);
 
+      this.cache.set(cacheKey, { timestamp: now, rows });
       return rows;
     } catch (err) {
       log.warn('Graph traversal failed (graph may not be built yet)', err.message);

@@ -377,6 +377,37 @@ export default function AIPersonasManager({ onBack }) {
                     />
                   </div>
 
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', justifyContent: 'center' }}>
+                    <label style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>Presets</label>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', maxWidth: '300px' }}>
+                      {['🤖', '💻', '🧠', '👤', '🕵️', '🎨', '🧑‍🏫', '🚀', '🔒', '📈', '✨'].map(emoji => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          disabled={selected.type === 'builtin'}
+                          onClick={() => { setEditAvatar(emoji); setDirty(true); }}
+                          style={{
+                            fontSize: '18px',
+                            width: '32px',
+                            height: '32px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            border: editAvatar === emoji ? '2px solid var(--accent-solid)' : '1px solid var(--border-soft)',
+                            borderRadius: '4px',
+                            background: editAvatar === emoji ? 'var(--surface-accent)' : 'var(--surface-bg)',
+                            cursor: selected.type === 'builtin' ? 'not-allowed' : 'pointer',
+                            padding: 0,
+                            outline: 'none',
+                            opacity: selected.type === 'builtin' ? 0.5 : 1
+                          }}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       <label style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>Persona Name</label>

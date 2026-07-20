@@ -44,7 +44,33 @@ export function LandingView({
   onShowUpdateModal,
   onDismissUpdate,
   onCopyLinkPath,
+  aiSidebar = null,
+  aiPanelVisible = false,
+  isAIConfigured = false,
+  onShowAI = null,
 }) {
+  const [aiSidebarWidth, setAiSidebarWidth] = React.useState(300);
+
+  const startAiResize = (pointerDownEvent) => {
+    pointerDownEvent.preventDefault();
+    const startX = pointerDownEvent.clientX;
+    const startWidth = aiSidebarWidth;
+
+    const onPointerMove = (moveEvent) => {
+      const deltaX = startX - moveEvent.clientX;
+      const nextWidth = Math.min(Math.max(startWidth + deltaX, 260), 600);
+      setAiSidebarWidth(nextWidth);
+    };
+
+    const onPointerUp = () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+    };
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+  };
+
   return (
     <div className="landing-shell">
       {updateStatus === "available" && (
@@ -117,6 +143,9 @@ export function LandingView({
         ref={landingLayoutRef}
         style={{
           "--landing-sidebar-width": `${landingSidebarWidth}px`,
+          gridTemplateColumns: aiSidebar
+            ? `var(--landing-sidebar-width, 260px) 8px minmax(0, 1fr) 8px ${aiSidebarWidth}px`
+            : undefined
         }}
       >
         <aside className="landing-dashboard-rail" aria-label="Workspace dashboard rail">
@@ -209,6 +238,36 @@ export function LandingView({
             onCopyLinkPath={onCopyLinkPath}
           />
         </div>
+        {aiSidebar && (
+          <>
+            <div
+              className="split-resizer"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize AI sidebar"
+              aria-valuemin={260}
+              aria-valuemax={600}
+              aria-valuenow={aiSidebarWidth}
+              aria-valuetext={`${aiSidebarWidth}px AI width`}
+              tabIndex={0}
+              onPointerDown={startAiResize}
+            />
+            <div style={{ width: `${aiSidebarWidth}px`, flexShrink: 0, height: "100%", display: "flex", flexDirection: "column", borderLeft: "1px solid var(--border-soft)", background: "var(--surface-bg)" }}>
+              {aiSidebar}
+            </div>
+          </>
+        )}
+        {!aiPanelVisible && isAIConfigured ? (
+          <button
+            type="button"
+            className="ai-panel-reveal"
+            onClick={onShowAI}
+            data-tooltip="Show AI panel"
+            aria-label="Show AI panel"
+          >
+            AI
+          </button>
+        ) : null}
       </div>
     </div>
   );

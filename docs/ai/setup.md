@@ -1,35 +1,40 @@
 ---
 title: Setting Up AI Providers
 description: Configure AI settings, API keys, local endpoints, and feature flags.
-keywords: AI settings, API key, Ollama, OpenAI, HuggingFace token, embeddings
+keywords: AI settings, API key, Ollama, OpenAI, Gemini, Groq, HuggingFace, ONNX, BGE embeddings
 category: AI
 ---
 
 # AI Setup
 
-Configure models and API settings in the **AI → AI Settings** menu.
-
-## 1. Provider Setup
-
-Configure separate models for text generation and semantic features:
-
-- **Text Provider**: Generates chat responses and executes text rewrites. Supports Local API Endpoints (e.g. Ollama, LM Studio) and OpenAI.
-- **Embeddings Provider**: Generates vector representations of your notes for meaning-based search. Supported via HuggingFace token configurations.
-- **Connection Test**: Click **Test** next to either service to verify authentication and connection parameters.
+Configure LLM provider models, API tokens, and local vector index settings inside **AI → AI Settings**.
 
 ---
 
-## 2. Feature Toggles
+## 1. Text Generation Providers
 
-- **Learn User Patterns**: Allows the system to capture local usage context to improve suggestions.
-- **Generate Embeddings**: Builds a local vector database of note contents for search.
-- **Discover Relationships**: Analyzes references to map semantic proximity in the workspace graph.
+Notely uses the **Vercel AI SDK** to connect to multiple LLM APIs:
+- **Google Gemini**: Requires a Gemini API key. Highly recommended for rich tool calling.
+- **Groq**: Requires a Groq API key (supports models like `llama-3.3-70b-specdec`).
+- **OpenAI Compatible**: Connect to OpenAI or local servers (Ollama, LM Studio) by setting a custom Base URL and Model name.
+- **Connection Diagnostics**: Click the **Test** button next to any configured provider to run a diagnostic round-trip test.
 
 ---
 
-## 3. Advanced Parameters
+## 2. Embedding Index Setup
 
-Fine-tune AI responses:
-- **Temperature**: Controls creativity. Lower values yield structured, predictable output; higher values yield creative variations.
-- **Max Tokens**: Bounds response length to manage speed and resource consumption.
-- **Local Storage Path**: Shows where cache data is saved, with a button to **Clear Learned Data**.
+Vector embeddings enable Semantic Search and Knowledge Graph mappings:
+- **Local BGE Model (Recommended)**: Runs entirely offline inside your app. Downloads a lightweight `BGE-small-en-v1.5` ONNX model (~130MB) into `%AppData%/notely/ai-model/` and runs vector calculations locally.
+- **HuggingFace API**: Runs cloud-based embeddings using an API key token.
+- **Text Provider Embedding**: Reuses the active generation model if it supports embeddings.
+
+---
+
+## 3. SQLite Database Locality
+
+All AI databases are workspace-scoped and stored inside the hidden `{workspace}/.notes-app/` folder to keep your data local and portable:
+1. `ai-embeddings.db`: Stores chunk text, line mappings, content hashes, and indexing queues.
+2. `ai-graph.db`: Stores extracted entity nodes and relationships.
+3. `ai-memory.db`: Stores conversation sessions, message logs, and pattern analysis.
+
+PRAGMA `journal_mode = WAL` and `synchronous = NORMAL` are enabled across all databases for high performance without write blocks.
