@@ -1016,6 +1016,7 @@ export function DocumentDetail({
       currentBlock,
       cursorOffset: selectionEnd,
       contentLength: currentValue.length,
+      value: currentValue,
     };
   };
 

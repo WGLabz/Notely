@@ -23,6 +23,44 @@ import {
   resolveAITarget,
 } from "../utils/aiContext";
 
+function extractReferences(trace) {
+  if (!Array.isArray(trace)) return [];
+  const refs = [];
+  const seenPaths = new Set();
+  
+  for (const t of trace) {
+    if (!t || !t.output) continue;
+    
+    if (t.name === 'searchNotes') {
+      const regex = /\[\d+\]\s+([^\n(]+?)\s*\(score:\s*([\d.]+)\)/g;
+      let match;
+      while ((match = regex.exec(t.output)) !== null) {
+        const filePath = match[1].trim();
+        const score = parseFloat(match[2]) || 1.0;
+        if (!seenPaths.has(filePath)) {
+          seenPaths.add(filePath);
+          refs.push({ path: filePath, relevance: score });
+        }
+      }
+    } else if (t.name === 'search_notes') {
+      try {
+        const list = JSON.parse(t.output);
+        if (Array.isArray(list)) {
+          for (const item of list) {
+            if (item && item.path && !seenPaths.has(item.path)) {
+              seenPaths.add(item.path);
+              refs.push({ path: item.path, relevance: 1.0 });
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to parse search_notes output:", err);
+      }
+    }
+  }
+  return refs;
+}
+
 /**
  * Owns all AI-assistant state, handlers, and side effects (provider
  * configuration, palette/chat/inline-ghost flows, and AI maintenance actions).
@@ -71,7 +109,7 @@ export function useAIAssistant({
           id: m.id,
           role: m.role,
           text: m.content,
-          references: m.metadata?.trace?.flatMap(t => t.references || []) || [],
+          references: extractReferences(m.metadata?.trace),
         }));
         setAiChatMessages(mapped);
         currentConversationIdRef.current = id;
@@ -262,6 +300,7 @@ export function useAIAssistant({
         resolvedTarget: resolvedTarget.effectiveTarget,
         workspaceContext: resolvedTarget.requestedTarget === "workspace",
         targetText: resolvedTarget.targetText || null,
+        activeNoteContent: editorContext.value || null,
       });
 
       if (!response?.success) {
@@ -431,6 +470,7 @@ export function useAIAssistant({
           targetText: resolvedTarget.targetText || null,
           systemPrompt: personaPrompt || activePersona?.prompt || null,
           conversationId: currentConversationIdRef.current || 'default',
+          activeNoteContent: editorContext.value || null,
         },
         queryId
       );
@@ -448,7 +488,7 @@ export function useAIAssistant({
             ? {
                 ...msg,
                 text: finalResult?.result || msg.text || "AI query completed.",
-                references: finalResult?.references || [],
+                references: extractReferences(finalResult?.trace),
               }
             : msg
         )

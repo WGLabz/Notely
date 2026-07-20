@@ -23,6 +23,7 @@ class SemanticRetriever {
    * @returns {Promise<Array<{note_path: string, content: string, score: number}>>}
    */
   async search(query, topK = 5) {
+    const startTime = performance.now();
     if (!this.embeddingService.isAvailable()) {
       log.warn('Embedding service not available - semantic search skipped.');
       return [];
@@ -36,29 +37,54 @@ class SemanticRetriever {
       return [];
     }
 
-    // Load only IDs, paths, and vectors first to minimize memory allocation overhead
-    const rows = this.embeddingDB.db.prepare(
-      'SELECT id, note_path, embedding FROM chunks WHERE embedding IS NOT NULL'
-    ).all();
+    // Load only IDs, paths, and vectors first in batches to minimize memory allocation overhead
+    const scored = [];
+    const BATCH_SIZE = 500;
+    let offset = 0;
+    const stmtSelect = this.embeddingDB.db.prepare(
+      'SELECT id, note_path, embedding FROM chunks WHERE embedding IS NOT NULL LIMIT ? OFFSET ?'
+    );
 
-    if (!rows.length) return [];
+    while (true) {
+      const rows = stmtSelect.all(BATCH_SIZE, offset);
+      if (!rows.length) break;
 
-    const scored = rows.map(row => {
-      const chunkVec = this._deserialize(row.embedding);
-      return {
-        id: row.id,
-        note_path: row.note_path,
-        score: this._cosine(queryVec, chunkVec)
-      };
-    });
+      for (const row of rows) {
+        const chunkVec = this._deserialize(row.embedding);
+        scored.push({
+          id: row.id,
+          note_path: row.note_path,
+          score: this._cosine(queryVec, chunkVec)
+        });
+      }
 
-    scored.sort((a, b) => b.score - a.score);
-    const topScored = scored.slice(0, topK);
+      if (rows.length < BATCH_SIZE) break;
+      offset += BATCH_SIZE;
+      await new Promise(resolve => setImmediate(resolve));
+    }
+
+    if (!scored.length) return [];
+
+    // Filter by similarity score threshold (e.g. >= 0.70)
+    const thresholdFiltered = scored.filter(item => item.score >= 0.70);
+
+    thresholdFiltered.sort((a, b) => b.score - a.score);
+
+    // Deduplicate by note_path to avoid duplicate chunks from the same note
+    const seenNotes = new Set();
+    const uniqueScored = [];
+    for (const item of thresholdFiltered) {
+      if (!seenNotes.has(item.note_path)) {
+        seenNotes.add(item.note_path);
+        uniqueScored.push(item);
+      }
+      if (uniqueScored.length >= topK) break;
+    }
 
     // Retrieve note content only for the top scored chunks
     const results = [];
     const stmt = this.embeddingDB.db.prepare('SELECT content FROM chunks WHERE id = ?');
-    for (const item of topScored) {
+    for (const item of uniqueScored) {
       const row = stmt.get(item.id);
       results.push({
         note_path: item.note_path,
@@ -67,6 +93,8 @@ class SemanticRetriever {
       });
     }
 
+    const duration = performance.now() - startTime;
+    log.info(`Semantic search finished in ${duration.toFixed(2)}ms. Found ${results.length} unique results.`);
     return results;
   }
 

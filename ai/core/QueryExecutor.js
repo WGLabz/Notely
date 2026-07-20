@@ -59,6 +59,13 @@ class QueryExecutor {
 - Workspace folder: ${this.agent.workspaceRoot || 'none'}
 - Current open note path: ${context.currentFile || 'none'}`;
 
+    if (context.relatedDocuments && context.relatedDocuments.length > 0) {
+      finalSystemPrompt += `\n- Related documents:`;
+      context.relatedDocuments.forEach(doc => {
+        finalSystemPrompt += `\n  * ${doc.path}`;
+      });
+    }
+
     systemPrompt = finalSystemPrompt;
 
     const mergedTools = {

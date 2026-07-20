@@ -98,6 +98,7 @@ async function initializeAISystem(appDataDir, workspaceRoot, llmProvider, embedd
       const { ConversationStore } = require('./memory/ConversationStore');
       const { SemanticRetriever } = require('./context/SemanticRetriever');
       const { GraphRetriever } = require('./context/GraphRetriever');
+      const { HybridRetriever } = require('./context/HybridRetriever');
       const { ContextEngine } = require('./context/ContextEngine');
 
       const memoryDB = new MemoryDB(workspaceRoot);
@@ -112,8 +113,9 @@ async function initializeAISystem(appDataDir, workspaceRoot, llmProvider, embedd
 
       if (aiAgent.embeddingDb && aiAgent.embeddingService) {
         const semanticRetriever = new SemanticRetriever(aiAgent.embeddingDb, aiAgent.embeddingService);
-        const graphRetriever = new GraphRetriever(aiAgent.graphDB ?? aiAgent.databaseManager);
-        aiAgent.contextEngine = new ContextEngine(store, semanticRetriever, graphRetriever);
+        const graphRetriever = new GraphRetriever(aiAgent.graphDb ?? aiAgent.db);
+        const hybridRetriever = new HybridRetriever(semanticRetriever, graphRetriever);
+        aiAgent.contextEngine = new ContextEngine(store, semanticRetriever, graphRetriever, hybridRetriever);
       }
 
       console.log('[AI System] Phase 5 Context Engine ready');

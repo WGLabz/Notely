@@ -7,24 +7,26 @@ const DEFAULT_PERSONA_ID = 'default';
 const NOTE_CONTEXT_LIMIT = 4000;
 
 /**
- * ContextEngine — assembles the full context payload for every LLM call.
+ * ContextEngine - assembles the full context payload for every LLM call.
  *
  * Provides:
  *  - System prompt from the active persona (.md file or DB fallback)
  *  - Active note text (truncated to token budget)
  *  - Recent conversation history
- *  - Tool definitions: SemanticRetriever + GraphRetriever
+ *  - Tool definitions: SemanticRetriever + GraphRetriever + HybridRetriever
  */
 class ContextEngine {
   /**
    * @param {import('../memory/ConversationStore').ConversationStore} store
    * @param {import('./SemanticRetriever').SemanticRetriever} semanticRetriever
    * @param {import('./GraphRetriever').GraphRetriever} graphRetriever
+   * @param {import('./HybridRetriever').HybridRetriever} hybridRetriever
    */
-  constructor(store, semanticRetriever, graphRetriever) {
+  constructor(store, semanticRetriever, graphRetriever, hybridRetriever = null) {
     this.store = store;
     this.semanticRetriever = semanticRetriever;
     this.graphRetriever = graphRetriever;
+    this.hybridRetriever = hybridRetriever;
   }
 
   /**
@@ -65,6 +67,10 @@ class ContextEngine {
       searchNotes: this.semanticRetriever.toTool(),
       exploreGraph: this.graphRetriever.toTool()
     };
+
+    if (this.hybridRetriever) {
+      tools.hybridSearchNotes = this.hybridRetriever.toTool();
+    }
 
     log.info(`Context built for conversation=${conversationId} persona=${personaId} msgs=${messages.length}`);
 

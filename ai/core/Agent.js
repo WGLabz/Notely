@@ -105,6 +105,12 @@ class Agent {
         context.currentFile
       );
       
+      // Preserve activeNoteContent or load from disk if missing
+      queryContext.activeNoteContent = context.activeNoteContent || null;
+      if (queryContext.currentFile && !queryContext.activeNoteContent) {
+        queryContext.activeNoteContent = this.documentService.getDocumentContent(queryContext.currentFile);
+      }
+
       // Preserve the frontend persona system prompt
       if (context.systemPrompt) {
         queryContext.systemPrompt = context.systemPrompt;

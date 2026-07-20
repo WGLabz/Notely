@@ -22,10 +22,12 @@ class GraphRetriever {
    * @returns {Array<{from_path: string, relation: string, to_path: string, depth: number}>}
    */
   traverse(notePath, maxDepth = 2) {
+    const startTime = performance.now();
     const now = Date.now();
     const cacheKey = `${notePath}:${maxDepth}`;
     const cached = this.cache.get(cacheKey);
     if (cached && now - cached.timestamp < 60000) {
+      log.info(`Graph traversal hit cache in ${(performance.now() - startTime).toFixed(2)}ms.`);
       return cached.rows;
     }
     try {
@@ -49,6 +51,8 @@ class GraphRetriever {
       `).all(notePath, maxDepth);
 
       this.cache.set(cacheKey, { timestamp: now, rows });
+      const duration = performance.now() - startTime;
+      log.info(`Graph traversal completed in ${duration.toFixed(2)}ms. Found ${rows.length} relations.`);
       return rows;
     } catch (err) {
       log.warn('Graph traversal failed (graph may not be built yet)', err.message);
