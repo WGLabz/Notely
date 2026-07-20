@@ -22,8 +22,7 @@ import {
   aiTestConnection,
   aiGetModelStatus,
   aiDownloadModel,
-  onModelDownloadProgress,
-  aiSetPreferences
+  onModelDownloadProgress
 } from "../services/electronService";
 import notelyMark from "../assets/branding/notely-mark.png";
 import "../styles/OnboardingFlow.css";

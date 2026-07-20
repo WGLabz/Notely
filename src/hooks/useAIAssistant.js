@@ -51,7 +51,6 @@ export function useAIAssistant({
   const [aiChatMessages, setAiChatMessages] = useState([]);
   const currentConversationIdRef = useRef(null);
   const [conversations, setConversations] = useState([]);
-  const [currentConversationId, setCurrentConversationId] = useState(null);
 
   const loadConversations = useCallback(async () => {
     try {
@@ -76,7 +75,6 @@ export function useAIAssistant({
         }));
         setAiChatMessages(mapped);
         currentConversationIdRef.current = id;
-        setCurrentConversationId(id);
       }
     } catch (err) {
       console.error("Failed to load messages:", err);
@@ -298,72 +296,7 @@ export function useAIAssistant({
 
   const [activePersona, setActivePersona] = useState(null);
 
-  async function handleAIQuery({ query, target, systemPrompt }) {
-    if (!isAIConfigured) {
-      notify("Configure an AI provider key in AI Settings to use AI chat.", "warning");
-      setAiPanelVisible(false);
-      setAiSettingsOpen(true);
-      throw new Error("AI provider not configured.");
-    }
 
-    setAiQueryLoading(true);
-    setAiQueryError("");
-
-    try {
-      const editorContext = aiEditorRef.current?.getContext?.() || {};
-      const resolvedTarget = current?.filePath
-        ? resolveAITarget(editorContext, target || "auto", current, activeTab)
-        : {
-            requestedTarget: "workspace",
-            effectiveTarget: "document",
-            targetText: "",
-            scopeLabel: "workspace",
-          };
-
-      const response = await aiQuery(query, {
-        currentFile: current?.filePath || null,
-        workspaceRoot: activeProject?.rootPath || landingFolderPath || notesFolderPath || null,
-        activeTab: current ? activeTab : "preview",
-        editorMode: current ? mode : "preview",
-        documentTitle: current?.title || "Global Context",
-        selectedText: editorContext.selectedText || null,
-        currentBlock: editorContext.currentBlock?.text || null,
-        selectionStart: editorContext.selectionStart ?? null,
-        selectionEnd: editorContext.selectionEnd ?? null,
-        cursorOffset: editorContext.cursorOffset ?? null,
-        requestedTarget: resolvedTarget.requestedTarget,
-        resolvedTarget: resolvedTarget.effectiveTarget,
-        workspaceContext: !current || resolvedTarget.requestedTarget === "workspace",
-        targetText: resolvedTarget.targetText || null,
-        systemPrompt: systemPrompt || activePersona?.prompt || null,
-      });
-
-      if (!response?.success) {
-        throw new Error(response?.error || "AI query failed.");
-      }
-
-      const resultText = extractEditableAIText(
-        response?.data?.result?.result ||
-        response?.data?.result ||
-        "AI query completed."
-      );
-
-      return {
-        response,
-        text: resultText,
-        trace: response?.data?.trace || [],
-        references: response?.data?.context?.relatedDocuments || [],
-        scopeLabel: resolvedTarget.scopeLabel,
-      };
-    } catch (err) {
-      const message = err?.message || "AI query failed.";
-      setAiQueryError(message);
-      notify(message, "error");
-      throw err;
-    } finally {
-      setAiQueryLoading(false);
-    }
-  }
 
   async function handleApplyAIResult({ text, mode, previewOnly = false, insertAt = null }) {
     const outcome = aiEditorRef.current?.applyResult?.({ text, mode, previewOnly, insertAt });

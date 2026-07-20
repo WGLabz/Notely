@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useRef, useState } from "react";
+import { useDeferredValue, useCallback, useEffect, useRef, useState } from "react";
 import { MarkdownEditor } from "./MarkdownEditor";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { MarkdownToolbar } from "./MarkdownToolbar";
@@ -56,7 +56,7 @@ export function EditorPane({
       jumpToLine(initialLine);
       onLineJumped?.();
     }
-  }, [initialLine, editorReadyTick]);
+  }, [initialLine, editorReadyTick, jumpToLine, onLineJumped]);
 
   useEffect(() => {
     if (textareaRef?.current) return undefined;
@@ -80,7 +80,7 @@ export function EditorPane({
 
   const clampSplitRatio = (nextRatio) => Math.min(Math.max(Number(nextRatio) || 50, 30), 70);
 
-  const jumpToLine = (line) => {
+  const jumpToLine = useCallback((line) => {
     const editor = textareaRef?.current;
     if (!editor) return;
 
@@ -103,7 +103,7 @@ export function EditorPane({
     const maxScroll = Math.max(0, (Number(editor.scrollHeight) || 0) - viewportHeight);
     editor.scrollTop = Math.max(0, Math.min(targetTop, maxScroll));
     setFocusedLine(safeLine);
-  };
+  }, [textareaRef, value]);
 
   useEffect(() => {
     if (mode !== "split" || !scrollSyncEnabled) return undefined;

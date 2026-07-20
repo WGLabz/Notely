@@ -12,7 +12,7 @@ if (process.parentPort) {
 
     try {
       if (type === 'start') {
-        const { workspaceRoot, appDataDir, hfToken } = payload;
+        const { workspaceRoot, appDataDir } = payload;
 
         const EmbeddingDB = require('../../ai/embeddings/EmbeddingDB');
         const IndexQueue = require('../../ai/queue/IndexQueue');
@@ -70,7 +70,9 @@ if (process.parentPort) {
             db.prepare('UPDATE indexing_log SET note_path = ? WHERE note_path = ?').run(newPath, oldPath);
             db.exec('COMMIT');
           } catch (err) {
-            try { db.exec('ROLLBACK'); } catch (_) {}
+            try { db.exec('ROLLBACK'); } catch {
+              // Ignore rollback errors if transaction wasn't active or DB locked
+            }
             console.error('[Worker Process] Failed to rename note paths in DB:', err.message);
           }
         }

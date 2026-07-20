@@ -1,3 +1,4 @@
+/* global module */
 /**
  * ipcProtocol.js - IPC channel events and request/response protocol wrappers for Notely AI
  */

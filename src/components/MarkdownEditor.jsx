@@ -291,7 +291,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
     { id: "casual", name: "Make Casual", desc: "Change tone to casual", prompt: "Rewrite the following text in a casual, friendly, and conversational tone. Return only the rewritten text: " }
   ], []);
 
-  const triggerSlashCommand = async (index) => {
+  const triggerSlashCommand = useCallback(async (index) => {
     if (!slashMenu || !viewRef.current) return;
     const command = SLASH_COMMANDS[index];
     const view = viewRef.current;
@@ -333,7 +333,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
       console.error("Slash command failed:", err.message);
       onNotify?.("AI action failed: " + err.message, "error");
     }
-  };
+  }, [slashMenu, viewRef, SLASH_COMMANDS, onNotify]);
 
   const [themeMode, setThemeMode] = useState(() => {
     return document.documentElement.getAttribute("data-theme") || "light";
@@ -949,7 +949,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
       },
       {
         key: "Tab",
-        run(view) {
+        run(_view) {
           if (ghostSuggestion?.text) {
             onAcceptInlineGhost?.();
             return true;
@@ -959,7 +959,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
       },
       {
         key: "Escape",
-        run(view) {
+        run(_view) {
           if (ghostSuggestion?.text) {
             onRejectInlineGhost?.();
             return true;
@@ -973,7 +973,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
       },
       {
         key: "ArrowDown",
-        run(view) {
+        run(_view) {
           if (slashMenu) {
             setActiveSlashIndex((idx) => (idx + 1) % SLASH_COMMANDS.length);
             return true;
@@ -983,7 +983,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
       },
       {
         key: "ArrowUp",
-        run(view) {
+        run(_view) {
           if (slashMenu) {
             setActiveSlashIndex((idx) => (idx - 1 + SLASH_COMMANDS.length) % SLASH_COMMANDS.length);
             return true;
@@ -993,7 +993,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
       },
       {
         key: "Enter",
-        run(view) {
+        run(_view) {
           if (slashMenu) {
             triggerSlashCommand(activeSlashIndex);
             return true;
@@ -1009,7 +1009,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
         },
       },
     ]),
-  ], [findMatchDecorations, ghostSuggestionDecorations, onChange, onNotify, onOpenFind, onRedo, onToggleFind, onUndo, validationDecorations, validationIssues, _activeLine, aiEnabled, onInlineAIContinue, onAcceptInlineGhost, onRejectInlineGhost, ghostSuggestion, slashMenu, activeSlashIndex, SLASH_COMMANDS]);
+  ], [findMatchDecorations, ghostSuggestionDecorations, onChange, onNotify, onOpenFind, onRedo, onToggleFind, onUndo, validationDecorations, validationIssues, _activeLine, aiEnabled, onAcceptInlineGhost, onRejectInlineGhost, ghostSuggestion, slashMenu, activeSlashIndex, SLASH_COMMANDS, triggerSlashCommand]);
 
   return (
     <div className="markdown-editor">
