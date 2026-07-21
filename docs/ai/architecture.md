@@ -52,12 +52,15 @@ Embeddings are stored in `{workspace}/.notes-app/ai-embeddings.db` using standar
 * **`note_hashes`**: Track files to identify updates/deletions.
 * **`indexing_queue`**: Background pipeline jobs.
 
-### Extraction & Query Process
+### Dimension Guard
+* **Model Validation**: The database tracks the active `embedding_model` for all cached chunks. To prevent similarity comparison errors from varying vector sizes, the system runs `verifyModelDimensions(activeModelName)` on boot and worker startup. If a model change is detected, it clears the `chunks` database to trigger a clean rebuild.
+
 ### Extraction & Query Process
 1. **Model Execution**: A local ONNX session (via `onnxruntime-node` or `onnxruntime-web`) executes `BGE-small-en-v1.5` to generate 384-dimensional vectors. Alternatively, the cloud HuggingFace Inference API (`sentence-transformers/all-MiniLM-L6-v2`) is used.
-2. **Batch Retrieval & Cosine JS**: During a semantic search query, the `SemanticRetriever` pulls chunk vector `BLOB`s in batches (default: 500) from the SQLite database and performs standard binary buffer deserialization into Javascript `Float32Array` collections. The similarity calculation is run using a fast in-memory Javascript cosine similarity loop.
-3. **Keyword Fallback**: If the local embedding provider is uninitialized or vector generation fails, `SemanticRetriever` falls back to a plain-text SQL `LIKE` query (`searchTextFallback`) against the chunk content.
-4. **Filtering**: Matches are filtered using a threshold ($\ge 0.70$), sorted, and deduplicated. Note contents are only loaded from the database for the top-scoring matches.
+2. **Tokenizer Fallback**: If the ONNX runtime is missing, the system utilizes a robust pre-tokenization pattern (`/[a-z0-9]+|[^\s\w]/gi`) in `ONNXEmbedder.js` to preserve punctuation, formatting marks, and mathematical symbols as individual tokens instead of stripping them.
+3. **Batch Retrieval & Cosine JS**: During a semantic search query, the `SemanticRetriever` pulls chunk vector `BLOB`s in batches (default: 500) from the SQLite database and performs standard binary buffer deserialization into Javascript `Float32Array` collections. The similarity calculation is run using a fast in-memory Javascript cosine similarity loop.
+4. **Keyword Fallback**: If the local embedding provider is uninitialized or vector generation fails, `SemanticRetriever` falls back to a plain-text SQL `LIKE` query (`searchTextFallback`) against the chunk content.
+5. **Filtering**: Matches are filtered using a threshold ($\ge 0.70$), sorted, and deduplicated. Note contents are only loaded from the database for the top-scoring matches.
 
 ---
 
@@ -68,6 +71,9 @@ Notely maps relationships between note documents inside `{workspace}/.notes-app/
 ### Graph Structure
 * **`entities`**: Nodes representing markdown notes, tags, people (`@mentions`), and specific concepts. The note's entity ID is derived directly from slugifying its filename (e.g. `AI and Search.md` -> `ai-and-search`).
 * **`relationships`**: Directed edges (`source_id` $\rightarrow$ `target_id`) representing links, mentions, or thematic clusters.
+
+### Synchronization & Deletion
+* **Entity Cleanup**: When a note is deleted, `AIService` triggers `deleteNoteEntityAndRelationships(notePath)` in `GraphDB.js`. This runs a transaction to synchronously purge all incoming/outgoing edges (`source_id` or `target_id` matching the slugified `entityId`) and the note's entity node itself, avoiding orphaned nodes and stale link suggestions.
 
 ### Graph Traversals via Recursive CTEs
 Because the graph database is backed by standard SQLite, relation traversals and pathfinding are performed using native **Recursive Common Table Expressions (CTEs)**. This removes the need for custom graph query engines:

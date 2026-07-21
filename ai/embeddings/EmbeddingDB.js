@@ -317,6 +317,19 @@ class EmbeddingDB {
     }
   }
 
+  verifyModelDimensions(activeModelName) {
+    if (!this.db || !activeModelName) return;
+    try {
+      const row = this.db.prepare('SELECT embedding_model FROM chunks WHERE embedding_model IS NOT NULL LIMIT 1').get();
+      if (row && row.embedding_model !== activeModelName) {
+        log.warn(`Embedding model changed from "${row.embedding_model}" to "${activeModelName}". Clearing chunks table to prevent dimension mismatches.`);
+        this.clearAllData();
+      }
+    } catch (err) {
+      log.error('Failed to verify model dimensions in database:', err.message);
+    }
+  }
+
   clearAllData() {
     this.db.exec(`
       DELETE FROM chunks;

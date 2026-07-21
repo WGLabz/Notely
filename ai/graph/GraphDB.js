@@ -121,6 +121,31 @@ class GraphDB {
   }
 
   /**
+   * Delete note entity and all associated incoming/outgoing relationships
+   */
+  deleteNoteEntityAndRelationships(notePath) {
+    if (!this.db) return;
+    try {
+      const path = require('path');
+      const noteName = path.basename(notePath, '.md');
+      const entityId = noteName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      
+      this.db.exec('BEGIN');
+      try {
+        this.db.prepare('DELETE FROM relationships WHERE source_id = ? OR target_id = ?').run(entityId, entityId);
+        this.db.prepare('DELETE FROM entities WHERE id = ?').run(entityId);
+        this.db.exec('COMMIT');
+        log.info(`Deleted note graph data for entity: ${entityId}`);
+      } catch (txnErr) {
+        this.db.exec('ROLLBACK');
+        throw txnErr;
+      }
+    } catch (err) {
+      log.error(`Failed to delete note entity and relationships for ${notePath}:`, err.message);
+    }
+  }
+
+  /**
    * Upsert a relationship
    */
   upsertRelationship({ source_id, target_id, type, weight = 1.0, metadata = {} }) {

@@ -85,6 +85,10 @@ export default function AIPersonasManager({ onBack }) {
 
   const save = async () => {
     if (!selected) return;
+    if (selected.type === 'builtin') {
+      setError('System default personas cannot be modified.');
+      return;
+    }
     if (!editName.trim()) {
       setError('Persona name cannot be empty.');
       return;
@@ -337,9 +341,9 @@ export default function AIPersonasManager({ onBack }) {
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <button
                       onClick={save}
-                      disabled={!dirty}
+                      disabled={!dirty || selected.type === 'builtin'}
                       className="btn btn-primary"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', opacity: dirty ? 1 : 0.6 }}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', opacity: (dirty && selected.type !== 'builtin') ? 1 : 0.6 }}
                     >
                       <Save size={14} />
                       Save

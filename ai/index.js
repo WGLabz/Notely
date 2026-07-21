@@ -85,6 +85,11 @@ async function initializeAISystem(appDataDir, workspaceRoot, llmProvider, embedd
       aiAgent.embeddingDb = new EmbeddingDB(workspaceRoot);
       aiAgent.embeddingDb.initialize();
 
+      if (aiAgent.embeddingService) {
+        const activeModelName = aiAgent.embeddingService.getActiveModelName();
+        aiAgent.embeddingDb.verifyModelDimensions(activeModelName);
+      }
+
       console.log('[AI System] Embedding DB initialized locally; Index Worker offloaded to background');
     } catch (embBootErr) {
       console.warn('[AI System] Background Index Worker failed to boot:', embBootErr.message);

@@ -28,6 +28,10 @@ if (process.parentPort) {
         const localProvider = new ONNXEmbedder(appDataDir);
         await localProvider.load();
 
+        // Verify model dimensions to prevent cached dimension mismatch
+        const activeModelName = localProvider.model || localProvider.name || 'local-bge-small';
+        embeddingDb.verifyModelDimensions(activeModelName);
+
         const embeddingService = new EmbeddingService(null, localProvider);
 
         indexWorker = new IndexWorker(embeddingDb, queue, embeddingService);

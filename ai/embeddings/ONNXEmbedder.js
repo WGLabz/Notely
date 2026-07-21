@@ -110,9 +110,17 @@ class ONNXEmbedder {
   }
 
   tokenize(text) {
-    // Simple basic WordPiece tokenization logic for BGE
-    const cleanText = String(text || '').toLowerCase().replace(/[^\w\s-]/g, ' ');
-    const words = cleanText.split(/\s+/).filter(Boolean);
+    // Robust BERT/BGE clean and pre-tokenize: split words from punctuation/symbols
+    const rawText = String(text || '').toLowerCase();
+    
+    // Regex matches words/numbers or individual punctuation/non-space symbols
+    const pattern = /[a-z0-9]+|[^\s\w]/gi;
+    const words = [];
+    let match;
+    while ((match = pattern.exec(rawText)) !== null) {
+      words.push(match[0]);
+    }
+
     const tokens = [101]; // CLS token ID
     
     // Map words to vocab dictionary IDs

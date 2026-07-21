@@ -181,11 +181,8 @@ class AIService {
     // 2. Purge knowledge graph nodes & relationships
     if (this.agent.graphDb) {
       try {
-        const path = require('path');
-        const noteName = path.basename(filePath, '.md');
-        const noteId = noteName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-        this.agent.graphDb.deleteEntity(noteId);
-        log.info(`Deleted note from Knowledge Graph: ${noteId}`);
+        this.agent.graphDb.deleteNoteEntityAndRelationships(filePath);
+        log.info(`Synchronously deleted note entity and graph relationships for: ${filePath}`);
       } catch (err) {
         log.error(`Failed to delete note from Knowledge Graph: ${filePath}`, err.message);
       }
