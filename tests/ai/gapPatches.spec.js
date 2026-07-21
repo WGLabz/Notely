@@ -57,28 +57,26 @@ describe('AI Subsystem Gap Patches Tests', () => {
     assert.strictEqual(rel, undefined);
   });
 
-  it('should clear chunks cache when embedding model name changes', () => {
+  it('should not clear chunks cache when embedding dimensions mismatch', () => {
     const notePath = path.join(tempDir, 'test-mismatch.md');
     
-    // Insert a chunk with a specific embedding model name
+    // Insert a dummy chunk with a float32 vector of length 5 (20 bytes)
+    const badVector = new Float32Array([1.0, 2.0, 3.0, 4.0, 5.0]);
+    const badBuf = Buffer.from(badVector.buffer);
+    
     embeddingDb.db.prepare(`
-      INSERT OR REPLACE INTO chunks (id, note_path, chunk_index, content, content_hash, embedding_model)
+      INSERT OR REPLACE INTO chunks (id, note_path, chunk_index, content, content_hash, embedding)
       VALUES (?, ?, ?, ?, ?, ?)
-    `).run('chunk-mismatch', notePath, 0, 'test content', 'hash-1', 'old-model-name');
+    `).run('chunk-mismatch', notePath, 0, 'test content', 'hash-1', badBuf);
 
     // Verify it is inserted
     let chunk = embeddingDb.db.prepare('SELECT * FROM chunks WHERE id = ?').get('chunk-mismatch');
     assert.ok(chunk);
 
-    // Verify with same model name does NOT clear it
-    embeddingDb.verifyModelDimensions('old-model-name');
+    // Verify dimension checks leaves database intact (expected dimension is 384, not 5)
+    embeddingDb.verifyModelDimensions('model-name');
     chunk = embeddingDb.db.prepare('SELECT * FROM chunks WHERE id = ?').get('chunk-mismatch');
     assert.ok(chunk);
-
-    // Verify with different model name DOES clear it
-    embeddingDb.verifyModelDimensions('new-model-name');
-    chunk = embeddingDb.db.prepare('SELECT * FROM chunks WHERE id = ?').get('chunk-mismatch');
-    assert.strictEqual(chunk, undefined);
   });
 
   it('should pre-tokenize punctuation and symbols robustly in ONNXEmbedder', () => {

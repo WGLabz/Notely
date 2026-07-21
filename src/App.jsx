@@ -1266,7 +1266,7 @@ export default function App() {
   }, [current, notesViewMode, notesDensityMode, typoCheckEnabled, previewImageMode, embeddedMarkdownMode, screenCaptureMode, themePreference, dirty, activeDocumentChangedOnDisk, activeProject, notesFolderPath, landingFolderPath, showTerminal, terminalShellPreference, outlineEnabled, mode, focusModeEnabled, recentWorkspacePaths, autosaveEnabled]);
 
   useEffect(() => {
-    return onMenuAction((action) => {
+    const handleAction = (action) => {
       if (action === "toggle-autosave") {
         setAutosaveEnabled((prev) => !prev);
         return;
@@ -1743,7 +1743,21 @@ export default function App() {
         handleAIClearCache();
         return;
       }
-    });
+    };
+
+    const unsubscribeMenu = onMenuAction(handleAction);
+
+    const handleCustomMenuAction = (e) => {
+      if (e.detail && e.detail.action) {
+        handleAction(e.detail.action);
+      }
+    };
+    window.addEventListener("app:menu-action", handleCustomMenuAction);
+
+    return () => {
+      unsubscribeMenu();
+      window.removeEventListener("app:menu-action", handleCustomMenuAction);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current, dirty, activeProject, activeTab, landingFolderPath, zoomFactor]);
 

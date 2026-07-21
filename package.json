@@ -12,6 +12,7 @@
   "scripts": {
     "version:generate": "node scripts/generate-app-version.cjs",
     "dev": "node scripts/dev.cjs",
+    "postinstall": "node scripts/patch-transformers.js",
     "assets:icon": "node scripts/generate-icon.cjs",
     "notices": "node scripts/generate-notices.cjs",
     "release:clean": "node scripts/clean-release-artifacts.cjs",
@@ -43,6 +44,7 @@
     "@codemirror/state": "^6.6.0",
     "@codemirror/view": "^6.43.1",
     "@excalidraw/excalidraw": "^0.18.1",
+    "@huggingface/transformers": "^4.2.0",
     "@uiw/codemirror-extensions-langs": "^4.25.10",
     "@uiw/react-codemirror": "^4.25.10",
     "@xterm/addon-fit": "^0.11.0",
@@ -128,7 +130,8 @@
     ],
     "asar": true,
     "asarUnpack": [
-      "node_modules/node-pty/**/*"
+      "node_modules/node-pty/**/*",
+      "node_modules/node-llama-cpp/**/*"
     ],
     "win": {
       "signAndEditExecutable": false,

@@ -5,15 +5,96 @@ const { createLogger } = require('../core/logger');
 
 const log = createLogger('ModelDownloader');
 
+// Module-level shared states to prevent instanced progress reset and isolation issues
+let isDownloadingEmbedding = false;
+let embeddingProgress = 0;
+
+let isDownloadingGraph = false;
+let graphProgress = 0;
+
 class ModelDownloader {
   constructor(appDataDir) {
     this.modelDir = path.join(appDataDir, 'notely', 'ai-model');
     this.modelUrl = 'https://huggingface.co/Xenova/bge-small-en-v1.5/resolve/main/onnx/model.onnx';
     const vocabUrlPart = 'resolve/main/vocab.txt';
     this.vocabUrl = `https://huggingface.co/Xenova/bge-small-en-v1.5/${vocabUrlPart}`;
-    this.isDownloading = false;
-    this.progress = 0;
     this.progressCallback = null;
+
+    this.qwenONNXDir = path.join(this.modelDir, 'qwen-onnx');
+    this.qwenONNXFiles = [
+      { name: 'config.json', url: 'https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct/resolve/main/config.json' },
+      { name: 'generation_config.json', url: 'https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct/resolve/main/generation_config.json' },
+      { name: 'special_tokens_map.json', url: 'https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct/resolve/main/special_tokens_map.json' },
+      { name: 'tokenizer.json', url: 'https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct/resolve/main/tokenizer.json' },
+      { name: 'tokenizer_config.json', url: 'https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct/resolve/main/tokenizer_config.json' },
+      { name: 'onnx/model_quantized.onnx', url: 'https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct/resolve/main/onnx/model_quantized.onnx' }
+    ];
+  }
+
+  isGraphModelDownloaded() {
+    return this.qwenONNXFiles.every(file => fs.existsSync(path.join(this.qwenONNXDir, file.name)));
+  }
+
+  async downloadGraphModel(onProgress = null) {
+    if (this.isGraphModelDownloaded()) {
+      log.info('Graph Qwen ONNX model already downloaded');
+      return true;
+    }
+    if (isDownloadingGraph) {
+      log.info('Download already in progress');
+      return false;
+    }
+
+    isDownloadingGraph = true;
+    graphProgress = 0;
+    this.progressCallback = onProgress;
+
+    try {
+      if (!fs.existsSync(this.qwenONNXDir)) {
+        fs.mkdirSync(this.qwenONNXDir, { recursive: true });
+      }
+
+      log.info('Starting Qwen 2.5 ONNX model download from HuggingFace...');
+      
+      let completedCount = 0;
+      for (const file of this.qwenONNXFiles) {
+        const destPath = path.join(this.qwenONNXDir, file.name);
+        const destDir = path.dirname(destPath);
+        if (!fs.existsSync(destDir)) {
+          fs.mkdirSync(destDir, { recursive: true });
+        }
+
+        log.info(`Downloading Qwen ONNX asset: ${file.name}...`);
+        
+        const isModelFile = file.name.endsWith('.onnx');
+        
+        await this.downloadFile(file.url, destPath, (bytesRead, totalBytes) => {
+          if (isModelFile && totalBytes > 0) {
+            const baseProgress = Math.round((completedCount / this.qwenONNXFiles.length) * 100);
+            const currentFileProgress = Math.round((bytesRead / totalBytes) * (100 / this.qwenONNXFiles.length));
+            graphProgress = Math.min(99, baseProgress + currentFileProgress);
+            if (this.progressCallback) {
+              this.progressCallback(graphProgress);
+            }
+          }
+        });
+        
+        completedCount++;
+        graphProgress = Math.round((completedCount / this.qwenONNXFiles.length) * 100);
+        if (this.progressCallback) {
+          this.progressCallback(graphProgress);
+        }
+      }
+
+      log.info('Qwen 2.5 ONNX model downloaded successfully');
+      isDownloadingGraph = false;
+      graphProgress = 100;
+      return true;
+    } catch (err) {
+      isDownloadingGraph = false;
+      log.error('Failed to download Qwen ONNX model', err);
+      throw err;
+    }
   }
 
   isModelDownloaded() {
@@ -24,8 +105,15 @@ class ModelDownloader {
 
   getProgress() {
     return {
-      isDownloading: this.isDownloading,
-      progress: this.progress
+      isDownloading: isDownloadingEmbedding,
+      progress: embeddingProgress
+    };
+  }
+
+  getGraphProgress() {
+    return {
+      isDownloading: isDownloadingGraph,
+      progress: graphProgress
     };
   }
 
@@ -34,13 +122,13 @@ class ModelDownloader {
       log.info('Model already downloaded');
       return true;
     }
-    if (this.isDownloading) {
+    if (isDownloadingEmbedding) {
       log.info('Download already in progress');
       return false;
     }
 
-    this.isDownloading = true;
-    this.progress = 0;
+    isDownloadingEmbedding = true;
+    embeddingProgress = 0;
     this.progressCallback = onProgress;
 
     try {
@@ -60,19 +148,19 @@ class ModelDownloader {
       // Download ONNX weights
       await this.downloadFile(this.modelUrl, modelPath, (bytesRead, totalBytes) => {
         if (totalBytes > 0) {
-          this.progress = Math.round((bytesRead / totalBytes) * 100);
+          embeddingProgress = Math.round((bytesRead / totalBytes) * 100);
           if (this.progressCallback) {
-            this.progressCallback(this.progress);
+            this.progressCallback(embeddingProgress);
           }
         }
       });
 
       log.info('Model file downloaded successfully');
-      this.isDownloading = false;
-      this.progress = 100;
+      isDownloadingEmbedding = false;
+      embeddingProgress = 100;
       return true;
     } catch (err) {
-      this.isDownloading = false;
+      isDownloadingEmbedding = false;
       log.error('Failed to download embedding model', err);
       throw err;
     }

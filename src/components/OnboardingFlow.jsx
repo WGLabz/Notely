@@ -49,6 +49,7 @@ export function OnboardingFlow({
   const [testingConnection, setTestingConnection] = useState(false);
   const [testSuccess, setTestSuccess] = useState(null);
   const [modelStatus, setModelStatus] = useState({ downloaded: false, isDownloading: false, progress: 0 });
+  const [graphModelStatus, setGraphModelStatus] = useState({ downloaded: false, isDownloading: false, progress: 0 });
 
   const totalSteps = 5;
   const repositoryUrl = "https://github.com/wglabz/notely";
@@ -61,6 +62,11 @@ export function OnboardingFlow({
         const res = await aiGetModelStatus();
         if (res.success && res.data) {
           setModelStatus(res.data);
+        }
+        const { aiGetGraphModelStatus } = await import('../services/electronService');
+        const gRes = await aiGetGraphModelStatus();
+        if (gRes.success && gRes.data) {
+          setGraphModelStatus(gRes.data);
         }
       } catch (err) {
         console.error(err);
@@ -77,8 +83,21 @@ export function OnboardingFlow({
       }));
     });
 
+    let unsubscribeGraph = () => {};
+    import('../services/electronService').then(({ onGraphModelDownloadProgress }) => {
+      unsubscribeGraph = onGraphModelDownloadProgress((payload) => {
+        setGraphModelStatus(prev => ({
+          ...prev,
+          isDownloading: true,
+          progress: payload.progress,
+          downloaded: payload.progress === 100
+        }));
+      });
+    });
+
     return () => {
       if (typeof unsubscribe === 'function') unsubscribe();
+      if (typeof unsubscribeGraph === 'function') unsubscribeGraph();
     };
   }, [step]);
 
@@ -376,16 +395,38 @@ export function OnboardingFlow({
               </p>
 
               <div style={{ margin: "16px 0", display: "flex", flexDirection: "column", gap: "16px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px", border: "1px solid var(--border-soft)", borderRadius: "8px", background: "var(--background-soft)" }}>
-                  <input
-                    type="checkbox"
-                    id="onboarding-ai-enabled"
-                    checked={aiEnabled}
-                    onChange={(e) => setAiEnabled(e.target.checked)}
-                    style={{ width: "18px", height: "18px", cursor: "pointer" }}
-                  />
-                  <label htmlFor="onboarding-ai-enabled" style={{ fontWeight: "700", color: "var(--text-strong)", cursor: "pointer" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px", border: "1px solid var(--border-soft)", borderRadius: "8px", background: "var(--background-soft)" }}>
+                  <span style={{ fontWeight: "700", color: "var(--text-strong)" }}>
                     Enable AI Subsystem
+                  </span>
+                  <label style={{ display: "inline-flex", alignItems: "center", cursor: "pointer", position: "relative", width: "40px", height: "20px" }}>
+                    <input
+                      type="checkbox"
+                      id="onboarding-ai-enabled"
+                      checked={aiEnabled}
+                      onChange={(e) => setAiEnabled(e.target.checked)}
+                      style={{ opacity: 0, width: 0, height: 0 }}
+                    />
+                    <span style={{
+                      position: "absolute",
+                      top: 0, left: 0, right: 0, bottom: 0,
+                      background: aiEnabled ? "var(--accent-solid)" : "var(--border-default)",
+                      borderRadius: "20px",
+                      transition: "background var(--motion-standard)",
+                      cursor: "pointer"
+                    }}>
+                      <span style={{
+                        position: "absolute",
+                        height: "16px",
+                        width: "16px",
+                        left: aiEnabled ? "22px" : "2px",
+                        bottom: "2px",
+                        background: "var(--surface-bg, #fff)",
+                        borderRadius: "50%",
+                        transition: "left var(--motion-standard)",
+                        boxShadow: "0 1px 3px rgba(0, 0, 0, 0.2)"
+                      }} />
+                    </span>
                   </label>
                 </div>
 
@@ -404,57 +445,97 @@ export function OnboardingFlow({
                         }}
                         style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border-soft)", background: "var(--background-default)", color: "var(--text-strong)" }}
                       >
+                        <option value="local">Local (Qwen2.5-0.5B offline model)</option>
                         <option value="gemini">Google Gemini (Default)</option>
                         <option value="groq">Groq (Ultra Fast Open Models)</option>
                       </select>
                     </div>
 
-                    <div>
-                      <label style={{ display: "block", fontSize: "13px", fontWeight: "600", color: "var(--text-secondary)", marginBottom: "4px" }}>
-                        API Key
-                      </label>
-                      <div style={{ display: "flex", gap: "6px" }}>
-                        <input
-                          type="password"
-                          placeholder={`Enter ${selectedAIProvider} API Key...`}
-                          value={apiKey}
-                          onChange={(e) => {
-                            setApiKey(e.target.value);
-                            setTestSuccess(null);
-                          }}
-                          style={{ flex: 1, padding: "8px", borderRadius: "6px", border: "1px solid var(--border-soft)", background: "var(--background-default)", color: "var(--text-strong)" }}
-                        />
-                        <button
-                          type="button"
-                          className="btn"
-                          disabled={!apiKey || testingConnection}
-                          onClick={async () => {
-                            setTestingConnection(true);
-                            setTestSuccess(null);
-                            try {
-                              await aiSetApiKey(selectedAIProvider, apiKey);
-                              const res = await aiTestConnection({ provider: selectedAIProvider });
-                              if (res.success) {
-                                setTestSuccess(true);
-                              } else {
-                                setTestSuccess(false);
-                                alert(res.error || "Connection failed.");
-                              }
-                            } catch (err) {
-                              setTestSuccess(false);
-                              alert(err.message);
-                            } finally {
-                              setTestingConnection(false);
-                            }
-                          }}
-                          style={{ padding: "0 12px", height: "35px", boxSizing: "border-box", cursor: "pointer", background: "var(--surface-header)", border: "1px solid var(--border-soft)", color: "var(--text-strong)", borderRadius: "6px" }}
-                        >
-                          {testingConnection ? "Testing..." : "Test Connection"}
-                        </button>
+                    {selectedAIProvider === "local" ? (
+                      <div style={{ padding: "10px", background: "var(--surface-muted)", border: "1px solid var(--border-soft)", borderRadius: "6px", marginBottom: "4px" }}>
+                        <strong style={{ fontSize: "13px", display: "block", marginBottom: "4px" }}>Local Qwen Model Status</strong>
+                        {graphModelStatus.downloaded ? (
+                          <div style={{ color: "var(--accent-solid)", fontSize: "12px" }}>✓ Qwen2.5 model weights downloaded & ready!</div>
+                        ) : graphModelStatus.isDownloading ? (
+                          <div>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--text-muted)", marginBottom: "3px" }}>
+                              <span>Downloading Qwen weights...</span>
+                              <span>{graphModelStatus.progress}%</span>
+                            </div>
+                            <div style={{ width: "100%", height: "4px", background: "var(--background-soft)", borderRadius: "2px", overflow: "hidden" }}>
+                              <div style={{ width: `${graphModelStatus.progress}%`, height: "100%", background: "var(--accent-solid)" }} />
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>~400 MB download required for offline mode.</span>
+                            <button
+                              type="button"
+                              className="btn"
+                              onClick={async () => {
+                                try {
+                                  const { aiDownloadGraphModel } = await import('../services/electronService');
+                                  await aiDownloadGraphModel();
+                                  setGraphModelStatus(prev => ({ ...prev, isDownloading: true, progress: 0 }));
+                                } catch (err) {
+                                  alert("Failed to start download: " + err.message);
+                                }
+                              }}
+                              style={{ padding: "4px 10px", fontSize: "11px", cursor: "pointer", background: "var(--accent-solid)", color: "#fff", border: "none", borderRadius: "6px" }}
+                            >
+                              Download Qwen
+                            </button>
+                          </div>
+                        )}
                       </div>
-                      {testSuccess === true && <div style={{ color: "var(--accent-solid)", fontSize: "12px", marginTop: "4px" }}>✓ Connection successful!</div>}
-                      {testSuccess === false && <div style={{ color: "var(--accent-danger)", fontSize: "12px", marginTop: "4px" }}>✗ Connection failed.</div>}
-                    </div>
+                    ) : (
+                      <div>
+                        <label style={{ display: "block", fontSize: "13px", fontWeight: "600", color: "var(--text-secondary)", marginBottom: "4px" }}>
+                          API Key
+                        </label>
+                        <div style={{ display: "flex", gap: "6px" }}>
+                          <input
+                            type="password"
+                            placeholder={`Enter ${selectedAIProvider} API Key...`}
+                            value={apiKey}
+                            onChange={(e) => {
+                              setApiKey(e.target.value);
+                              setTestSuccess(null);
+                            }}
+                            style={{ flex: 1, padding: "8px", borderRadius: "6px", border: "1px solid var(--border-soft)", background: "var(--background-default)", color: "var(--text-strong)" }}
+                          />
+                          <button
+                            type="button"
+                            className="btn"
+                            disabled={!apiKey || testingConnection}
+                            onClick={async () => {
+                              setTestingConnection(true);
+                              setTestSuccess(null);
+                              try {
+                                await aiSetApiKey(selectedAIProvider, apiKey);
+                                const res = await aiTestConnection({ provider: selectedAIProvider });
+                                if (res.success) {
+                                  setTestSuccess(true);
+                                } else {
+                                  setTestSuccess(false);
+                                  alert(res.error || "Connection failed.");
+                                }
+                              } catch (err) {
+                                setTestSuccess(false);
+                                alert(err.message);
+                              } finally {
+                                setTestingConnection(false);
+                              }
+                            }}
+                            style={{ padding: "0 12px", height: "35px", boxSizing: "border-box", cursor: "pointer", background: "var(--surface-header)", border: "1px solid var(--border-soft)", color: "var(--text-strong)", borderRadius: "6px" }}
+                          >
+                            {testingConnection ? "Testing..." : "Test Connection"}
+                          </button>
+                        </div>
+                        {testSuccess === true && <div style={{ color: "var(--accent-solid)", fontSize: "12px", marginTop: "4px" }}>✓ Connection successful!</div>}
+                        {testSuccess === false && <div style={{ color: "var(--accent-danger)", fontSize: "12px", marginTop: "4px" }}>✗ Connection failed.</div>}
+                      </div>
+                    )}
 
                     <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "4px" }}>
                       <input

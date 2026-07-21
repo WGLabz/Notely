@@ -54,12 +54,17 @@ ${content}
 
       let parsedData = { entities: [], relationships: [] };
       try {
-        const llm = this.agent.llmRegistry.getActiveProvider();
-        // Call LLM
-        const { text: resultText } = await llm.generateText(prompt, { systemPrompt, temperature: 0.1 });
-        // Clean and parse JSON
-        const cleanedJson = this._cleanJsonResponse(resultText);
-        parsedData = JSON.parse(cleanedJson);
+        if (this.agent.graphProvider?.isReady()) {
+          log.info('Running local Qwen graph extraction...');
+          parsedData = await this.agent.graphProvider.extractGraph(content, filePath);
+        } else {
+          const llm = this.agent.llmRegistry.getActiveProvider();
+          // Call LLM
+          const { text: resultText } = await llm.generateText(prompt, { systemPrompt, temperature: 0.1 });
+          // Clean and parse JSON
+          const cleanedJson = this._cleanJsonResponse(resultText);
+          parsedData = JSON.parse(cleanedJson);
+        }
       } catch (llmErr) {
         log.warn(`LLM graph extraction failed for ${filePath}, falling back to local regex:`, llmErr.message);
       }

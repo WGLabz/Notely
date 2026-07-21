@@ -173,8 +173,8 @@ export default function EmbeddingsPage({ onBack }) {
       </div>
 
       <div className="knowledge-graph-container">
-        <div className="kg-header-actions">
-          <div className="kg-search-wrapper">
+        <div className="kg-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px', height: '52px', boxSizing: 'border-box' }}>
+          <div className="kg-search-wrapper" style={{ height: '32px' }}>
             <Search size={16} className="kg-search-icon" />
             <input
               type="text"
@@ -182,10 +182,54 @@ export default function EmbeddingsPage({ onBack }) {
               placeholder="Search note chunk content..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ height: '32px', boxSizing: 'border-box' }}
             />
           </div>
 
-          <div className="kg-stats-pill" style={{ gap: '12px', display: 'flex', alignItems: 'center' }}>
+          {/* Unified Model & DB Status details pill in header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '11px', background: 'var(--surface-muted)', border: '1px solid var(--border-soft)', padding: '0 12px', borderRadius: '6px', color: 'var(--text-secondary)', marginLeft: 'auto', height: '32px', boxSizing: 'border-box' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Provider:</span>
+              <strong style={{ color: 'var(--text-strong)' }}>{preferences.embeddingProvider === 'internal' ? 'Local' : 'HuggingFace'}</strong>
+            </div>
+            <span style={{ width: '1px', height: '10px', background: 'var(--border-soft)' }}></span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Model:</span>
+              <strong style={{ color: 'var(--text-strong)' }}>{preferences.embeddingProvider === 'internal' ? 'BGE-Small-En-v1.5' : 'bge-small-en'}</strong>
+            </div>
+            <span style={{ width: '1px', height: '10px', background: 'var(--border-soft)' }}></span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ color: 'var(--text-muted)' }}>DB Size:</span>
+              <strong style={{ color: 'var(--text-strong)' }}>{status.dbSize || '0 KB'}</strong>
+            </div>
+            <span style={{ width: '1px', height: '10px', background: 'var(--border-soft)' }}></span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600, color: modelStatus.downloaded ? 'var(--status-success-text)' : 'var(--text-warning)' }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: modelStatus.downloaded ? 'var(--status-success-border)' : 'var(--text-warning)' }}></span>
+              {modelStatus.downloaded ? 'Ready' : 'Missing'}
+            </span>
+          </div>
+
+          {!modelStatus.downloaded && (
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={async () => {
+                try {
+                  const res = await aiDownloadModel();
+                  if (res.success) {
+                    setModelStatus(prev => ({ ...prev, isDownloading: true, progress: 0 }));
+                  }
+                } catch (err) {
+                  console.error(err);
+                }
+              }}
+              disabled={modelStatus.isDownloading}
+              style={{ fontSize: '11px', display: 'inline-flex', alignItems: 'center', height: '32px', gap: '4px', boxSizing: 'border-box' }}
+            >
+              <span>{modelStatus.isDownloading ? `Downloading (${modelStatus.progress}%)...` : 'Download Model (~130MB)'}</span>
+            </button>
+          )}
+
+          <div className="kg-stats-pill" style={{ gap: '12px', display: 'flex', alignItems: 'center', height: '32px', boxSizing: 'border-box', margin: 0, padding: '0 12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Database size={12} />
               <span>Chunks: {status.totalChunks} | Indexed Notes: {status.indexedNotes}</span>
@@ -225,50 +269,7 @@ export default function EmbeddingsPage({ onBack }) {
           <div className="kg-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div style={{ flex: 1, overflowY: 'auto' }}>
               
-              <div className="kg-sidebar-section" style={{ background: 'var(--surface-elevated)', padding: '14px', borderRadius: '8px', border: '1px solid var(--border-soft)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <h4 style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', margin: 0, fontWeight: 600 }}>
-                  Configuration status
-                </h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '8px', borderBottom: '1px solid var(--border-soft)' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Active Provider</span>
-                    <strong style={{ color: 'var(--text-strong)' }}>{preferences.embeddingProvider === 'internal' ? 'Local BGE Model' : preferences.embeddingProvider === 'huggingface' ? 'HuggingFace' : 'Active LLM'}</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '8px', borderBottom: '1px solid var(--border-soft)' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Model Status</span>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: modelStatus.downloaded ? 'var(--status-success-text)' : 'var(--text-warning)' }}>
-                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: modelStatus.downloaded ? 'var(--status-success-border)' : 'var(--text-warning)', boxShadow: modelStatus.downloaded ? '0 0 8px var(--status-success-border)' : 'none' }}></span>
-                      {modelStatus.downloaded ? 'Downloaded' : 'Missing'}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>DB Size</span>
-                    <strong style={{ color: 'var(--text-strong)' }}>{status.dbSize || '0 KB'}</strong>
-                  </div>
-                  {!modelStatus.downloaded && (
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={async () => {
-                        try {
-                          const res = await aiDownloadModel();
-                          if (res.success) {
-                            setModelStatus(prev => ({ ...prev, isDownloading: true, progress: 0 }));
-                          }
-                        } catch (err) {
-                          console.error(err);
-                        }
-                      }}
-                      disabled={modelStatus.isDownloading}
-                      style={{ marginTop: '6px', width: '100%', justifyContent: 'center', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px' }}
-                    >
-                      <span>{modelStatus.isDownloading ? `Downloading (${modelStatus.progress}%)...` : 'Download Local Model (~130MB)'}</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-
-              {/* Index Worker Controls */}
+               {/* Index Worker Controls */}
               <div className="kg-sidebar-section" style={{ background: 'var(--surface-elevated)', padding: '14px', borderRadius: '8px', border: '1px solid var(--border-soft)', display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
                 <h4 style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', margin: 0, fontWeight: 600 }}>
                   Index Worker
@@ -305,6 +306,51 @@ export default function EmbeddingsPage({ onBack }) {
                   >
                     {status.isPaused ? <Play size={12} /> : <Pause size={12} />}
                     <span>{status.isPaused ? 'Resume' : 'Pause'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Indexing Event Logs (Last 10) */}
+              <div className="kg-sidebar-section" style={{ background: 'var(--surface-elevated)', padding: '14px', borderRadius: '8px', border: '1px solid var(--border-soft)', display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
+                <h4 style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', margin: 0, fontWeight: 600 }}>
+                  Indexing Event Logs
+                </h4>
+                <div style={{
+                  maxHeight: '130px',
+                  overflowY: 'auto',
+                  background: 'var(--surface-muted)',
+                  borderRadius: '6px',
+                  padding: '8px',
+                  border: '1px solid var(--border-soft)',
+                  fontFamily: 'monospace',
+                  fontSize: '9px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px'
+                }}>
+                  {status.logs.length === 0 ? (
+                    <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No logs available</span>
+                  ) : (
+                    status.logs.slice(0, 10).map((logItem, idx) => {
+                      const timeStr = logItem.timestamp ? new Date(logItem.timestamp).toLocaleTimeString() : (logItem.ts || '');
+                      const eventName = String(logItem.level || logItem.event || 'INFO').toUpperCase();
+                      const detailText = logItem.message || logItem.detail || '';
+                      return (
+                        <div key={logItem.id || idx} style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', lineHeight: 1.3 }}>
+                          <span style={{ color: 'var(--text-muted)' }}>[{timeStr}]</span>
+                          <span style={{ color: eventName === 'ERROR' ? 'var(--text-danger)' : 'var(--accent-solid)', fontWeight: 600 }}>{eventName}</span>
+                          <span style={{ color: 'var(--text-secondary)' }}>{detailText}</span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button 
+                    onClick={() => window.dispatchEvent(new CustomEvent('app:menu-action', { detail: { action: 'open-app-logs' } }))}
+                    style={{ background: 'transparent', border: 'none', color: 'var(--accent-solid)', fontSize: '10px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                  >
+                    View Dedicated Log Page →
                   </button>
                 </div>
               </div>
@@ -413,33 +459,6 @@ export default function EmbeddingsPage({ onBack }) {
                   </tbody>
                 </table>
               )}
-            </div>
-
-            {/* Bottom logs viewer */}
-            <div style={{ height: '200px', borderTop: '1px solid var(--border-default)', background: 'var(--surface-elevated)', padding: '12px', display: 'flex', flexDirection: 'column' }}>
-              <h4 style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', margin: '0 0 8px 0' }}>
-                Indexing Event Logs
-              </h4>
-              <div style={{ flex: 1, overflowY: 'auto', fontFamily: 'monospace', fontSize: '10px', display: 'flex', flexDirection: 'column', gap: '4px', color: 'var(--text-secondary)' }}>
-                {status.logs.length === 0 ? (
-                  <span style={{ color: 'var(--text-muted)' }}>No logs available</span>
-                ) : (
-                  status.logs.map((logItem, idx) => {
-                    const timeStr = logItem.timestamp ? new Date(logItem.timestamp).toLocaleTimeString() : (logItem.ts || '');
-                    const eventName = String(logItem.level || logItem.event || 'INFO').toUpperCase();
-                    const noteName = logItem.note_path ? String(logItem.note_path).split(/[/\\]/).pop() : '';
-                    const detailText = logItem.message || logItem.detail || '';
-                    return (
-                      <div key={logItem.id || idx} style={{ display: 'flex', gap: '8px' }}>
-                        <span style={{ color: 'var(--text-muted)' }}>[{timeStr}]</span>
-                        <span style={{ color: eventName === 'ERROR' ? 'var(--kg-task-border)' : 'var(--kg-note-border)', fontWeight: 600 }}>{eventName}</span>
-                        {noteName && <span style={{ color: 'var(--text-strong)' }}>{noteName}</span>}
-                        <span>— {detailText}</span>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
             </div>
 
           </div>

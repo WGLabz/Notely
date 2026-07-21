@@ -64,6 +64,9 @@ if (process.platform === "win32") {
 // Skip separate GPU process — reduces cold-start overhead by ~150-200ms on Windows.
 app.commandLine.appendSwitch("in-process-gpu");
 
+// Expand V8 heap size to allow 512MB model buffer allocation without out-of-memory errors
+app.commandLine.appendSwitch("js-flags", "--max-old-space-size=4096");
+
 try {
   fs.mkdirSync(chromiumCachePath, { recursive: true });
   app.setPath("sessionData", sessionDataPath);
@@ -161,7 +164,7 @@ async function initializeAIForWorkspace() {
     let llmProvider = null;
     const activeApiKey = config.getAPIKey(activeProviderName);
 
-    if (activeApiKey) {
+    if (activeApiKey || activeProviderName === 'local') {
       const savedModel = config.getProviderModel(activeProviderName);
       const entry = PROVIDER_REGISTRY[activeProviderName];
       llmProvider = {

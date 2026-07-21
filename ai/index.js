@@ -8,6 +8,9 @@ const LLMRegistry = require('./providers/LLMRegistry');
 const Agent = require('./core/Agent');
 const AIConfig = require('./core/AIConfig');
 const { HuggingFaceEmbeddingProvider } = require('./providers/HuggingFaceEmbeddingProvider');
+const { createLogger } = require('./core/logger');
+
+const log = createLogger('AISystemBootstrap');
 
 let aiAgent = null;
 let aiConfig = null;
@@ -57,16 +60,15 @@ async function initializeAISystem(appDataDir, workspaceRoot, llmProvider, embedd
       try {
         const ONNXEmbedder = require('./embeddings/ONNXEmbedder');
         const onnxProvider = new ONNXEmbedder(appDataDir);
-        // ONNXEmbedder initializes session lazily on first generateEmbedding(), but check if model is downloaded
         const fs = require('fs');
         const path = require('path');
         const modelPath = path.join(appDataDir, 'notely', 'ai-model', 'model.onnx');
         if (fs.existsSync(modelPath)) {
           await onnxProvider.load();
           aiAgent.setEmbeddingProvider(onnxProvider);
-          console.log('[AI System] Local ONNX BGE embedding provider ready');
+          log.info('[AI System] Local ONNX embedding provider ready');
         } else {
-          console.log('[AI System] Local ONNX BGE model weights missing; downloader required.');
+          log.info('[AI System] Local ONNX model weights missing; downloader required.');
         }
       } catch (embErr) {
         console.warn('[AI System] Local ONNX embedding provider skipped:', embErr.message);
@@ -74,6 +76,23 @@ async function initializeAISystem(appDataDir, workspaceRoot, llmProvider, embedd
     }
 
     const result = await aiAgent.initialize(workspaceRoot, llmProvider);
+
+    // Boot local Qwen ONNX provider if model files are downloaded
+    try {
+      const ModelDownloader = require('./embeddings/ModelDownloader');
+      const modelDownloader = new ModelDownloader(appDataDir);
+      if (modelDownloader.isGraphModelDownloaded()) {
+        const LocalONNXProvider = require('./providers/LocalONNXProvider');
+        const localLlm = new LocalONNXProvider({ appDataDir });
+        
+        // Register local ONNX provider in LLMRegistry and GraphProvider
+        aiAgent.llmRegistry.register('local', localLlm);
+        aiAgent.setGraphProvider(localLlm);
+        console.log('[AI System] Local Qwen ONNX provider registered successfully (lazy load)');
+      }
+    } catch (onnxBootErr) {
+      console.warn('[AI System] Local ONNX boot skipped:', onnxBootErr.message);
+    }
 
     // Boot local BGE embeddings SQLite database & offload worker queue to background process
     try {

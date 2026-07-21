@@ -254,16 +254,34 @@ export async function aiDownloadModel() {
   return api.aiDownloadModel();
 }
 
+export async function aiDownloadGraphModel() {
+  const api = getNotesApi();
+  if (typeof api.aiDownloadGraphModel !== 'function') throw new Error('Graph model downloader is unavailable.');
+  return api.aiDownloadGraphModel();
+}
+
 export async function aiGetModelStatus() {
   const api = getNotesApi();
   if (typeof api.aiGetModelStatus !== 'function') throw new Error('ONNX downloader is unavailable.');
   return api.aiGetModelStatus();
 }
 
+export async function aiGetGraphModelStatus() {
+  const api = getNotesApi();
+  if (typeof api.aiGetGraphModelStatus !== 'function') throw new Error('Graph model downloader is unavailable.');
+  return api.aiGetGraphModelStatus();
+}
+
 export function onModelDownloadProgress(callback) {
   const api = getNotesApi();
   if (typeof api.onModelDownloadProgress !== 'function') return () => {};
   return api.onModelDownloadProgress(callback);
+}
+
+export function onGraphModelDownloadProgress(callback) {
+  const api = getNotesApi();
+  if (typeof api.onGraphModelDownloadProgress !== 'function') return () => {};
+  return api.onGraphModelDownloadProgress(callback);
 }
 
 

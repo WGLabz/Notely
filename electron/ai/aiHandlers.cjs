@@ -210,6 +210,8 @@ function initializeAIHandlers(electronApp, agent) {
   registerHandler('ai:worker:resume', handleResumeWorker);
   registerHandler('ai:model:download', handleDownloadModel);
   registerHandler('ai:model:status', handleGetModelStatus);
+  registerHandler('ai:graph-model:download', handleDownloadGraphModel);
+  registerHandler('ai:graph-model:status', handleGetGraphModelStatus);
 
   // Pattern detection
   registerHandler(IPC_EVENTS.AI_DETECT_PATTERNS, handleDetectPatterns);
@@ -291,7 +293,7 @@ async function handleInitialize(event, payload) {
     let llmProvider = null;
     const activeApiKey = config.getAPIKey(activeProviderName);
 
-    if (activeApiKey) {
+    if (activeApiKey || activeProviderName === 'local') {
       const savedModel = config.getProviderModel(activeProviderName);
       const entry = PROVIDER_REGISTRY[activeProviderName];
       llmProvider = {
@@ -618,17 +620,58 @@ async function handleDownloadModel(_event, _payload) {
   }
 }
 
+async function handleDownloadGraphModel(_event, _payload) {
+  try {
+    const { app } = require('electron');
+    const appDataDir = path.join(app.getPath('appData'), 'Notely');
+    const ModelDownloader = require('../../ai/embeddings/ModelDownloader');
+    const downloader = new ModelDownloader(appDataDir);
+
+    const win = BrowserWindow.getFocusedWindow();
+    downloader.downloadGraphModel((progress) => {
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('ai:graph-model:progress', { progress });
+      }
+    }).catch(err => {
+      console.error('[AI IPC] Async graph model downloader error:', err);
+    });
+
+    return new AIQueryResponse(true, { started: true });
+  } catch (error) {
+    return new AIQueryResponse(false, null, error.message);
+  }
+}
+
 async function handleGetModelStatus(_event, _payload) {
   try {
     const { app } = require('electron');
     const appDataDir = path.join(app.getPath('appData'), 'Notely');
     const ModelDownloader = require('../../ai/embeddings/ModelDownloader');
     const downloader = new ModelDownloader(appDataDir);
+    const status = downloader.getProgress();
     
     return new AIQueryResponse(true, {
       downloaded: downloader.isModelDownloaded(),
-      isDownloading: downloader.isDownloading,
-      progress: downloader.progress
+      isDownloading: status.isDownloading,
+      progress: status.progress
+    });
+  } catch (error) {
+    return new AIQueryResponse(false, null, error.message);
+  }
+}
+
+async function handleGetGraphModelStatus(_event, _payload) {
+  try {
+    const { app } = require('electron');
+    const appDataDir = path.join(app.getPath('appData'), 'Notely');
+    const ModelDownloader = require('../../ai/embeddings/ModelDownloader');
+    const downloader = new ModelDownloader(appDataDir);
+    const status = downloader.getGraphProgress();
+    
+    return new AIQueryResponse(true, {
+      downloaded: downloader.isGraphModelDownloaded(),
+      isDownloading: status.isDownloading,
+      progress: status.progress
     });
   } catch (error) {
     return new AIQueryResponse(false, null, error.message);
@@ -864,6 +907,40 @@ async function handleSetPreferences(event, payload) {
       } else {
         // Active LLM provider fallback (or null fallback)
         aiService.agent.setEmbeddingProvider(null);
+      }
+    }
+
+    // Apply the active LLM provider choice immediately
+    if (aiService.agent) {
+      const activeProviderName = preferences.aiProvider || 'gemini';
+      const apiKey = config.getAPIKey(activeProviderName);
+      const savedModel = config.getProviderModel(activeProviderName);
+      const { PROVIDER_REGISTRY } = require('../../ai/providers/ProviderRegistry');
+      const modelId = savedModel || PROVIDER_REGISTRY[activeProviderName]?.defaultModel;
+      
+      if (activeProviderName === 'local') {
+        try {
+          const { app } = require('electron');
+          const appDataDir = path.join(app.getPath('appData'), 'Notely');
+          const ModelDownloader = require('../../ai/embeddings/ModelDownloader');
+          const modelDownloader = new ModelDownloader(appDataDir);
+          if (modelDownloader.isGraphModelDownloaded()) {
+            const LocalONNXProvider = require('../../ai/providers/LocalONNXProvider');
+            const localLlm = new LocalONNXProvider({ appDataDir });
+            await localLlm.initialize();
+            aiService.agent.llmRegistry.register('local', localLlm);
+            aiService.agent.setGraphProvider(localLlm);
+            await aiService.agent.llmRegistry.activateProvider('local', {});
+          }
+        } catch (localLlmErr) {
+          console.warn('[AI IPC] Local ONNX registration on preference set failed:', localLlmErr.message);
+        }
+      } else if (apiKey && modelId) {
+        try {
+          await aiService.agent.llmRegistry.activateProvider(activeProviderName, { apiKey, model: modelId });
+        } catch (activationErr) {
+          console.warn('[AI IPC] Active LLM activation on preference set failed:', activationErr.message);
+        }
       }
     }
 

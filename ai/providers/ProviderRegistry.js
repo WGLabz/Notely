@@ -116,11 +116,30 @@ const PROVIDER_REGISTRY = {
       { id: 'gpt-4o-mini', label: 'GPT-4o Mini', note: 'Fast · default' }
     ],
     defaultModel: 'gpt-4o-mini',
-    factory: (config) => new OpenAICompatibleProvider(config.apiKey, {
-      ...config,
-      baseUrl: 'https://api.openai.com/v1',
-      model: config.model || 'gpt-4o-mini'
-    })
+    factory: (config) => new OpenAICompatibleProvider(config.apiKey, config)
+  },
+  local: {
+    id: 'local',
+    name: 'Local (Qwen2.5-0.5B ONNX)',
+    description: 'On-device inference · no API key · ~350 MB download',
+    available: true,
+    requiresApiKey: false,
+    supportsEmbeddings: false,
+    capabilities: {
+      textGeneration: true,
+      embeddings: false,
+      semanticSearch: false,
+      relationshipDiscovery: true,
+      patternDetection: true,
+    },
+    models: [
+      { id: 'qwen2.5-0.5b-instruct-onnx', label: 'Qwen2.5 0.5B Instruct ONNX', note: '~350 MB' }
+    ],
+    defaultModel: 'qwen2.5-0.5b-instruct-onnx',
+    factory: (config) => {
+      const LocalONNXProvider = require('./LocalONNXProvider');
+      return new LocalONNXProvider(config);
+    }
   }
 };
 

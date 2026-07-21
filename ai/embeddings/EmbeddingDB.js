@@ -317,27 +317,17 @@ class EmbeddingDB {
     }
   }
 
-  verifyModelDimensions(activeModelName) {
+  verifyModelDimensions(_activeModelName) {
     if (!this.db) return;
     try {
-      if (activeModelName) {
-        const row = this.db.prepare('SELECT embedding_model FROM chunks WHERE embedding_model IS NOT NULL LIMIT 1').get();
-        if (row && row.embedding_model && row.embedding_model !== activeModelName) {
-          log.warn(`Embedding model changed from ${row.embedding_model} to ${activeModelName}. Clearing chunks table.`);
-          this.clearAllData();
-          return;
-        }
-      }
       // Check stored vector byte length to verify 384-dim size
       const row = this.db.prepare('SELECT embedding FROM chunks WHERE embedding IS NOT NULL LIMIT 1').get();
       if (row && row.embedding) {
         const buf = row.embedding instanceof Buffer ? row.embedding : Buffer.from(row.embedding);
         const storedDim = buf.byteLength / 4;
-        // All local BGE models use 384 dimensions
         const expectedDim = 384;
         if (storedDim > 0 && storedDim !== expectedDim) {
-          log.warn(`Embedding vector dimension mismatch: stored ${storedDim}, expected ${expectedDim}. Clearing chunks table.`);
-          this.clearAllData();
+          log.warn(`Embedding vector dimension mismatch: stored ${storedDim}, expected ${expectedDim}. Database will remain intact.`);
         }
       }
     } catch (err) {

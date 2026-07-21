@@ -19,7 +19,10 @@ export function AIStatusBar({ onClick }) {
 
       const health = await aiGetHealth();
       if (health?.success && health.data) {
-        setProvider(health.data.activeProvider || "Unknown");
+        const rawProv = health.data.activeProvider || "Unknown";
+        // Map local model name correctly
+        const providerName = rawProv === 'local' ? 'Local (Qwen)' : (rawProv.charAt(0).toUpperCase() + rawProv.slice(1));
+        setProvider(providerName);
         if (health.data.isIndexing) {
           setStatus("indexing");
         } else if (health.data.isPaused) {
@@ -42,7 +45,7 @@ export function AIStatusBar({ onClick }) {
   }, []);
 
   let Icon = Sparkles;
-  let label = "AI Disabled";
+  let label = "AI: Not Ready";
   let statusClass = "ai-status-bar--disabled";
 
   if (status === "idle") {
