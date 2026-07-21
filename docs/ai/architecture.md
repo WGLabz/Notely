@@ -11,6 +11,12 @@ Notely implements a local-first, offline-ready AI architecture designed for priv
 
 ---
 
+# AI Subsystem Architecture
+
+Notely implements a local-first, offline-ready AI architecture designed for privacy and low latency. This document outlines the internals of the embedding indexer, the knowledge graph, and the query execution lifecycle.
+
+---
+
 ## Architecture Blueprint
 
 The following diagram shows the full request path from UI through each layer to storage.
@@ -40,11 +46,12 @@ flowchart TD
     subgraph Agent["Agent Orchestrator — Agent.js"]
         direction LR
         LR["LLMRegistry"] & ES["EmbeddingService"] & GS["GraphService"] & CE["ContextEngine"] & QE["QueryExecutor"]
+        GP["graphProvider"] & LMM["localModelManager"]
     end
 
     subgraph Providers["Inference Providers"]
         direction LR
-        GEM["GeminiProvider"] & GRQ["GroqProvider"] & OAI["OpenAICompatibleProvider"]
+        GEM["GeminiProvider"] & GRQ["GroqProvider"] & OAI["OpenAICompatibleProvider"] & LLP["LocalLlamaProvider (Qwen2.5)"]
         HFEP["HuggingFaceEmbeddingProvider"] & ONNXE["ONNXEmbedder (BGE-small)"]
     end
 
@@ -63,7 +70,7 @@ flowchart TD
     Handlers --> AIService
     AIService --> Agent
 
-    LR --> GEM & GRQ & OAI
+    LR --> GEM & GRQ & OAI & LLP
     ES --> HFEP & ONNXE
 
     CE --> SR & GR
@@ -76,7 +83,17 @@ flowchart TD
 
 ---
 
-## 1. Vector Embeddings Engine
+## 1. Local GGUF Engine & Shared Model Manager
+
+To support robust local text generation and offline knowledge graph relationship extraction on consumer hardware, Notely implements a local GGUF execution engine:
+
+* **`LocalModelManager`**: Manages a single shared runtime instance of the `Qwen2.5-0.5B-Instruct` model in GGUF format via `node-llama-cpp`. This manager prevents GPU/RAM duplication by sharing the loaded model instance between the Local Chat Provider (`LocalLlamaProvider`) and the Local Graph Extraction Provider (`LocalGraphProvider`).
+* **`LocalLlamaProvider`**: Integrates with the `LLMRegistry` to process user chat prompts completely offline without sending data to external cloud APIs.
+* **`LocalGraphProvider`**: Executes custom schema-based relationship extractions to build graph databases directly on-device.
+
+---
+
+## 2. Vector Embeddings Engine
 
 Instead of utilizing heavy native SQLite vector extensions (which introduce cross-compilation complexity in Electron apps), Notely implements a high-performance hybrid pipeline:
 
@@ -91,7 +108,7 @@ Embeddings are stored in `{workspace}/.notes-app/ai-embeddings.db` using standar
 
 ---
 
-## 2. Centralized Multitenant Logging (`LogDB.js`)
+## 3. Centralized Multitenant Logging (`LogDB.js`)
 
 All AI and system subsystem activities are logged to the central logging database at `{workspace}/.notes-app/ai-logs.db`. For complete application-wide logging architecture, see [Application Architecture](/architecture).
 
@@ -104,7 +121,7 @@ All AI and system subsystem activities are logged to the central logging databas
 
 ---
 
-## 2. Knowledge Graph Subsystem
+## 4. Knowledge Graph Subsystem
 
 Notely maps relationships between note documents inside `{workspace}/.notes-app/ai-graph.db`.
 

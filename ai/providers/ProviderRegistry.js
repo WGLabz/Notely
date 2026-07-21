@@ -116,11 +116,31 @@ const PROVIDER_REGISTRY = {
       { id: 'gpt-4o-mini', label: 'GPT-4o Mini', note: 'Fast · default' }
     ],
     defaultModel: 'gpt-4o-mini',
-    factory: (config) => new OpenAICompatibleProvider(config.apiKey, {
-      ...config,
-      baseUrl: 'https://api.openai.com/v1',
-      model: config.model || 'gpt-4o-mini'
-    })
+    factory: (config) => new OpenAICompatibleProvider(config.apiKey, config)
+  },
+  local: {
+    id: 'local',
+    name: 'Local (Qwen2.5-0.5B)',
+    description: 'On-device inference · no API key · ~400 MB download',
+    available: true,
+    requiresApiKey: false,
+    supportsEmbeddings: false,
+    capabilities: {
+      textGeneration: true,
+      embeddings: false,
+      semanticSearch: false,
+      relationshipDiscovery: false,
+      patternDetection: true,
+    },
+    models: [
+      { id: 'qwen2.5-0.5b-instruct-q4_k_m', label: 'Qwen2.5 0.5B Instruct Q4', note: '~400 MB' }
+    ],
+    defaultModel: 'qwen2.5-0.5b-instruct-q4_k_m',
+    factory: (config) => {
+      // Return a placeholder or mock if loader isn't ready; index.js handles real boot
+      const LocalLlamaProvider = require('./LocalLlamaProvider');
+      return new LocalLlamaProvider(global.localModelManager, config);
+    }
   }
 };
 

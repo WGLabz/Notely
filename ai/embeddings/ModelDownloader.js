@@ -14,6 +14,53 @@ class ModelDownloader {
     this.isDownloading = false;
     this.progress = 0;
     this.progressCallback = null;
+    this.graphModelUrl = 'https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf';
+    this.graphModelPath = path.join(this.modelDir, 'Qwen2.5-0.5B-Instruct-Q4_K_M.gguf');
+  }
+
+  isGraphModelDownloaded() {
+    return fs.existsSync(this.graphModelPath);
+  }
+
+  async downloadGraphModel(onProgress = null) {
+    if (this.isGraphModelDownloaded()) {
+      log.info('Graph Qwen model already downloaded');
+      return true;
+    }
+    if (this.isDownloading) {
+      log.info('Download already in progress');
+      return false;
+    }
+
+    this.isDownloading = true;
+    this.progress = 0;
+    this.progressCallback = onProgress;
+
+    try {
+      if (!fs.existsSync(this.modelDir)) {
+        fs.mkdirSync(this.modelDir, { recursive: true });
+      }
+
+      log.info('Starting Qwen GGUF model download from HuggingFace...');
+      
+      await this.downloadFile(this.graphModelUrl, this.graphModelPath, (bytesRead, totalBytes) => {
+        if (totalBytes > 0) {
+          this.progress = Math.round((bytesRead / totalBytes) * 100);
+          if (this.progressCallback) {
+            this.progressCallback(this.progress);
+          }
+        }
+      });
+
+      log.info('Qwen GGUF model downloaded successfully');
+      this.isDownloading = false;
+      this.progress = 100;
+      return true;
+    } catch (err) {
+      this.isDownloading = false;
+      log.error('Failed to download Qwen model', err);
+      throw err;
+    }
   }
 
   isModelDownloaded() {

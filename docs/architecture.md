@@ -112,6 +112,7 @@ The Electron main process (`electron/main.cjs` & `electron/lib/`) coordinates ap
 * **Vector Embeddings Engine (`EmbeddingDB.js`)**: Stores 384-dimensional `BGE-small` vector chunks in `{workspace}/.notes-app/ai-embeddings.db`. Features physical vector dimension validation (`verifyModelDimensions`) to prevent dimension mismatches.
 * **Knowledge Graph Subsystem (`GraphService.js`, `GraphDB.js`)**: Maps note relations, tags, mentions, Wikilinks, Images, Local Documents, and External URLs in `{workspace}/.notes-app/ai-graph.db`. Executes relation traversals via SQLite **Recursive Common Table Expressions (CTEs)**.
 * **Agent & Tool Orchestration**: Integrates with a local embedding runtime and cloud LLMs (Gemini, Groq, OpenAI) using the Vercel AI SDK.
+* **Local GGUF Engines**: Supports local text generation and offline graph extraction via `node-llama-cpp`. `LocalModelManager` handles shared runtime loads of the Qwen GGUF model to prevent CPU/RAM overheads.
 
 #### AI Layer Architecture
 
@@ -142,12 +143,13 @@ flowchart TD
     subgraph Agent["Agent Orchestrator — Agent.js"]
         direction LR
         LR["LLMRegistry"] & ES["EmbeddingService"] & GS["GraphService"] & CE["ContextEngine"] & QE["QueryExecutor"]
+        GP["graphProvider"] & LMM["localModelManager"]
     end
 
     subgraph Providers["Inference Providers"]
         direction LR
-        GEM["GeminiProvider"] & GRQ["GroqProvider"] & OAI["OpenAICompatibleProvider"]
-        HFEP["HuggingFaceEmbeddingProvider"] & LOEMB["Local Embedding Model"]
+        GEM["GeminiProvider"] & GRQ["GroqProvider"] & OAI["OpenAICompatibleProvider"] & LLP["LocalLlamaProvider (Qwen2.5)"]
+        HFEP["HuggingFaceEmbeddingProvider"] & ONNXE["ONNXEmbedder (BGE-small)"]
     end
 
     subgraph Retrieval["Context Assembly"]
@@ -165,8 +167,8 @@ flowchart TD
     Handlers --> AIService
     AIService --> Agent
 
-    LR --> GEM & GRQ & OAI
-    ES --> HFEP & LOEMB
+    LR --> GEM & GRQ & OAI & LLP
+    ES --> HFEP & ONNXE
 
     CE --> SR & GR
     HR --> SR & GR

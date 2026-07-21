@@ -210,6 +210,8 @@ function initializeAIHandlers(electronApp, agent) {
   registerHandler('ai:worker:resume', handleResumeWorker);
   registerHandler('ai:model:download', handleDownloadModel);
   registerHandler('ai:model:status', handleGetModelStatus);
+  registerHandler('ai:graph-model:download', handleDownloadGraphModel);
+  registerHandler('ai:graph-model:status', handleGetGraphModelStatus);
 
   // Pattern detection
   registerHandler(IPC_EVENTS.AI_DETECT_PATTERNS, handleDetectPatterns);
@@ -618,6 +620,28 @@ async function handleDownloadModel(_event, _payload) {
   }
 }
 
+async function handleDownloadGraphModel(_event, _payload) {
+  try {
+    const { app } = require('electron');
+    const appDataDir = path.join(app.getPath('appData'), 'Notely');
+    const ModelDownloader = require('../../ai/embeddings/ModelDownloader');
+    const downloader = new ModelDownloader(appDataDir);
+
+    const win = BrowserWindow.getFocusedWindow();
+    downloader.downloadGraphModel((progress) => {
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('ai:graph-model:progress', { progress });
+      }
+    }).catch(err => {
+      console.error('[AI IPC] Async graph downloader error:', err);
+    });
+
+    return new AIQueryResponse(true, { started: true });
+  } catch (error) {
+    return new AIQueryResponse(false, null, error.message);
+  }
+}
+
 async function handleGetModelStatus(_event, _payload) {
   try {
     const { app } = require('electron');
@@ -627,6 +651,23 @@ async function handleGetModelStatus(_event, _payload) {
     
     return new AIQueryResponse(true, {
       downloaded: downloader.isModelDownloaded(),
+      isDownloading: downloader.isDownloading,
+      progress: downloader.progress
+    });
+  } catch (error) {
+    return new AIQueryResponse(false, null, error.message);
+  }
+}
+
+async function handleGetGraphModelStatus(_event, _payload) {
+  try {
+    const { app } = require('electron');
+    const appDataDir = path.join(app.getPath('appData'), 'Notely');
+    const ModelDownloader = require('../../ai/embeddings/ModelDownloader');
+    const downloader = new ModelDownloader(appDataDir);
+    
+    return new AIQueryResponse(true, {
+      downloaded: downloader.isGraphModelDownloaded(),
       isDownloading: downloader.isDownloading,
       progress: downloader.progress
     });

@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Key, Save, Trash2, Zap, AlertCircle, Eye, EyeOff, Download, Database } from 'lucide-react';
+import { Save, Trash2, Zap, AlertCircle, Eye, EyeOff, Download, Database } from 'lucide-react';
 import AppInput from './AppInput';
 import AppSelect from './AppSelect';
 import "../styles/AISettings.css";
 import OverlayDialog from './OverlayDialog';
+import KnowledgeGraphSettings from './KnowledgeGraphSettings';
 import {
   aiClearData,
   aiGetApiKey,
@@ -429,6 +430,25 @@ export const AISettingsContent = ({ _onClose }) => {
           <button
             type="button"
             role="tab"
+            aria-selected={activeSubTab === "graph"}
+            className={`ai-subtab-btn ${activeSubTab === "graph" ? "active" : ""}`}
+            style={{
+              background: "transparent",
+              border: "none",
+              borderBottom: activeSubTab === "graph" ? "2px solid var(--accent-solid)" : "2px solid transparent",
+              color: activeSubTab === "graph" ? "var(--text-strong)" : "var(--text-muted)",
+              padding: "4px 8px",
+              cursor: "pointer",
+              fontWeight: "600",
+              fontSize: "0.85rem"
+            }}
+            onClick={() => setActiveSubTab("graph")}
+          >
+            Knowledge Graph
+          </button>
+          <button
+            type="button"
+            role="tab"
             aria-selected={activeSubTab === "behavior"}
             className={`ai-subtab-btn ${activeSubTab === "behavior" ? "active" : ""}`}
             style={{
@@ -506,101 +526,148 @@ export const AISettingsContent = ({ _onClose }) => {
                   </div>
                 </div>
 
-                <div className="api-key-group compact" style={{ marginBottom: "8px" }}>
-                  <label htmlFor="api-key" style={{ fontSize: "11px" }}>
-                    {selectedProvider ? (selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1)) : 'API'} Key
-                  </label>
-                  <div className="api-key-combined-row" style={{ marginTop: "2px" }}>
-                    <div className="api-key-input-wrapper" style={{ position: "relative", flex: 1, minWidth: 0, display: "flex", alignItems: "center" }}>
-                      <AppInput
-                        id="api-key"
-                        type={showPlaintext ? "text" : "password"}
-                        className="api-key-input"
-                        placeholder="Enter API Key"
-                        value={showPlaintext ? plaintextKey : apiKey}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (showPlaintext) {
-                            setPlaintextKey(val);
-                          } else {
-                            setApiKey(val);
-                            setPlaintextKey(val);
-                          }
-                        }}
-                        disabled={loading}
-                        style={{ paddingRight: "26px", width: "100%" }}
-                      />
-                      <button
-                        className="api-key-toggle-eye"
-                        onClick={() => setShowPlaintext(!showPlaintext)}
-                        type="button"
-                        title={showPlaintext ? "Hide Key" : "Show Key"}
-                        style={{
-                          position: "absolute",
-                          right: "6px",
-                          background: "transparent",
-                          border: "none",
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          color: "var(--text-muted)",
-                          padding: "4px",
-                          outline: "none"
-                        }}
-                      >
-                        {showPlaintext ? <EyeOff size={14} /> : <Eye size={14} />}
-                      </button>
-                    </div>
-                    {(() => {
-                      const providerEntry = providers.find((p) => p.id === selectedProvider);
-                      const providerModels = normalizeProviderModels(providerEntry?.models);
-                      if (!providerModels.length) return null;
-                      return (
-                        <AppSelect
-                          id="provider-model"
-                          className="provider-model-select"
-                          value={selectedModel}
-                          onChange={async (e) => {
-                            const model = e.target.value;
-                            setSelectedModel(model);
-                            await aiSetProviderModel(selectedProvider, model);
+                {selectedProvider === 'local' ? (
+                  <div style={{ padding: "8px 10px", background: "var(--surface-muted)", borderRadius: "6px", border: "1px solid var(--border-soft)", marginBottom: "8px" }}>
+                    <h4 style={{ fontSize: "11px", fontWeight: "600", margin: "0 0 4px 0" }}>Local Model Status (Qwen GGUF)</h4>
+                    {modelStatus.downloaded ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--status-success-text)", fontSize: "11px" }}>
+                        <Database size={12} />
+                        <span>Qwen2.5-0.5B model is downloaded and ready offline.</span>
+                      </div>
+                    ) : modelStatus.isDownloading ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px" }}>
+                          <span>Downloading local weights...</span>
+                          <span>{modelStatus.progress}%</span>
+                        </div>
+                        <div style={{ width: "100%", height: "4px", background: "var(--border-soft)", borderRadius: "2px", overflow: "hidden" }}>
+                          <div style={{ width: `${modelStatus.progress}%`, height: "100%", background: "var(--accent-solid)" }}></div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                        <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>Qwen model not found. Click the button below or go to Knowledge Graph tab to download.</span>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={async () => {
+                            try {
+                              const { aiDownloadGraphModel } = await import('../services/electronService');
+                              const res = await aiDownloadGraphModel();
+                              if (res.success) {
+                                setModelStatus(prev => ({ ...prev, isDownloading: true, progress: 0 }));
+                              }
+                            } catch (err) {
+                              console.error(err);
+                            }
+                          }}
+                          style={{ display: "flex", gap: "6px", alignItems: "center", padding: "6px 12px", width: "fit-content" }}
+                        >
+                          <Download size={12} />
+                          <span>Download local model (400MB)</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="api-key-group compact" style={{ marginBottom: "8px" }}>
+                    <label htmlFor="api-key" style={{ fontSize: "11px" }}>
+                      {selectedProvider ? (selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1)) : 'API'} Key
+                    </label>
+                    <div className="api-key-combined-row" style={{ marginTop: "2px" }}>
+                      <div className="api-key-input-wrapper" style={{ position: "relative", flex: 1, minWidth: 0, display: "flex", alignItems: "center" }}>
+                        <AppInput
+                          id="api-key"
+                          type={showPlaintext ? "text" : "password"}
+                          className="api-key-input"
+                          placeholder="Enter API Key"
+                          value={showPlaintext ? plaintextKey : apiKey}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (showPlaintext) {
+                              setPlaintextKey(val);
+                            } else {
+                              setApiKey(val);
+                              setPlaintextKey(val);
+                            }
                           }}
                           disabled={loading}
+                          style={{ paddingRight: "26px", width: "100%" }}
+                        />
+                        <button
+                          className="api-key-toggle-eye"
+                          onClick={() => setShowPlaintext(!showPlaintext)}
+                          type="button"
+                          title={showPlaintext ? "Hide Key" : "Show Key"}
+                          style={{
+                            position: "absolute",
+                            right: "6px",
+                            background: "transparent",
+                            border: "none",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "var(--text-muted)",
+                            padding: "4px",
+                            outline: "none"
+                          }}
                         >
-                          {providerModels.map((m) => (
-                            <option key={m.id} value={m.id}>
-                              {m.note ? `${m.label} — ${m.note}` : m.label}
-                            </option>
-                          ))}
-                        </AppSelect>
-                      );
-                    })()}
-                    <button
-                      className="btn btn-primary"
-                      onClick={handleSaveAPIKey}
-                      disabled={loading || !(showPlaintext ? plaintextKey : apiKey)}
-                      type="button"
-                    >
-                      <Key size={12} /> Save
-                    </button>
-                    <button
-                      className="btn btn-secondary"
-                      onClick={handleTestConnection}
-                      disabled={loading || !(showPlaintext ? plaintextKey : apiKey)}
-                      type="button"
-                    >
-                      <Zap size={12} /> Test
-                    </button>
+                          {showPlaintext ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                      </div>
+                      {(() => {
+                        const providerEntry = providers.find((p) => p.id === selectedProvider);
+                        const providerModels = normalizeProviderModels(providerEntry?.models);
+                        if (!providerModels.length) return null;
+                        return (
+                          <AppSelect
+                            id="provider-model"
+                            className="provider-model-select"
+                            value={selectedModel}
+                            onChange={async (e) => {
+                              const model = e.target.value;
+                              setSelectedModel(model);
+                              await aiSetProviderModel(selectedProvider, model);
+                            }}
+                            disabled={loading}
+                          >
+                            {providerModels.map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {m.note ? `${m.label} — ${m.note}` : m.label}
+                              </option>
+                            ))}
+                          </AppSelect>
+                        );
+                      })()}
+                      <button
+                        className="btn btn-primary"
+                        onClick={handleSaveAPIKey}
+                        disabled={loading || !(showPlaintext ? plaintextKey : apiKey)}
+                        type="button"
+                      >
+                        <Save size={12} /> Save
+                      </button>
+                      <button
+                        className="btn btn-secondary"
+                        onClick={handleTestConnection}
+                        disabled={loading || !(showPlaintext ? plaintextKey : apiKey)}
+                        type="button"
+                      >
+                        <Zap size={12} /> Test
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {getCapabilityWarnings().length > 0 && (
                   <div className="ai-settings-capability-warnings" style={{ marginTop: "4px", marginBottom: "8px", display: "flex", flexDirection: "column", gap: "2px" }}>
                     {getCapabilityWarnings().map((warning, idx) => (
-                      <div key={idx} style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "11px", color: "var(--status-danger-text)" }}>
-                        <AlertCircle size={12} style={{ flexShrink: 0 }} />
-                        <span><strong>{warning.title}:</strong> {warning.message}</span>
+                      <div key={idx} style={{ display: "flex", gap: "6px", background: "var(--status-warning-bg)", border: "1px solid var(--status-warning-border)", borderRadius: "4px", padding: "6px" }}>
+                        <AlertCircle size={12} style={{ color: "var(--text-warning)" }} />
+                        <div style={{ display: "flex", flexDirection: "column" }}>
+                          <span style={{ fontSize: "10px", fontWeight: "600", color: "var(--text-strong)" }}>{warning.title}</span>
+                          <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>{warning.message}</span>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -612,40 +679,34 @@ export const AISettingsContent = ({ _onClose }) => {
           {activeSubTab === "embeddings" && (
             <section className="ai-settings-section ai-settings-setup-card">
               <div className="ai-settings-setup-head" style={{ marginBottom: "6px" }}>
-                <h3>Embeddings Configuration</h3>
+                <h3>Embeddings Setup</h3>
               </div>
 
-              <div className="preference-group compact" style={{ marginBottom: "8px", display: "flex", flexDirection: "column", gap: "2px" }}>
-                <label htmlFor="active-embedding-provider-select" style={{ fontSize: "11px" }}>Select Embedding Provider</label>
-                <div style={{ display: "flex", gap: "5px", alignItems: "center" }}>
+              <div className="preference-group compact" style={{ marginBottom: "8px" }}>
+                <label htmlFor="embedding-provider-select" style={{ fontSize: "11px" }}>Active Embedding Provider</label>
+                <div style={{ display: "flex", gap: "5px", alignItems: "center", marginTop: "2px" }}>
                   <AppSelect
-                    id="active-embedding-provider-select"
+                    id="embedding-provider-select"
                     value={preferences.embeddingProvider || 'internal'}
-                    onChange={(e) => {
-                      handlePreferenceChange('embeddingProvider', e.target.value);
-                    }}
+                    onChange={(e) => handlePreferenceChange('embeddingProvider', e.target.value)}
                     disabled={loading}
                     style={{ flex: 1 }}
                   >
-                    {(() => {
-                      const selectedProv = providers.find((p) => p.id === selectedProvider);
-                      const supportsEmbeddings = selectedProv?.capabilities?.embeddings;
-                      return supportsEmbeddings ? (
-                        <option value="provider">Active LLM Provider ({selectedProv?.name})</option>
-                      ) : null;
-                    })()}
-                    <option value="huggingface">HuggingFace API</option>
-                    <option value="internal">Local BGE Model (ONNX)</option>
+                    <option value="internal">Local Model (BGE ONNX)</option>
+                    <option value="huggingface">HuggingFace Inference API</option>
                   </AppSelect>
                   <button
                     className="btn btn-primary"
                     onClick={async () => {
                       try {
                         setLoading(true);
-                        const response = await aiSetPreferences(preferences);
+                        const response = await aiSetPreferences({
+                          ...preferences,
+                          embeddingProvider: preferences.embeddingProvider
+                        });
                         if (response.success) {
                           window.dispatchEvent(new CustomEvent('app:toast', {
-                            detail: { message: `Embedding provider set to ${preferences.embeddingProvider || 'internal'} and saved.`, type: 'success' }
+                            detail: { message: `Active embedding provider set to ${preferences.embeddingProvider === 'internal' ? 'Local Model' : 'HuggingFace'} and saved.`, type: 'success' }
                           }));
                         } else {
                           window.dispatchEvent(new CustomEvent('app:toast', {
@@ -776,6 +837,12 @@ export const AISettingsContent = ({ _onClose }) => {
                 </div>
               )}
             </section>
+          )}
+
+          {activeSubTab === "graph" && (
+            <div style={{ gridColumn: "1 / -1" }}>
+              <KnowledgeGraphSettings />
+            </div>
           )}
 
           {activeSubTab === "behavior" && (

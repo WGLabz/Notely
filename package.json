@@ -57,6 +57,7 @@
     "markdown-it": "^14.1.0",
     "markdown-table": "^3.0.4",
     "mermaid": "^11.6.0",
+    "node-llama-cpp": "^3.0.0-beta.4",
     "node-pty": "^1.1.0",
     "nspell": "^2.1.5",
     "onnxruntime-node": "^1.27.0",
@@ -128,7 +129,8 @@
     ],
     "asar": true,
     "asarUnpack": [
-      "node_modules/node-pty/**/*"
+      "node_modules/node-pty/**/*",
+      "node_modules/node-llama-cpp/**/*"
     ],
     "win": {
       "signAndEditExecutable": false,

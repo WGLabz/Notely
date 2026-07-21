@@ -80,11 +80,19 @@ contextBridge.exposeInMainWorld("notesApi", {
   aiResumeWorker: () => ipcRenderer.invoke("ai:worker:resume"),
   aiDownloadModel: () => ipcRenderer.invoke("ai:model:download"),
   aiGetModelStatus: () => ipcRenderer.invoke("ai:model:status"),
+  aiDownloadGraphModel: () => ipcRenderer.invoke("ai:graph-model:download"),
+  aiGetGraphModelStatus: () => ipcRenderer.invoke("ai:graph-model:status"),
   onModelDownloadProgress: (callback) => {
     if (typeof callback !== 'function') return () => {};
     const listener = (_event, payload) => callback(payload);
     ipcRenderer.on('ai:model:progress', listener);
     return () => ipcRenderer.removeListener('ai:model:progress', listener);
+  },
+  onGraphModelDownloadProgress: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('ai:graph-model:progress', listener);
+    return () => ipcRenderer.removeListener('ai:graph-model:progress', listener);
   },
   aiBuildGraph: (payload) => ipcRenderer.invoke("ai:graph:build", payload),
   aiGetGraph: (payload) => ipcRenderer.invoke("ai:graph:get", payload),
