@@ -13,31 +13,65 @@ Notely implements a local-first, offline-ready AI architecture designed for priv
 
 ## Architecture Blueprint
 
+The following diagram shows the full request path from UI through each layer to storage.
+
 ```mermaid
-graph TD
-    User([User Prompt]) --> QE[QueryExecutor]
-    QE --> AE[Agent Orchestrator]
-    AE --> TR[ToolRegistry]
-    
-    subgraph Retrievers [Context Engine]
-        SR[SemanticRetriever - Cosine JS]
-        GR[GraphRetriever - SQLite CTEs]
-        HR[HybridRetriever]
+flowchart TD
+    subgraph Renderer["Renderer Process (React / Vite)"]
+        direction LR
+        ACP["AIChatPanel"] & AIS["AISettings"] & EBP["EmbeddingsPage"] & KGV["KnowledgeGraph"]
+        UAI["useAIAssistant hook"]
     end
-    
-    AE --> HR
-    SR --> EDB[(ai-embeddings.db)]
-    GR --> GDB[(ai-graph.db)]
-    
-    subgraph Providers [Inference Layer]
-        ONNX[ONNXEmbedder - BGE-small]
-        HF[HuggingFace API - MiniLM]
-        LLM[LLMRegistry - Groq/Gemini/OpenAI]
-      end
-      
-    AE --> LLM
-    AE --> ONNX
-    AE --> HF
+
+    subgraph Preload["Preload Bridge (preload.cjs)"]
+        CB["window.electronAPI.ai.*"]
+    end
+
+    subgraph Handlers["AI IPC Handlers — aiHandlers.cjs"]
+        TRUST["Trusted Sender Guard"]
+        CHAN["55+ ipcMain.handle channels"]
+    end
+
+    subgraph AIService["AI Service — AIService.js (Singleton)"]
+        SW["Master Enable / Disable Switch"]
+        HOOKS["Note Save · Delete · Rename Hooks"]
+    end
+
+    subgraph Agent["Agent Orchestrator — Agent.js"]
+        direction LR
+        LR["LLMRegistry"] & ES["EmbeddingService"] & GS["GraphService"] & CE["ContextEngine"] & QE["QueryExecutor"]
+    end
+
+    subgraph Providers["Inference Providers"]
+        direction LR
+        GEM["GeminiProvider"] & GRQ["GroqProvider"] & OAI["OpenAICompatibleProvider"]
+        HFEP["HuggingFaceEmbeddingProvider"] & ONNXE["ONNXEmbedder (BGE-small)"]
+    end
+
+    subgraph Retrieval["Context Assembly"]
+        direction LR
+        SR["SemanticRetriever"] & GR["GraphRetriever"] & HR["HybridRetriever (RRF)"]
+    end
+
+    subgraph Storage["SQLite Storage — WAL Mode"]
+        direction LR
+        EMBDB[("ai-embeddings.db")] & GRDB[("ai-graph.db")] & MEMDB[("memory.db / personas.db")]
+    end
+
+    Renderer -->|"IPC · contextBridge"| Preload
+    Preload -->|"ipcMain.handle"| Handlers
+    Handlers --> AIService
+    AIService --> Agent
+
+    LR --> GEM & GRQ & OAI
+    ES --> HFEP & ONNXE
+
+    CE --> SR & GR
+    HR --> SR & GR
+
+    ES --> EMBDB
+    GS --> GRDB
+    CE --> MEMDB
 ```
 
 ---

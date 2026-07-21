@@ -111,7 +111,72 @@ The Electron main process (`electron/main.cjs` & `electron/lib/`) coordinates ap
 ### E. AI & Context Engine Subsystem (`aiService.cjs`)
 * **Vector Embeddings Engine (`EmbeddingDB.js`)**: Stores 384-dimensional `BGE-small` vector chunks in `{workspace}/.notes-app/ai-embeddings.db`. Features physical vector dimension validation (`verifyModelDimensions`) to prevent dimension mismatches.
 * **Knowledge Graph Subsystem (`GraphService.js`, `GraphDB.js`)**: Maps note relations, tags, mentions, Wikilinks, Images, Local Documents, and External URLs in `{workspace}/.notes-app/ai-graph.db`. Executes relation traversals via SQLite **Recursive Common Table Expressions (CTEs)**.
-* **Agent & Tool Orchestration**: Integrates with local ONNX runtime (`onnxruntime-node` / `onnxruntime-web`) and cloud LLMs (Gemini, Groq, OpenAI) using the Vercel AI SDK.
+* **Agent & Tool Orchestration**: Integrates with a local embedding runtime and cloud LLMs (Gemini, Groq, OpenAI) using the Vercel AI SDK.
+
+#### AI Layer Architecture
+
+The following diagram shows the full request path from the React UI through each layer to inference and storage:
+
+```mermaid
+flowchart TD
+    subgraph Renderer["Renderer Process (React / Vite)"]
+        direction LR
+        ACP["AIChatPanel"] & AIS["AISettings"] & EBP["EmbeddingsPage"] & KGV["KnowledgeGraph"]
+        UAI["useAIAssistant hook"]
+    end
+
+    subgraph Preload["Preload Bridge (preload.cjs)"]
+        CB["window.electronAPI.ai.*"]
+    end
+
+    subgraph Handlers["AI IPC Handlers — aiHandlers.cjs"]
+        TRUST["Trusted Sender Guard"]
+        CHAN["55+ ipcMain.handle channels"]
+    end
+
+    subgraph AIService["AI Service — AIService.js (Singleton)"]
+        SW["Master Enable / Disable Switch"]
+        HOOKS["Note Save · Delete · Rename Hooks"]
+    end
+
+    subgraph Agent["Agent Orchestrator — Agent.js"]
+        direction LR
+        LR["LLMRegistry"] & ES["EmbeddingService"] & GS["GraphService"] & CE["ContextEngine"] & QE["QueryExecutor"]
+    end
+
+    subgraph Providers["Inference Providers"]
+        direction LR
+        GEM["GeminiProvider"] & GRQ["GroqProvider"] & OAI["OpenAICompatibleProvider"]
+        HFEP["HuggingFaceEmbeddingProvider"] & LOEMB["Local Embedding Model"]
+    end
+
+    subgraph Retrieval["Context Assembly"]
+        direction LR
+        SR["SemanticRetriever"] & GR["GraphRetriever"] & HR["HybridRetriever (RRF)"]
+    end
+
+    subgraph Storage["SQLite Storage — WAL Mode"]
+        direction LR
+        EMBDB[("ai-embeddings.db")] & GRDB[("ai-graph.db")] & MEMDB[("memory.db / personas.db")]
+    end
+
+    Renderer -->|"IPC · contextBridge"| Preload
+    Preload -->|"ipcMain.handle"| Handlers
+    Handlers --> AIService
+    AIService --> Agent
+
+    LR --> GEM & GRQ & OAI
+    ES --> HFEP & LOEMB
+
+    CE --> SR & GR
+    HR --> SR & GR
+
+    ES --> EMBDB
+    GS --> GRDB
+    CE --> MEMDB
+```
+
+For a detailed walkthrough of each layer, see [AI Subsystem Architecture](/ai/architecture).
 
 ---
 
