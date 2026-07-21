@@ -18,6 +18,7 @@ import {
   aiGetHealth,
   aiGetGraphModelStatus,
   onGraphModelDownloadProgress,
+  aiDownloadModel,
   aiEnable,
   aiDisable
 } from '../services/electronService';

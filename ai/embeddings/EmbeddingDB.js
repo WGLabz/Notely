@@ -317,7 +317,7 @@ class EmbeddingDB {
     }
   }
 
-  verifyModelDimensions(activeModelName) {
+  verifyModelDimensions(_activeModelName) {
     if (!this.db) return;
     try {
       // Check stored vector byte length to verify 384-dim size

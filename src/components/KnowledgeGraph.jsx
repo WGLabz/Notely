@@ -12,7 +12,6 @@ import '@xyflow/react/dist/style.css';
 import { Search, RefreshCw, Layers, ShieldAlert, Database } from 'lucide-react';
 import { aiGetGraph, aiBuildGraph, aiGetGraphStatus, aiGetLogs, aiClearGraphData, aiGetPreferences, aiGetGraphModelStatus } from '../services/electronService';
 
-import dagre from 'dagre';
 import * as d3Force from 'd3-force';
 import '../styles/KnowledgeGraph.css';
 
@@ -338,6 +337,14 @@ export default function KnowledgeGraph({ onBack }) {
         style: {
           ...edge.style,
           display: isVisible ? 'block' : 'none',
+          opacity
+        },
+        labelStyle: {
+          ...edge.labelStyle,
+          opacity
+        },
+        labelBgStyle: {
+          ...edge.labelBgStyle,
           opacity
         }
       };

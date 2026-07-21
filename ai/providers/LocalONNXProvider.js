@@ -19,7 +19,7 @@ Module._load = function(request, parent) {
   if (request === 'onnxruntime-node' || request.includes('onnxruntime-node')) {
     try {
       return originalLoad.apply(this, arguments);
-    } catch (err) {
+    } catch {
       console.warn('[LocalONNXProvider] Intercepting broken onnxruntime-node, redirecting to onnxruntime-web (WASM)');
       const webOrt = require('onnxruntime-web');
       
@@ -56,7 +56,7 @@ class LocalONNXProvider extends LLMProvider {
       try {
         const { app } = require('electron');
         appDataDir = path.join(app.getPath('appData'), 'Notely');
-      } catch (e) {
+      } catch {
         appDataDir = path.join(process.env.APPDATA || process.env.HOME || '', 'Notely');
       }
     }
@@ -170,7 +170,7 @@ class LocalONNXProvider extends LLMProvider {
   }
 
   // Graph/Relationship Extraction interface
-  async extractGraph(content, filePath) {
+  async extractGraph(content, _filePath) {
     const prompt = `Extract all entities and relationships from the text below. Return ONLY a valid JSON object.
 Text: ${content}`;
 
