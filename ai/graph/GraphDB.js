@@ -194,7 +194,7 @@ class GraphDB {
     try {
       this.db.exec('BEGIN; DELETE FROM relationships; DELETE FROM entities; COMMIT;');
     } catch (err) {
-      try { this.db.exec('ROLLBACK'); } catch {}
+      try { this.db.exec('ROLLBACK'); } catch { /* ignore rollback error */ }
       log.error('Failed to clear graph database:', err.message);
     }
   }

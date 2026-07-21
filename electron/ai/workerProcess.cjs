@@ -2,6 +2,8 @@
  * workerProcess.cjs - Background worker process for ONNX embeddings generation and indexing
  */
 
+const path = require('path');
+
 let embeddingDb = null;
 let indexWorker = null;
 let queue = null;
@@ -28,7 +30,6 @@ if (process.parentPort) {
         const localProvider = new ONNXEmbedder(appDataDir);
         await localProvider.load();
 
-        // Verify model dimensions to prevent cached dimension mismatch
         const activeModelName = localProvider.model || localProvider.name || 'local-bge-small';
         embeddingDb.verifyModelDimensions(activeModelName);
 

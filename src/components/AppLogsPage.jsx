@@ -6,7 +6,6 @@ import '../styles/KnowledgeGraph.css';
 
 export default function AppLogsPage({ onBack }) {
   const [logs, setLogs] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [subsystemFilter, setSubsystemFilter] = useState('all');
   const [levelFilter, setLevelFilter] = useState('all');
@@ -14,7 +13,6 @@ export default function AppLogsPage({ onBack }) {
 
   const fetchLogs = useCallback(async () => {
     try {
-      setLoading(true);
       const sub = subsystemFilter === 'all' ? null : subsystemFilter;
       const res = await aiGetLogs(sub, 200);
       if (res && res.success && Array.isArray(res.data)) {
@@ -22,8 +20,6 @@ export default function AppLogsPage({ onBack }) {
       }
     } catch (err) {
       console.error('Failed to fetch application logs:', err);
-    } finally {
-      setLoading(false);
     }
   }, [subsystemFilter]);
 
@@ -66,7 +62,7 @@ export default function AppLogsPage({ onBack }) {
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(filteredLogs, null, 2));
       const downloadAnchor = document.createElement('a');
       downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", `notely-system-logs-${new Date().toISOString().slice(0,10)}.json`);
+      downloadAnchor.setAttribute("download", `notely-system-logs-${new Date().toISOString().slice(0, 10)}.json`);
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
       downloadAnchor.remove();
@@ -93,7 +89,7 @@ export default function AppLogsPage({ onBack }) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', background: 'var(--surface-elevated)', padding: '10px 16px', borderRadius: '8px', border: '1px solid var(--border-soft)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '280px' }}>
             <div className="kg-search-wrapper" style={{ flex: 1, margin: 0, height: '32px', display: 'flex', alignItems: 'center' }}>
-              <Search size={15} className="kg-search-icon" />
+              <Search size={16} className="kg-search-icon" />
               <input
                 type="text"
                 className="kg-search-input"
@@ -138,7 +134,7 @@ export default function AppLogsPage({ onBack }) {
               onClick={() => setAutoRefresh(!autoRefresh)}
               style={{ height: '32px', boxSizing: 'border-box', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '0 12px' }}
             >
-              <RefreshCw size={13} className={autoRefresh ? 'spin' : ''} />
+              <RefreshCw size={14} className={autoRefresh ? 'spin' : ''} />
               <span>{autoRefresh ? 'Live Auto-Refresh' : 'Paused'}</span>
             </button>
 
@@ -147,7 +143,7 @@ export default function AppLogsPage({ onBack }) {
               onClick={handleExport}
               style={{ height: '32px', boxSizing: 'border-box', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '0 12px' }}
             >
-              <Download size={13} />
+              <Download size={14} />
               <span>Export</span>
             </button>
 
@@ -156,7 +152,7 @@ export default function AppLogsPage({ onBack }) {
               onClick={handleClear}
               style={{ height: '32px', boxSizing: 'border-box', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '0 12px', color: 'var(--text-danger)' }}
             >
-              <Trash2 size={13} />
+              <Trash2 size={14} />
               <span>Clear</span>
             </button>
           </div>
@@ -188,7 +184,7 @@ export default function AppLogsPage({ onBack }) {
             })
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, color: 'var(--text-muted)', gap: '8px' }}>
-              <Terminal size={24} />
+              <Terminal size={20} />
               <span>No system logs match the active filter criteria.</span>
             </div>
           )}

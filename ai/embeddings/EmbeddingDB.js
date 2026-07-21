@@ -320,7 +320,15 @@ class EmbeddingDB {
   verifyModelDimensions(activeModelName) {
     if (!this.db) return;
     try {
-      // Check stored vector byte length to verify 384-dim size instead of raw string name comparison
+      if (activeModelName) {
+        const row = this.db.prepare('SELECT embedding_model FROM chunks WHERE embedding_model IS NOT NULL LIMIT 1').get();
+        if (row && row.embedding_model && row.embedding_model !== activeModelName) {
+          log.warn(`Embedding model changed from ${row.embedding_model} to ${activeModelName}. Clearing chunks table.`);
+          this.clearAllData();
+          return;
+        }
+      }
+      // Check stored vector byte length to verify 384-dim size
       const row = this.db.prepare('SELECT embedding FROM chunks WHERE embedding IS NOT NULL LIMIT 1').get();
       if (row && row.embedding) {
         const buf = row.embedding instanceof Buffer ? row.embedding : Buffer.from(row.embedding);

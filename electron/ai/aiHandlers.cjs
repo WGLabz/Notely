@@ -1212,7 +1212,7 @@ function getLogDbInstance() {
   const workspaceRoot = aiService.workspaceRoot;
   if (!workspaceRoot) return null;
   if (!_logDbInstance || _logDbInstance.workspaceRoot !== workspaceRoot) {
-    if (_logDbInstance) try { _logDbInstance.close(); } catch {}
+    if (_logDbInstance) try { _logDbInstance.close(); } catch { /* ignore */ }
     const LogDB = require('../../ai/logs/LogDB');
     _logDbInstance = new LogDB(workspaceRoot);
     _logDbInstance.initialize();

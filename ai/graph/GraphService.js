@@ -133,7 +133,7 @@ ${content}
       }
 
       // 4. Extract Document Attachments & External URLs: [label](path_or_url)
-      const linkRegex = /(?<!\!)\[(.*?)\]\((.*?)\)/g;
+      const linkRegex = /(?<![[![])\[(.*?)\]\((.*?)\)/g;
       while ((match = linkRegex.exec(content)) !== null) {
         const label = match[1].trim();
         const href = match[2].trim();
