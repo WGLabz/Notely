@@ -9,7 +9,7 @@ import {
   Position
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Search, RefreshCw, Layers, ShieldAlert, Database, Pause, Play } from 'lucide-react';
+import { Search, RefreshCw, Layers, ShieldAlert, Database, Pause, Play, CheckSquare, Square, Trash2, RotateCw } from 'lucide-react';
 import {
   aiGetGraph,
   aiBuildGraph,
@@ -58,12 +58,42 @@ const TYPE_COLORS = {
   Company: { background: 'var(--kg-company-bg)', border: 'var(--kg-company-border)', text: 'var(--kg-company-border)' },
   Concept: { background: 'var(--kg-concept-bg)', border: 'var(--kg-concept-border)', text: 'var(--kg-concept-border)' },
   Task: { background: 'var(--kg-task-bg)', border: 'var(--kg-task-border)', text: 'var(--kg-task-border)' },
-  Image: { background: 'var(--kg-image-bg, #f0fdf4)', border: 'var(--kg-image-border, #16a34a)', text: '#16a34a' },
-  Document: { background: 'var(--kg-doc-bg, #fefce8)', border: 'var(--kg-doc-border, #ca8a04)', text: '#ca8a04' },
-  ExternalURL: { background: 'var(--kg-url-bg, #faf5ff)', border: 'var(--kg-url-border, #9333ea)', text: '#9333ea' }
+  Image: { background: 'var(--kg-image-bg)', border: 'var(--kg-image-border)', text: 'var(--kg-image-border)' },
+  Document: { background: 'var(--kg-doc-bg)', border: 'var(--kg-doc-border)', text: 'var(--kg-doc-border)' },
+  ExternalURL: { background: 'var(--kg-url-bg)', border: 'var(--kg-url-border)', text: 'var(--kg-url-border)' }
 };
 
-const DEFAULT_COLOR = { background: 'var(--surface-muted)', border: 'var(--border-default)', text: 'var(--text-muted)' };
+const DEFAULT_COLOR = { background: 'var(--kg-default-bg)', border: 'var(--kg-default-border)', text: 'var(--text-strong)' };
+
+const RELATIONSHIP_COLORS = {
+  // Semantic / LLM Relationships
+  DEPENDS_ON: '#f59e0b',       // Amber
+  USES: '#06b6d4',             // Cyan
+  REFERENCES: '#6366f1',       // Indigo
+  CONTAINS: '#10b981',         // Emerald
+  HAS: '#10b981',              // Emerald
+  MENTIONS: '#8b5cf6',         // Purple
+  CREATED_BY: '#f43f5e',       // Rose
+  OWNED_BY: '#f43f5e',         // Rose
+
+  // Structural Note Graph Relationships
+  LINKS_TO: '#6366f1',         // Indigo
+  TAGGED: '#ec4899',           // Pink
+  CONTAINS_MEDIA: '#10b981',   // Emerald
+  REFERENCES_URL: '#3b82f6',   // Blue
+  ATTACHES_FILE: '#eab308',    // Yellow
+  CONTAINS_CODE: '#06b6d4',    // Cyan
+  CONTAINS_SECTION: '#14b8a6', // Teal
+  EMPHASIZES: '#f97316',       // Orange
+  REFERENCES_CODE: '#0284c7',  // Sky Blue
+  HAS_CALLOUT: '#a855f7',      // Violet
+  CONTAINS_FORMULA: '#d946ef', // Fuchsia
+  HAS_OPEN_TASK: '#ef4444',    // Red
+  HAS_COMPLETED_TASK: '#22c55e',// Green
+  MENTIONS_NOTE: '#8b5cf6',    // Purple
+  RELATED_TO: '#8b5cf6',       // Purple
+  DEFAULT: '#06b6d4'           // Vibrant Cyan fallback
+};
 
 export default function KnowledgeGraph({ onBack }) {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -220,20 +250,21 @@ export default function KnowledgeGraph({ onBack }) {
         });
 
         const formattedEdges = relationships.map((rel) => {
-          const edgeColor = 'var(--text-subtle)';
+          const relTypeUpper = String(rel.type || 'RELATION').toUpperCase();
+          const relColor = RELATIONSHIP_COLORS[relTypeUpper] || RELATIONSHIP_COLORS.DEFAULT;
           return {
             id: `edge-${rel.id}-${rel.source_id}-${rel.target_id}`,
             source: rel.source_id,
             target: rel.target_id,
             label: rel.type,
             type: 'smoothstep',
-            style: { stroke: 'var(--border-soft)', strokeWidth: 1.5, transition: 'opacity var(--motion-standard)' },
-            labelStyle: { fill: 'var(--text-strong)', fontSize: 7, fontWeight: 700 },
-            labelBgStyle: { fill: 'var(--surface-bg)', stroke: 'var(--border-default)', strokeWidth: 1, fillOpacity: 0.9 },
-            labelBgPadding: [2, 4],
-            labelBgBorderRadius: 3,
-            markerEnd: { type: 'arrowclosed', color: edgeColor, width: 10, height: 10 },
-            animated: rel.type === 'DEPENDS_ON' || rel.type === 'USES'
+            style: { stroke: relColor, strokeWidth: 1.8, transition: 'opacity var(--motion-standard)' },
+            labelStyle: { fill: 'var(--text-strong)', fontSize: 8, fontWeight: 700 },
+            labelBgStyle: { fill: 'var(--surface-bg)', stroke: relColor, strokeWidth: 1, fillOpacity: 0.95 },
+            labelBgPadding: [3, 5],
+            labelBgBorderRadius: 4,
+            markerEnd: { type: 'arrowclosed', color: relColor, width: 12, height: 12 },
+            animated: relTypeUpper === 'DEPENDS_ON' || relTypeUpper === 'USES'
           };
         });
 
@@ -258,6 +289,14 @@ export default function KnowledgeGraph({ onBack }) {
     const unsubscribe = onGraphProgress((payload) => {
       if (payload) {
         setGraphStatus(prev => ({ ...prev, ...payload }));
+        
+        // Refresh logs in real-time on progress events
+        aiGetLogs('graph', 50).then((logsRes) => {
+          if (logsRes && logsRes.success && Array.isArray(logsRes.data)) {
+            setGraphLogs(logsRes.data);
+          }
+        }).catch(() => {});
+
         if (!payload.isBuilding && isRebuilding) {
           setIsRebuilding(false);
           setShowProgressModal(false);
@@ -347,24 +386,25 @@ export default function KnowledgeGraph({ onBack }) {
     });
 
     const visibleNodeIds = new Set(visibleNodes.filter(n => n.style.display !== 'none').map(n => n.id));
-    const visibleEdges = edges.map(edge => {
-      const isVisible = visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target);
-      let opacity = 1;
-      if (isVisible && hoveredNodeId) {
-        const connectsHovered = edge.source === hoveredNodeId || edge.target === hoveredNodeId;
-        opacity = connectsHovered ? 1 : 0.1;
-      }
-      return {
-        ...edge,
-        style: { ...edge.style, display: isVisible ? 'block' : 'none', opacity },
-        labelStyle: { ...edge.labelStyle, opacity },
-        labelBgStyle: { ...edge.labelBgStyle, opacity }
-      };
-    });
+    const visibleEdges = edges
+      .filter(edge => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target))
+      .map(edge => {
+        let opacity = 1;
+        if (hoveredNodeId) {
+          const connectsHovered = edge.source === hoveredNodeId || edge.target === hoveredNodeId;
+          opacity = connectsHovered ? 1 : 0.15;
+        }
+        return {
+          ...edge,
+          style: { ...edge.style, opacity },
+          labelStyle: { ...edge.labelStyle, opacity },
+          labelBgStyle: { ...edge.labelBgStyle, opacity }
+        };
+      });
 
     return {
       filteredNodes: visibleNodes.filter(n => n.style.display !== 'none'),
-      filteredEdges: visibleEdges.filter(e => e.style.display !== 'none')
+      filteredEdges: visibleEdges
     };
   }, [nodes, edges, searchQuery, selectedTypes, hoveredNodeId]);
 
@@ -459,20 +499,63 @@ export default function KnowledgeGraph({ onBack }) {
             {graphStatus.isPaused ? <Play size={12} /> : <Pause size={12} />}
             <span>{graphStatus.isPaused ? 'Resume Worker' : 'Pause Worker'}</span>
           </button>
+
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={loadGraphData}
+            disabled={loading}
+            style={{ display: 'flex', alignItems: 'center', gap: '4px', height: '32px', padding: '0 10px', fontSize: '11px' }}
+            title="Reload Knowledge Graph data from cache"
+          >
+            <RotateCw size={12} className={loading ? 'spin' : ''} />
+            <span>Reload Data</span>
+          </button>
         </div>
 
         {/* Main Body */}
         <div className="kg-body">
           {/* Sidebar */}
-          <div className="kg-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ flex: 1, overflowY: 'auto' }}>
+          <div className="kg-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: 0, height: '100%' }}>
+            <div className="kg-sidebar-section-scroll" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px', padding: '10px' }}>
               {/* Entity Types Checklist */}
-              <div className="kg-sidebar-section" style={{ background: 'var(--surface-elevated)', padding: '14px', borderRadius: '8px', border: '1px solid var(--border-soft)', display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-                <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', margin: 0, fontWeight: 600 }}>
-                  <Layers size={12} />
-                  Entity Types
-                </h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div className="kg-sidebar-section" style={{ background: 'var(--surface-elevated)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-soft)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <h4 style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', margin: 0, fontWeight: 600 }}>
+                    <Layers size={11} />
+                    Entity Types
+                  </h4>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <button
+                      className="btn btn-tertiary"
+                      onClick={() => {
+                        const typesInGraph = new Set(nodes.map(n => n.data?.raw?.type || 'Entity'));
+                        const allKnown = new Set([...Object.keys(TYPE_COLORS), ...typesInGraph]);
+                        const next = {};
+                        allKnown.forEach(k => { next[k] = true; });
+                        setSelectedTypes(next);
+                      }}
+                      style={{ padding: '2px 5px', fontSize: '9px', height: '18px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}
+                    >
+                      <CheckSquare size={10} />
+                      All
+                    </button>
+                    <button
+                      className="btn btn-tertiary"
+                      onClick={() => {
+                        const typesInGraph = new Set(nodes.map(n => n.data?.raw?.type || 'Entity'));
+                        const allKnown = new Set([...Object.keys(TYPE_COLORS), ...typesInGraph]);
+                        const next = {};
+                        allKnown.forEach(k => { next[k] = false; });
+                        setSelectedTypes(next);
+                      }}
+                      style={{ padding: '2px 5px', fontSize: '9px', height: '18px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}
+                    >
+                      <Square size={10} />
+                      None
+                    </button>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   {(() => {
                     const getTypeColor = (type) => {
                       if (TYPE_COLORS[type]) return TYPE_COLORS[type];
@@ -490,24 +573,30 @@ export default function KnowledgeGraph({ onBack }) {
 
                     const typesInGraph = new Set(nodes.map(n => n.data?.raw?.type || 'Entity'));
                     const allTypesSet = new Set([...Object.keys(TYPE_COLORS), ...typesInGraph]);
-                    const sortedTypes = Array.from(allTypesSet).sort((a, b) => {
-                      const countA = nodes.filter(n => (n.data?.raw?.type || 'Entity') === a).length;
-                      const countB = nodes.filter(n => (n.data?.raw?.type || 'Entity') === b).length;
-                      return countB - countA;
-                    });
+                    const activeTypes = Array.from(allTypesSet)
+                      .filter(type => nodes.some(n => (n.data?.raw?.type || 'Entity') === type))
+                      .sort((a, b) => {
+                        const countA = nodes.filter(n => (n.data?.raw?.type || 'Entity') === a).length;
+                        const countB = nodes.filter(n => (n.data?.raw?.type || 'Entity') === b).length;
+                        return countB - countA;
+                      });
 
-                    return sortedTypes.map(type => {
+                    if (activeTypes.length === 0) {
+                      return <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No entities extracted yet.</span>;
+                    }
+
+                    return activeTypes.map(type => {
                       const color = getTypeColor(type);
                       const count = nodes.filter(n => (n.data?.raw?.type || 'Entity') === type).length;
                       return (
-                        <label key={type} className="kg-filter-checkbox" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', cursor: 'pointer', padding: '2px 0' }}>
+                        <label key={type} className="kg-filter-checkbox" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', cursor: 'pointer', padding: '1px 0' }}>
                           <input
                             type="checkbox"
                             checked={selectedTypes[type] !== false}
                             onChange={() => handleTypeToggle(type)}
                           />
                           <span className="kg-filter-color-dot" style={{ width: '6px', height: '6px', borderRadius: '50%', background: color.border }}></span>
-                          <span style={{ fontWeight: selectedTypes[type] ? 600 : 400, color: selectedTypes[type] ? 'var(--text-strong)' : 'var(--text-secondary)' }}>{type} ({count})</span>
+                          <span style={{ fontWeight: selectedTypes[type] !== false ? 600 : 400, color: selectedTypes[type] !== false ? 'var(--text-strong)' : 'var(--text-secondary)' }}>{type} ({count})</span>
                         </label>
                       );
                     });
@@ -515,23 +604,52 @@ export default function KnowledgeGraph({ onBack }) {
                 </div>
               </div>
 
+              {/* Compact Relationship & Arrow Legend */}
+              <div className="kg-sidebar-section" style={{ background: 'var(--surface-elevated)', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border-soft)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <h4 style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', margin: 0, fontWeight: 600 }}>
+                    Arrow & Colors
+                  </h4>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '9px', fontFamily: 'monospace', background: 'var(--surface-muted)', padding: '1px 6px', borderRadius: '4px', border: '1px solid var(--border-soft)', color: 'var(--text-muted)' }}>
+                    <span>Source</span>
+                    <span style={{ color: 'var(--accent-solid)', fontWeight: 'bold' }}>──►</span>
+                    <span>Target</span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 6px', marginTop: '2px' }}>
+                  {[
+                    { label: 'LINKS', color: RELATIONSHIP_COLORS.LINKS_TO },
+                    { label: 'DEPENDS', color: RELATIONSHIP_COLORS.DEPENDS_ON },
+                    { label: 'USES', color: RELATIONSHIP_COLORS.USES },
+                    { label: 'CONTAINS', color: RELATIONSHIP_COLORS.CONTAINS },
+                    { label: 'MENTIONS', color: RELATIONSHIP_COLORS.MENTIONS_NOTE },
+                    { label: 'TAGGED', color: RELATIONSHIP_COLORS.TAGGED },
+                    { label: 'URL', color: RELATIONSHIP_COLORS.REFERENCES_URL },
+                  ].map(item => (
+                    <span key={item.label} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '9px', fontWeight: 600, padding: '2px 5px', borderRadius: '4px', background: `${item.color}15`, border: `1px solid ${item.color}45`, color: 'var(--text-strong)' }}>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: item.color, display: 'inline-block' }} />
+                      {item.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
               {/* Extraction Logs Panel */}
-              <div className="kg-sidebar-section" style={{ background: 'var(--surface-elevated)', padding: '14px', borderRadius: '8px', border: '1px solid var(--border-soft)', display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-                <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', margin: 0, fontWeight: 600 }}>
+              <div className="kg-sidebar-section" style={{ background: 'var(--surface-elevated)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-soft)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <h4 style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', margin: 0, fontWeight: 600 }}>
                   Extraction Logs
                 </h4>
                 <div style={{
-                  maxHeight: '130px',
-                  overflowY: 'auto',
                   background: 'var(--surface-muted)',
-                  borderRadius: '6px',
-                  padding: '8px',
+                  borderRadius: '4px',
+                  padding: '6px',
                   border: '1px solid var(--border-soft)',
                   fontFamily: 'monospace',
                   fontSize: '9px',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '4px'
+                  gap: '3px'
                 }}>
                   {graphLogs.length > 0 ? (
                     graphLogs.slice(0, 10).map((logItem, i) => (
@@ -541,35 +659,36 @@ export default function KnowledgeGraph({ onBack }) {
                       </div>
                     ))
                   ) : (
-                    <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No extraction logs yet.</span>
+                    <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No logs yet.</span>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Actions Panel */}
-            <div className="kg-sidebar-section" style={{ background: 'var(--surface-elevated)', padding: '14px', borderRadius: '8px', border: '1px solid var(--border-soft)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {/* Actions Panel - Rebuild & Clear on single row */}
+            <div className="kg-sidebar-section" style={{ background: 'var(--surface-elevated)', padding: '10px', borderTop: '1px solid var(--border-soft)', display: 'flex', gap: '6px' }}>
               <button
-                className="btn btn-primary btn-icon-label"
+                className="btn btn-primary btn-sm"
                 onClick={handleRebuild}
                 disabled={loading || graphStatus.isBuilding}
-                style={{ width: '100%', justifyContent: 'center', height: '32px', fontSize: '11px' }}
+                style={{ flex: 1, justifyContent: 'center', height: '26px', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px', padding: '0 6px' }}
               >
-                <RefreshCw size={12} className={graphStatus.isBuilding ? 'spin' : ''} />
-                <span>{graphStatus.isBuilding ? 'Building Graph...' : 'Rebuild Knowledge Graph'}</span>
+                <RefreshCw size={11} className={graphStatus.isBuilding ? 'spin' : ''} />
+                <span>{graphStatus.isBuilding ? 'Building...' : 'Rebuild'}</span>
               </button>
 
               <button
-                className="btn btn-secondary"
+                className="btn btn-secondary btn-sm"
                 onClick={async () => {
                   if (window.confirm('Clear all Knowledge Graph entities and relationships from cache?')) {
                     await aiClearGraphData();
                     loadGraphData();
                   }
                 }}
-                style={{ width: '100%', justifyContent: 'center', height: '28px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', color: 'var(--text-danger)' }}
+                style={{ flex: 1, justifyContent: 'center', height: '26px', fontSize: '10px', color: 'var(--text-danger)', display: 'flex', alignItems: 'center', gap: '4px', padding: '0 6px' }}
               >
-                <span>Clear Knowledge Graph Data</span>
+                <Trash2 size={11} />
+                <span>Clear Data</span>
               </button>
             </div>
 

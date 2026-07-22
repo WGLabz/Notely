@@ -102,6 +102,14 @@
   --kg-concept-border: #7c3aed;
   --kg-task-bg: #fef2f2;
   --kg-task-border: #dc2626;
+  --kg-image-bg: #f0fdf4;
+  --kg-image-border: #16a34a;
+  --kg-doc-bg: #fefce8;
+  --kg-doc-border: #ca8a04;
+  --kg-url-bg: #faf5ff;
+  --kg-url-border: #9333ea;
+  --kg-default-bg: #f3f4f6;
+  --kg-default-border: #6b7280;
 
   color: var(--app-text);
   background: var(--app-bg);
@@ -186,6 +194,14 @@
   --kg-concept-border: #a78bfa;
   --kg-task-bg: #7f1d1d;
   --kg-task-border: #f87171;
+  --kg-image-bg: #052e16;
+  --kg-image-border: #4ade80;
+  --kg-doc-bg: #451a03;
+  --kg-doc-border: #facc15;
+  --kg-url-bg: #3b0764;
+  --kg-url-border: #c084fc;
+  --kg-default-bg: #1f2937;
+  --kg-default-border: #9ca3af;
 
   color: var(--app-text);
   background: var(--app-bg);

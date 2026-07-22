@@ -107,6 +107,11 @@ if (process.parentPort) {
         });
 
         graphWorker.registerProgressCallback((progressPayload) => {
+          if (progressPayload && progressPayload.noteName) {
+            try {
+              logDb.addLog('graph', `Extracted graph entities from: ${progressPayload.noteName}`, 'info');
+            } catch { /* ignore */ }
+          }
           process.parentPort.postMessage({ type: 'graphProgress', payload: progressPayload });
         });
 

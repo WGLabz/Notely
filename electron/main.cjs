@@ -439,6 +439,7 @@ function resolveInitialNotesRoot() {
 }
 
 function applyNotesRoot(nextRootPath) {
+  const previousNotesRoot = notesRoot;
   notesRoot = path.resolve(nextRootPath);
   appDataDir = path.join(notesRoot, ".notes-app");
   versionsRoot = path.join(appDataDir, "versions");
@@ -466,6 +467,13 @@ function applyNotesRoot(nextRootPath) {
     cleanupLegacyInTreeThumbnails(notesRoot);
   } catch (error) {
     console.warn("[startup] Unable to clean up legacy thumbnails folder:", error?.message || error);
+  }
+
+  if (previousNotesRoot && previousNotesRoot !== notesRoot) {
+    console.log(`[Workspace Switch] Re-initializing AI subsystem for new workspace root: ${notesRoot}`);
+    initializeAIForWorkspace().catch((err) => {
+      console.error("[Workspace Switch] Failed to re-initialize AI subsystem:", err?.message || err);
+    });
   }
 
   metadataStore = createMetadataStore({

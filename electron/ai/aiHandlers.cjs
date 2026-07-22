@@ -778,9 +778,17 @@ async function handleBuildGraph(_event, _payload) {
       throw new Error('AI agent is disabled or not initialized');
     }
 
+    const LogDB = require('../../ai/logs/LogDB');
+    const logDb = new LogDB(aiService.agent.workspaceRoot);
+    logDb.initialize();
+    logDb.addLog('graph', 'Starting Knowledge Graph rebuild...', 'info');
+
     const workerManager = require('./workerManager.cjs');
     const docs = aiService.agent.documentService.getAllDocuments();
     const workspaceFiles = docs.map(d => d.path || d.filePath).filter(Boolean);
+
+    logDb.addLog('graph', `Enqueued ${workspaceFiles.length} notes for entity extraction`, 'info');
+    logDb.close();
 
     if (workerManager) {
       const activeProvider = aiService.agent.llmRegistry?.getActiveProvider();

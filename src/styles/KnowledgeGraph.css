@@ -86,11 +86,35 @@
   background: var(--surface-elevated);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+}
+
+.kg-sidebar-section-scroll {
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.2s ease;
+}
+
+.kg-sidebar-section-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.kg-sidebar-section-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 4px;
+}
+
+.kg-sidebar-section-scroll:hover {
+  scrollbar-color: var(--border-soft) transparent;
+}
+
+.kg-sidebar-section-scroll:hover::-webkit-scrollbar-thumb {
+  background: var(--border-soft);
 }
 
 .kg-sidebar-section {
-  padding: 16px;
+  padding: 12px;
   border-bottom: 1px solid var(--border-default);
 }
 
@@ -271,10 +295,114 @@
 }
 
 /* Force React Flow default nodes to be clean, padding-free, flex-centered squares */
-.react-flow__node-default {
+.react-flow__node-default,
+.react-flow__node {
   padding: 0 !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   border-radius: var(--radius-lg) !important;
+  color: var(--text-strong) !important;
+}
+
+/* Fix white background box bug in dark mode */
+:root[data-theme="dark"] .react-flow__node-default,
+:root[data-theme="dark"] .react-flow__node {
+  background-color: var(--surface-bg) !important;
+  color: var(--text-strong) !important;
+}
+
+/* Unified Application Button Styles for Knowledge Graph */
+.knowledge-graph-page button,
+.knowledge-graph-container .btn {
+  font-family: inherit;
+  border-radius: var(--radius-md, 6px);
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color var(--motion-standard, 0.15s ease), border-color var(--motion-standard, 0.15s ease), color var(--motion-standard, 0.15s ease), box-shadow var(--motion-standard, 0.15s ease), transform 0.1s ease;
+  outline: none;
+}
+
+.knowledge-graph-page button:focus-visible,
+.knowledge-graph-container .btn:focus-visible {
+  box-shadow: 0 0 0 2px var(--surface-bg), 0 0 0 4px var(--accent-solid) !important;
+}
+
+.knowledge-graph-page button:active:not(:disabled),
+.knowledge-graph-container .btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.knowledge-graph-container .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Primary Variant */
+.knowledge-graph-container .btn-primary {
+  background: var(--accent-solid);
+  border: 1px solid var(--accent-solid);
+  color: var(--text-on-accent, #ffffff);
+}
+
+.knowledge-graph-container .btn-primary:hover:not(:disabled) {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+}
+
+/* Secondary & Tertiary Variants - Standard App Surface Tokens */
+.knowledge-graph-container .btn-secondary,
+.knowledge-graph-container .btn-tertiary {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-default);
+  color: var(--text-strong);
+}
+
+.knowledge-graph-container .btn-secondary:hover:not(:disabled),
+.knowledge-graph-container .btn-tertiary:hover:not(:disabled) {
+  background: var(--surface-muted);
+  border-color: var(--border-soft);
+  color: var(--text-strong);
+}
+
+/* Directional Arrow & Relationship Legend Styles */
+.kg-legend-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kg-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.kg-legend-color-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.kg-legend-arrow-demo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono, monospace);
+  margin-bottom: 6px;
+}
+
+.kg-legend-arrow-demo strong {
+  color: var(--accent-solid);
 }

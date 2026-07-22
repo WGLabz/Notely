@@ -24,7 +24,26 @@ let aiConfig = null;
  */
 async function initializeAISystem(appDataDir, workspaceRoot, llmProvider, embeddingConfig = null) {
   try {
-    console.log('[AI System] Initializing...');
+    console.log('[AI System] Initializing for workspace:', workspaceRoot);
+
+    if (aiAgent) {
+      try {
+        console.log('[AI System] Shutting down previous AI agent instance...');
+        aiAgent.shutdown();
+      } catch (shutdownErr) {
+        console.warn('[AI System] Error during previous agent shutdown:', shutdownErr.message);
+      }
+      aiAgent = null;
+    }
+
+    try {
+      const workerManager = require('../electron/ai/workerManager.cjs');
+      if (workerManager && typeof workerManager.shutdownWorker === 'function') {
+        workerManager.shutdownWorker();
+      }
+    } catch (wmErr) {
+      // Ignore if workerManager not available yet
+    }
 
     aiConfig = new AIConfig();
 
