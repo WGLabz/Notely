@@ -8,6 +8,7 @@
 const { NoteApplicationService } = require('../services/NoteApplicationService.cjs');
 const { KnowledgeApplicationService } = require('../services/KnowledgeApplicationService.cjs');
 const { WorkspaceApplicationService } = require('../services/WorkspaceApplicationService.cjs');
+const { WebToolService } = require('../services/WebToolService.cjs');
 const { z } = require('zod');
 
 class ApplicationToolRegistry {
@@ -15,6 +16,7 @@ class ApplicationToolRegistry {
     this.noteService = new NoteApplicationService();
     this.knowledgeService = new KnowledgeApplicationService();
     this.workspaceService = new WorkspaceApplicationService();
+    this.webService = new WebToolService();
 
     this.tools = new Map();
     this.aliasMap = new Map();
@@ -531,6 +533,52 @@ class ApplicationToolRegistry {
         }
       },
       execute: async (args) => this.workspaceService.getRecentActivity(args)
+    });
+
+    // 14. web.search
+    this.registerTool({
+      name: 'web.search',
+      version: 'v1',
+      aliases: ['web_search'],
+      sdkName: 'web_search',
+      serviceName: 'WebToolService',
+      description: 'Search the live web for external topics, documentation, news, or reference information.',
+      schema: z.object({
+        query: z.string().describe('The web search query or topic to look up.'),
+        limit: z.number().optional().describe('Number of web search results to return (default: 5).')
+      }),
+      jsonSchema: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'The web search query or topic to look up.' },
+          limit: { type: 'number', description: 'Number of web search results to return (default: 5).' }
+        },
+        required: ['query']
+      },
+      execute: async (args) => this.webService.searchWeb(args)
+    });
+
+    // 15. web.fetch
+    this.registerTool({
+      name: 'web.fetch',
+      version: 'v1',
+      aliases: ['fetch_url', 'read_url'],
+      sdkName: 'fetch_url',
+      serviceName: 'WebToolService',
+      description: 'Fetch and read the main text content of a public web page URL.',
+      schema: z.object({
+        url: z.string().describe('The full http/https URL of the web page to read.'),
+        maxLength: z.number().optional().describe('Maximum characters of text content to extract (default: 8000).')
+      }),
+      jsonSchema: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: 'The full http/https URL of the web page to read.' },
+          maxLength: { type: 'number', description: 'Maximum characters of text content to extract (default: 8000).' }
+        },
+        required: ['url']
+      },
+      execute: async (args) => this.webService.fetchUrl(args)
     });
   }
 }

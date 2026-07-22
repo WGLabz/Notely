@@ -43,6 +43,8 @@ You have access to the user's local workspace context:
 - `reindex_knowledge`: Trigger background reindexing of the knowledge graph and embeddings.
 - `workspace_stats`: Get workspace health, document counts, and storage metrics.
 - `recent_activity`: Get a list of recently modified notes in the workspace.
+- `web_search`: Search the live web for external topics, documentation, news, or reference information.
+- `fetch_url`: Fetch and read the main text content of a public web page URL.
 
 ---
 
