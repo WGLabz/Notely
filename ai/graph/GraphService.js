@@ -1,8 +1,9 @@
 /**
- * GraphService - Extract structured knowledge graphs from note contents using LLM
+ * GraphService - Extract structured knowledge graphs from note contents using ModernBERT / local pipeline
  */
 
 const { createLogger } = require('../core/logger');
+const ModernBERTExtractor = require('./ModernBERTExtractor');
 
 const log = createLogger('GraphService');
 
@@ -10,6 +11,14 @@ class GraphService {
   constructor(agent, graphDb) {
     this.agent = agent;
     this.graphDb = graphDb;
+    this.modernbertExtractor = null;
+  }
+
+  getExtractor() {
+    if (!this.modernbertExtractor && this.agent?.appDataDir) {
+      this.modernbertExtractor = new ModernBERTExtractor(this.agent.appDataDir);
+    }
+    return this.modernbertExtractor;
   }
 
   /**
@@ -27,53 +36,35 @@ class GraphService {
 
       log.info(`Extracting entities and relationships for: ${filePath}`);
 
-      const systemPrompt = `You are an AI assistant designed to extract knowledge graphs from markdown text.
-Extract all relevant entities (e.g., 'Person', 'Project', 'Technology', 'Company', 'Concept', 'Task') and relationships (e.g., 'REFERENCES', 'USES', 'DEPENDS_ON', 'MENTIONS', 'RELATED_TO') from the provided note text.
-
-Return ONLY a valid JSON object matching the following structure (no markdown wrapper, no other text):
-{
-  "entities": [
-    { "id": "entity-unique-id", "type": "Person|Project|Technology|Company|Concept|Task", "name": "Entity Name", "properties": {} }
-  ],
-  "relationships": [
-    { "source_id": "source-id", "target_id": "target-id", "type": "REFERENCES|USES|DEPENDS_ON|MENTIONS|RELATED_TO", "weight": 1.0, "metadata": {} }
-  ]
-}
-
-Important rules:
-1. Normalize all entity IDs to lower-case alphanumeric with hyphens (e.g., "llama-3-3", "john-doe").
-2. The note itself is always an entity of type "Note" (the ID is the normalized note path slug: "${noteId}"). Make sure to link other extracted entities back to this Note entity using MENTIONS, REFERENCES, etc.
-3. Keep the JSON output clean, valid, and compact.`;
-
-      const prompt = `Extract entities and relationships from this note.
-Note Path: ${filePath}
-Note Contents:
----
-${content}
----`;
-
       let parsedData = { entities: [], relationships: [] };
+
+      const extractor = this.getExtractor();
+
       try {
-        if (this.agent.graphProvider?.isReady()) {
-          log.info('Running local Qwen graph extraction...');
+        if (extractor && extractor.isAvailable()) {
+          log.info('Running ModernBERT ONNX local graph extraction...');
+          parsedData = await extractor.extractEntitiesAndRelations(content);
+        } else if (this.agent?.graphProvider?.isReady()) {
+          log.info('Running local ONNX provider graph extraction...');
           parsedData = await this.agent.graphProvider.extractGraph(content, filePath);
-        } else {
+        } else if (this.agent?.llmRegistry?.getActiveProvider()) {
           const llm = this.agent.llmRegistry.getActiveProvider();
-          // Call LLM
+          const systemPrompt = `Extract entities (Person, Project, Technology, Company, Concept, Task) and relationships (REFERENCES, USES, DEPENDS_ON, MENTIONS, RELATED_TO) from markdown.
+Return ONLY valid JSON matching {"entities":[{"id":"slug","type":"Type","name":"Name"}],"relationships":[{"source_id":"src","target_id":"tgt","type":"RELATION"}]}`;
+          const prompt = `Note Path: ${filePath}\nContents:\n${content}`;
           const { text: resultText } = await llm.generateText(prompt, { systemPrompt, temperature: 0.1 });
-          // Clean and parse JSON
           const cleanedJson = this._cleanJsonResponse(resultText);
           parsedData = JSON.parse(cleanedJson);
         }
-      } catch (llmErr) {
-        log.warn(`LLM graph extraction failed for ${filePath}, falling back to local regex:`, llmErr.message);
+      } catch (extractorErr) {
+        log.warn(`Model graph extraction failed for ${filePath}, falling back to structural parser:`, extractorErr.message);
       }
 
-      // Local tag and wikilink regex extraction
+      // Explicit Structural Markdown Parser
       const extractedEntities = [];
       const extractedRels = [];
 
-      // 1. Extract Wikilinks: [[Target Note]]
+      // 1. Wikilinks: [[Target Note]]
       const wikilinkRegex = /\[\[(.*?)\]\]/g;
       let match;
       while ((match = wikilinkRegex.exec(content)) !== null) {
@@ -94,7 +85,7 @@ ${content}
         }
       }
 
-      // 2. Extract Tags: #tag (must contain at least one letter to prevent false positives like #20)
+      // 2. Tags: #tag
       const tagRegex = /(?:^|\s)#([a-zA-Z_-]*[a-zA-Z][a-zA-Z0-9_-]*)/g;
       while ((match = tagRegex.exec(content)) !== null) {
         const tagName = match[1].trim();
@@ -114,7 +105,7 @@ ${content}
         }
       }
 
-      // 3. Extract Images: ![alt](image_path)
+      // 3. Images: ![alt](image_path)
       const imageRegex = /!\[(.*?)\]\((.*?)\)/g;
       while ((match = imageRegex.exec(content)) !== null) {
         const altText = match[1].trim() || 'Image';
@@ -137,7 +128,7 @@ ${content}
         }
       }
 
-      // 4. Extract Document Attachments & External URLs: [label](path_or_url)
+      // 4. Attachments & External URLs: [label](path_or_url)
       const linkRegex = /(?<![[![])\[(.*?)\]\((.*?)\)/g;
       while ((match = linkRegex.exec(content)) !== null) {
         const label = match[1].trim();
@@ -174,6 +165,26 @@ ${content}
         }
       }
 
+      // 5. Code Blocks: ```lang
+      const codeBlockRegex = /```([a-zA-Z0-9_+-]+)/g;
+      while ((match = codeBlockRegex.exec(content)) !== null) {
+        const lang = match[1].trim().toLowerCase();
+        if (lang && lang.length < 20) {
+          const langId = `tech-lang-${lang}`;
+          extractedEntities.push({
+            id: langId,
+            type: 'Technology',
+            name: lang.toUpperCase()
+          });
+          extractedRels.push({
+            source_id: noteId,
+            target_id: langId,
+            type: 'contains_code',
+            weight: 1.0
+          });
+        }
+      }
+
       if (!parsedData.entities) parsedData.entities = [];
       parsedData.entities.push(...extractedEntities);
 
@@ -181,9 +192,11 @@ ${content}
       parsedData.relationships.push(...extractedRels);
 
       // Clear existing outgoing relationships for this note to prevent stale accumulation
-      this.graphDb.db.prepare('DELETE FROM relationships WHERE source_id = ?').run(noteId);
+      if (this.graphDb.db) {
+        this.graphDb.db.prepare('DELETE FROM relationships WHERE source_id = ?').run(noteId);
+      }
 
-      // Save note entity first
+      // Save root note entity
       this.graphDb.upsertEntity({
         id: noteId,
         type: 'Note',
@@ -229,9 +242,6 @@ ${content}
     }
   }
 
-  /**
-   * Helper to clean markdown JSON wrappers from the response
-   */
   _cleanJsonResponse(text) {
     const raw = String(text || '').trim();
     const match = raw.match(/^```(?:json)?\s*\n([\s\S]*?)\n```$/i);

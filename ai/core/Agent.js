@@ -185,11 +185,11 @@ class Agent {
   /**
    * Build relationship graph
    */
-  async buildRelationshipGraph() {
+  async buildRelationshipGraph(onProgress = null) {
     if (!this.graphBuilder) {
       return { success: false, error: 'Graph builder not initialized' };
     }
-    return this.graphBuilder.rebuild();
+    return this.graphBuilder.rebuild(onProgress);
   }
 
   /**

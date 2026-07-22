@@ -20,24 +20,24 @@ class ModelDownloader {
     this.vocabUrl = `https://huggingface.co/Xenova/bge-small-en-v1.5/${vocabUrlPart}`;
     this.progressCallback = null;
 
-    this.qwenONNXDir = path.join(this.modelDir, 'qwen-onnx');
-    this.qwenONNXFiles = [
-      { name: 'config.json', url: 'https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct/resolve/main/config.json' },
-      { name: 'generation_config.json', url: 'https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct/resolve/main/generation_config.json' },
-      { name: 'special_tokens_map.json', url: 'https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct/resolve/main/special_tokens_map.json' },
-      { name: 'tokenizer.json', url: 'https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct/resolve/main/tokenizer.json' },
-      { name: 'tokenizer_config.json', url: 'https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct/resolve/main/tokenizer_config.json' },
-      { name: 'onnx/model_quantized.onnx', url: 'https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct/resolve/main/onnx/model_quantized.onnx' }
+    this.smolLM2ONNXDir = path.join(this.modelDir, 'smollm2-135m-onnx');
+    this.smolLM2ONNXFiles = [
+      { name: 'config.json', url: 'https://huggingface.co/onnx-community/SmolLM2-135M-Instruct-ONNX/resolve/main/config.json' },
+      { name: 'generation_config.json', url: 'https://huggingface.co/onnx-community/SmolLM2-135M-Instruct-ONNX/resolve/main/generation_config.json' },
+      { name: 'special_tokens_map.json', url: 'https://huggingface.co/onnx-community/SmolLM2-135M-Instruct-ONNX/resolve/main/special_tokens_map.json' },
+      { name: 'tokenizer.json', url: 'https://huggingface.co/onnx-community/SmolLM2-135M-Instruct-ONNX/resolve/main/tokenizer.json' },
+      { name: 'tokenizer_config.json', url: 'https://huggingface.co/onnx-community/SmolLM2-135M-Instruct-ONNX/resolve/main/tokenizer_config.json' },
+      { name: 'onnx/model_quantized.onnx', url: 'https://huggingface.co/onnx-community/SmolLM2-135M-Instruct-ONNX/resolve/main/onnx/model_quantized.onnx' }
     ];
   }
 
   isGraphModelDownloaded() {
-    return this.qwenONNXFiles.every(file => fs.existsSync(path.join(this.qwenONNXDir, file.name)));
+    return this.smolLM2ONNXFiles.every(file => fs.existsSync(path.join(this.smolLM2ONNXDir, file.name)));
   }
 
   async downloadGraphModel(onProgress = null) {
     if (this.isGraphModelDownloaded()) {
-      log.info('Graph Qwen ONNX model already downloaded');
+      log.info('Graph SmolLM2 ONNX model already downloaded');
       return true;
     }
     if (isDownloadingGraph) {
@@ -50,28 +50,28 @@ class ModelDownloader {
     this.progressCallback = onProgress;
 
     try {
-      if (!fs.existsSync(this.qwenONNXDir)) {
-        fs.mkdirSync(this.qwenONNXDir, { recursive: true });
+      if (!fs.existsSync(this.smolLM2ONNXDir)) {
+        fs.mkdirSync(this.smolLM2ONNXDir, { recursive: true });
       }
 
-      log.info('Starting Qwen 2.5 ONNX model download from HuggingFace...');
+      log.info('Starting SmolLM2 ONNX model download from HuggingFace...');
       
       let completedCount = 0;
-      for (const file of this.qwenONNXFiles) {
-        const destPath = path.join(this.qwenONNXDir, file.name);
+      for (const file of this.smolLM2ONNXFiles) {
+        const destPath = path.join(this.smolLM2ONNXDir, file.name);
         const destDir = path.dirname(destPath);
         if (!fs.existsSync(destDir)) {
           fs.mkdirSync(destDir, { recursive: true });
         }
 
-        log.info(`Downloading Qwen ONNX asset: ${file.name}...`);
+        log.info(`Downloading SmolLM2 ONNX asset: ${file.name}...`);
         
         const isModelFile = file.name.endsWith('.onnx');
         
         await this.downloadFile(file.url, destPath, (bytesRead, totalBytes) => {
-          if (isModelFile && totalBytes > 0) {
-            const baseProgress = Math.round((completedCount / this.qwenONNXFiles.length) * 100);
-            const currentFileProgress = Math.round((bytesRead / totalBytes) * (100 / this.qwenONNXFiles.length));
+          if (totalBytes > 0) {
+            const baseProgress = Math.round((completedCount / this.smolLM2ONNXFiles.length) * 100);
+            const currentFileProgress = Math.round((bytesRead / totalBytes) * (100 / this.smolLM2ONNXFiles.length));
             graphProgress = Math.min(99, baseProgress + currentFileProgress);
             if (this.progressCallback) {
               this.progressCallback(graphProgress);
@@ -80,19 +80,19 @@ class ModelDownloader {
         });
         
         completedCount++;
-        graphProgress = Math.round((completedCount / this.qwenONNXFiles.length) * 100);
+        graphProgress = Math.round((completedCount / this.smolLM2ONNXFiles.length) * 100);
         if (this.progressCallback) {
           this.progressCallback(graphProgress);
         }
       }
 
-      log.info('Qwen 2.5 ONNX model downloaded successfully');
+      log.info('SmolLM2 ONNX model downloaded successfully');
       isDownloadingGraph = false;
       graphProgress = 100;
       return true;
     } catch (err) {
       isDownloadingGraph = false;
-      log.error('Failed to download Qwen ONNX model', err);
+      log.error('Failed to download SmolLM2 ONNX model', err);
       throw err;
     }
   }
@@ -115,6 +115,33 @@ class ModelDownloader {
       isDownloading: isDownloadingGraph,
       progress: graphProgress
     };
+  }
+
+  deleteModel() {
+    try {
+      const modelPath = path.join(this.modelDir, 'model.onnx');
+      const vocabPath = path.join(this.modelDir, 'vocab.txt');
+      if (fs.existsSync(modelPath)) fs.unlinkSync(modelPath);
+      if (fs.existsSync(vocabPath)) fs.unlinkSync(vocabPath);
+      log.info('Deleted local embedding model files.');
+      return true;
+    } catch (err) {
+      log.error('Failed to delete embedding model files', err);
+      throw err;
+    }
+  }
+
+  deleteGraphModel() {
+    try {
+      if (fs.existsSync(this.smolLM2ONNXDir)) {
+        fs.rmSync(this.smolLM2ONNXDir, { recursive: true, force: true });
+      }
+      log.info('Deleted local graph ONNX model files.');
+      return true;
+    } catch (err) {
+      log.error('Failed to delete graph model files', err);
+      throw err;
+    }
   }
 
   async download(onProgress = null) {
@@ -171,7 +198,12 @@ class ModelDownloader {
       const file = fs.createWriteStream(dest);
       
       const request = (targetUrl) => {
-        https.get(targetUrl, (response) => {
+        const options = {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) NotelyApp/0.1.27 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36'
+          }
+        };
+        https.get(targetUrl, options, (response) => {
           if (response.statusCode === 301 || response.statusCode === 302 || response.statusCode === 303 || response.statusCode === 307 || response.statusCode === 308) {
             // Handle redirects (including relative paths)
             let redirectUrl = response.headers.location;
@@ -201,6 +233,10 @@ class ModelDownloader {
 
           response.on('end', () => {
             file.end();
+          });
+
+          file.on('finish', () => {
+            file.close();
             resolve();
           });
         }).on('error', (err) => {

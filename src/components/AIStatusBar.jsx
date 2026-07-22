@@ -20,8 +20,7 @@ export function AIStatusBar({ onClick }) {
       const health = await aiGetHealth();
       if (health?.success && health.data) {
         const rawProv = health.data.activeProvider || "Unknown";
-        // Map local model name correctly
-        const providerName = rawProv === 'local' ? 'Local (Qwen)' : (rawProv.charAt(0).toUpperCase() + rawProv.slice(1));
+        const providerName = rawProv.charAt(0).toUpperCase() + rawProv.slice(1);
         setProvider(providerName);
         if (health.data.isIndexing) {
           setStatus("indexing");

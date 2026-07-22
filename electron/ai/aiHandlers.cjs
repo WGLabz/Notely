@@ -216,6 +216,8 @@ function initializeAIHandlers(electronApp, agent) {
   registerHandler(IPC_EVENTS.AI_BUILD_GRAPH, handleBuildGraph);
   registerHandler('ai:graph:get', handleGetGraph);
   registerHandler('ai:graph:status', handleGetGraphStatus);
+  registerHandler('ai:graph:pause', handlePauseGraphWorker);
+  registerHandler('ai:graph:resume', handleResumeGraphWorker);
 
   // Embeddings Engine Subsystem
   registerHandler('ai:embeddings:rebuild', handleRebuildEmbeddings);
@@ -225,8 +227,10 @@ function initializeAIHandlers(electronApp, agent) {
   registerHandler('ai:worker:pause', handlePauseWorker);
   registerHandler('ai:worker:resume', handleResumeWorker);
   registerHandler('ai:model:download', handleDownloadModel);
+  registerHandler('ai:model:delete', handleDeleteModel);
   registerHandler('ai:model:status', handleGetModelStatus);
   registerHandler('ai:graph-model:download', handleDownloadGraphModel);
+  registerHandler('ai:graph-model:delete', handleDeleteGraphModel);
   registerHandler('ai:graph-model:status', handleGetGraphModelStatus);
 
   // Pattern detection
@@ -335,6 +339,27 @@ async function handleInitialize(event, payload) {
     const embeddingConfig = hfToken ? { token: hfToken } : null;
 
     const result = await aiService.initialize(appDataDir, workspaceRoot, llmProvider, embeddingConfig);
+
+    // Apply saved graphProvider preference (local Qwen vs text-provider)
+    if (aiService.agent) {
+      if (prefs.graphProvider === 'local') {
+        try {
+          const ModelDownloader = require('../../ai/embeddings/ModelDownloader');
+          const modelDownloader = new ModelDownloader(appDataDir);
+          if (modelDownloader.isGraphModelDownloaded()) {
+            const LocalONNXProvider = require('../../ai/providers/LocalONNXProvider');
+            const localLlm = new LocalONNXProvider({ appDataDir });
+            await localLlm.initialize();
+            aiService.agent.llmRegistry.register('local', localLlm);
+            aiService.agent.setGraphProvider(localLlm);
+          }
+        } catch (graphErr) {
+          console.warn('[AI IPC] Local ONNX graph provider init failed:', graphErr.message);
+        }
+      } else {
+        aiService.agent.setGraphProvider(null);
+      }
+    }
 
     return new AIQueryResponse(true, result);
   } catch (error) {
@@ -636,23 +661,69 @@ async function handleDownloadModel(_event, _payload) {
   }
 }
 
+async function handlePauseGraphWorker(_event, _payload) {
+  try {
+    const workerManager = require('./workerManager.cjs');
+    workerManager.pauseGraphWorker();
+    return new AIQueryResponse(true, { paused: true });
+  } catch (error) {
+    return new AIQueryResponse(false, null, error.message);
+  }
+}
+
+async function handleResumeGraphWorker(_event, _payload) {
+  try {
+    const workerManager = require('./workerManager.cjs');
+    workerManager.resumeGraphWorker();
+    return new AIQueryResponse(true, { paused: false });
+  } catch (error) {
+    return new AIQueryResponse(false, null, error.message);
+  }
+}
+
 async function handleDownloadGraphModel(_event, _payload) {
   try {
     const { app } = require('electron');
     const appDataDir = path.join(app.getPath('appData'), 'Notely');
-    const ModelDownloader = require('../../ai/embeddings/ModelDownloader');
-    const downloader = new ModelDownloader(appDataDir);
+    const GraphModelDownloader = require('../../ai/graph/GraphModelDownloader');
+    const downloader = new GraphModelDownloader(appDataDir);
 
     const win = BrowserWindow.getFocusedWindow();
-    downloader.downloadGraphModel((progress) => {
+    downloader.downloadModel((progressObj) => {
       if (win && !win.isDestroyed()) {
-        win.webContents.send('ai:graph-model:progress', { progress });
+        win.webContents.send('ai:graph-model:progress', progressObj);
       }
     }).catch(err => {
       console.error('[AI IPC] Async graph model downloader error:', err);
     });
 
     return new AIQueryResponse(true, { started: true });
+  } catch (error) {
+    return new AIQueryResponse(false, null, error.message);
+  }
+}
+
+async function handleDeleteModel(_event, _payload) {
+  try {
+    const { app } = require('electron');
+    const appDataDir = path.join(app.getPath('appData'), 'Notely');
+    const ModelDownloader = require('../../ai/embeddings/ModelDownloader');
+    const downloader = new ModelDownloader(appDataDir);
+    downloader.deleteModel();
+    return new AIQueryResponse(true, { deleted: true });
+  } catch (error) {
+    return new AIQueryResponse(false, null, error.message);
+  }
+}
+
+async function handleDeleteGraphModel(_event, _payload) {
+  try {
+    const { app } = require('electron');
+    const appDataDir = path.join(app.getPath('appData'), 'Notely');
+    const GraphModelDownloader = require('../../ai/graph/GraphModelDownloader');
+    const downloader = new GraphModelDownloader(appDataDir);
+    downloader.deleteModel();
+    return new AIQueryResponse(true, { deleted: true });
   } catch (error) {
     return new AIQueryResponse(false, null, error.message);
   }
@@ -680,12 +751,12 @@ async function handleGetGraphModelStatus(_event, _payload) {
   try {
     const { app } = require('electron');
     const appDataDir = path.join(app.getPath('appData'), 'Notely');
-    const ModelDownloader = require('../../ai/embeddings/ModelDownloader');
-    const downloader = new ModelDownloader(appDataDir);
-    const status = downloader.getGraphProgress();
+    const GraphModelDownloader = require('../../ai/graph/GraphModelDownloader');
+    const downloader = new GraphModelDownloader(appDataDir);
+    const status = downloader.getStatus();
     
     return new AIQueryResponse(true, {
-      downloaded: downloader.isGraphModelDownloaded(),
+      downloaded: status.downloaded,
       isDownloading: status.isDownloading,
       progress: status.progress
     });
@@ -703,8 +774,23 @@ async function handleBuildGraph(_event, _payload) {
       throw new Error('AI agent is disabled or not initialized');
     }
 
-    const result = await aiService.agent.buildRelationshipGraph();
-    return new AIQueryResponse(true, result);
+    const workerManager = require('./workerManager.cjs');
+    const docs = aiService.agent.documentService.getAllDocuments();
+    const workspaceFiles = docs.map(d => d.path || d.filePath).filter(Boolean);
+
+    if (workerManager) {
+      const activeProvider = aiService.agent.llmRegistry?.getActiveProvider();
+      const prefs = aiService.agent.aiConfig ? aiService.agent.aiConfig.loadPreferences() : {};
+      const providerConfig = {
+        name: activeProvider ? activeProvider.name : null,
+        apiKey: activeProvider ? activeProvider.apiKey : null,
+        model: activeProvider ? activeProvider.model : null,
+        graphProvider: prefs.graphProvider || 'text-provider'
+      };
+      workerManager.rebuildGraph(workspaceFiles, providerConfig);
+    }
+
+    return new AIQueryResponse(true, { message: 'Graph rebuild started in background worker' });
   } catch (error) {
     console.error('[AI IPC] Graph building failed:', error);
     return new AIQueryResponse(false, null, error.message);
@@ -733,10 +819,26 @@ async function handleGetGraph(_event, _payload) {
 async function handleGetGraphStatus(_event, _payload) {
   try {
     if (!aiService.isEnabled() || !aiService.agent || !aiService.agent.graphDb) {
-      throw new Error('AI agent or GraphDB is not initialized');
+      return new AIQueryResponse(true, {
+        nodeCount: 0,
+        edgeCount: 0,
+        sizeBytes: 0,
+        isBuilding: false,
+        current: 0,
+        total: 0,
+        noteName: ''
+      });
     }
     const result = aiService.agent.graphDb.getStatus();
-    return new AIQueryResponse(true, result);
+    const workerManager = require('./workerManager.cjs');
+    const graphProgress = workerManager.getGraphProgressState();
+    return new AIQueryResponse(true, {
+      ...result,
+      isBuilding: graphProgress.isBuilding,
+      current: graphProgress.current,
+      total: graphProgress.total,
+      noteName: graphProgress.noteName
+    });
   } catch (error) {
     console.error('[AI IPC] Get graph status failed:', error);
     return new AIQueryResponse(false, null, error.message);
@@ -926,6 +1028,30 @@ async function handleSetPreferences(event, payload) {
       }
     }
 
+    // Apply graph provider choice (local vs text-provider)
+    if (aiService.agent) {
+      const graphProviderPref = preferences.graphProvider || 'text-provider';
+      if (graphProviderPref === 'local') {
+        try {
+          const { app } = require('electron');
+          const appDataDir = path.join(app.getPath('appData'), 'Notely');
+          const ModelDownloader = require('../../ai/embeddings/ModelDownloader');
+          const modelDownloader = new ModelDownloader(appDataDir);
+          if (modelDownloader.isGraphModelDownloaded()) {
+            const LocalONNXProvider = require('../../ai/providers/LocalONNXProvider');
+            const localLlm = new LocalONNXProvider({ appDataDir });
+            await localLlm.initialize();
+            aiService.agent.llmRegistry.register('local', localLlm);
+            aiService.agent.setGraphProvider(localLlm);
+          }
+        } catch (graphErr) {
+          console.warn('[AI IPC] Local ONNX graph provider set failed:', graphErr.message);
+        }
+      } else {
+        aiService.agent.setGraphProvider(null);
+      }
+    }
+
     // Apply the active LLM provider choice immediately
     if (aiService.agent) {
       const activeProviderName = preferences.aiProvider || 'gemini';
@@ -945,7 +1071,6 @@ async function handleSetPreferences(event, payload) {
             const localLlm = new LocalONNXProvider({ appDataDir });
             await localLlm.initialize();
             aiService.agent.llmRegistry.register('local', localLlm);
-            aiService.agent.setGraphProvider(localLlm);
             await aiService.agent.llmRegistry.activateProvider('local', {});
           }
         } catch (localLlmErr) {

@@ -16,9 +16,12 @@ import {
   aiTestConnection,
   aiGetProviderList,
   aiGetHealth,
+  aiGetModelStatus,
+  onModelDownloadProgress,
   aiGetGraphModelStatus,
   onGraphModelDownloadProgress,
   aiDownloadModel,
+  aiDeleteModel,
   aiEnable,
   aiDisable
 } from '../services/electronService';
@@ -66,7 +69,7 @@ export const AISettingsContent = ({ _onClose }) => {
   useEffect(() => {
     const loadModelStatus = async () => {
       try {
-        const res = await aiGetGraphModelStatus();
+        const res = await aiGetModelStatus();
         if (res.success && res.data) {
           setModelStatus(res.data);
         }
@@ -76,7 +79,7 @@ export const AISettingsContent = ({ _onClose }) => {
     };
     loadModelStatus();
 
-    const unsubscribe = onGraphModelDownloadProgress((payload) => {
+    const unsubscribe = onModelDownloadProgress((payload) => {
       setModelStatus(prev => ({
         ...prev,
         isDownloading: true,
@@ -874,9 +877,35 @@ export const AISettingsContent = ({ _onClose }) => {
                 <div style={{ padding: "8px 10px", background: "var(--surface-muted)", borderRadius: "6px", border: "1px solid var(--border-soft)", marginTop: "6px" }}>
                   <h4 style={{ fontSize: "11px", fontWeight: "600", margin: "0 0 4px 0" }}>Local Model Status (BGE ONNX)</h4>
                   {modelStatus.downloaded ? (
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--status-success-text)", fontSize: "11px" }}>
-                      <Database size={12} />
-                      <span>bge-small-en-v1.5 model is downloaded and ready offline.</span>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--status-success-text)", fontSize: "11px" }}>
+                        <Database size={12} />
+                        <span>bge-small-en-v1.5 model is downloaded and ready offline.</span>
+                      </div>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={async () => {
+                          if (!window.confirm('Delete local BGE embedding model weights from disk? You can redownload it at any time.')) return;
+                          try {
+                            setLoading(true);
+                            await aiDeleteModel();
+                            setModelStatus({ downloaded: false, isDownloading: false, progress: 0 });
+                            window.dispatchEvent(new CustomEvent('app:toast', {
+                              detail: { message: 'Local BGE embedding model weights deleted.', type: 'info' }
+                            }));
+                          } catch (err) {
+                            console.error(err);
+                          } finally {
+                            setLoading(false);
+                          }
+                        }}
+                        disabled={loading}
+                        style={{ display: "flex", gap: "4px", alignItems: "center", padding: "4px 8px", fontSize: "10px", color: "var(--text-danger)" }}
+                        title="Remove model weights from disk to free space or redownload"
+                      >
+                        <Trash2 size={12} />
+                        <span>Delete Model</span>
+                      </button>
                     </div>
                   ) : modelStatus.isDownloading ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>

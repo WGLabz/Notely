@@ -191,16 +191,10 @@ export function useAIAssistant({
 
   async function handleAIGraph() {
     setAiLoading(true);
-    notify("Building relationship graph...", "info");
     try {
-      const result = await aiBuildGraph();
-      if (result?.success) {
-        notify("Relationship graph built successfully!", "success");
-      } else {
-        notify(result?.error || "Failed to build graph", "error");
-      }
+      await aiBuildGraph();
     } catch (err) {
-      notify(err?.message || "Failed to build graph", "error");
+      console.error('[AI] Graph build error:', err);
     } finally {
       setAiLoading(false);
     }

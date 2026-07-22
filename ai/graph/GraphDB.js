@@ -186,6 +186,24 @@ class GraphDB {
     return { nodeCount, edgeCount, sizeBytes };
   }
 
+  getNodeCount() {
+    if (!this.db) return 0;
+    try {
+      return this.db.prepare('SELECT COUNT(*) as count FROM entities').get()?.count || 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  getEdgeCount() {
+    if (!this.db) return 0;
+    try {
+      return this.db.prepare('SELECT COUNT(*) as count FROM relationships').get()?.count || 0;
+    } catch {
+      return 0;
+    }
+  }
+
   /**
    * Purge all entities and relationships
    */

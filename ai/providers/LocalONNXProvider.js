@@ -2,47 +2,11 @@
  * LocalONNXProvider - WebAssembly local AI provider using Qwen 2.5 ONNX
  */
 
-const Module = require('module');
-const originalLoad = Module._load;
-let inRedirect = false;
-
-Module._load = function(request, parent) {
-  if (!inRedirect && (request === 'onnxruntime-common' || request.includes('onnxruntime-common'))) {
-    inRedirect = true;
-    try {
-      return originalLoad.call(this, require.resolve('onnxruntime-common'), parent);
-    } finally {
-      inRedirect = false;
-    }
-  }
-
-  if (request === 'onnxruntime-node' || request.includes('onnxruntime-node')) {
-    try {
-      return originalLoad.apply(this, arguments);
-    } catch {
-      console.warn('[LocalONNXProvider] Intercepting broken onnxruntime-node, redirecting to onnxruntime-web (WASM)');
-      const webOrt = require('onnxruntime-web');
-      
-      // Limit to 1 thread to avoid ES module blob: url worker loading errors in Node/Electron environment
-      webOrt.env.wasm.numThreads = 1;
-      
-      const originalCreate = webOrt.InferenceSession.create;
-      webOrt.InferenceSession.create = function(model, options) {
-        if (options && options.executionProviders) {
-          options.executionProviders = options.executionProviders.map(ep => ep === 'cpu' ? 'wasm' : ep);
-        }
-        return originalCreate.call(this, model, options);
-      };
-      return webOrt;
-    }
-  }
-  return originalLoad.apply(this, arguments);
-};
-
 const LLMProvider = require('./ProviderBase');
 const { createLogger } = require('../core/logger');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 
 const log = createLogger('LocalONNXProvider');
 
@@ -61,7 +25,7 @@ class LocalONNXProvider extends LLMProvider {
       }
     }
     
-    this.modelDir = path.join(appDataDir, 'notely', 'ai-model', 'qwen-onnx');
+    this.modelDir = path.join(appDataDir, 'notely', 'ai-model', 'smollm2-135m-onnx');
     this.generator = null;
     this.isInitialized = false;
   }
@@ -69,30 +33,57 @@ class LocalONNXProvider extends LLMProvider {
   async initialize() {
     if (this.isInitialized) return true;
     try {
-      log.info('Initializing Local Qwen ONNX model...');
-      const { pipeline, env } = await import('@huggingface/transformers');
+      log.info('Initializing Local SmolLM2-135M ONNX model...');
+
+      // Configure onnxruntime-web before loading transformers pipeline
+      const webOrt = require('onnxruntime-web');
+      const cpus = os.cpus() ? os.cpus().length : 2;
+      webOrt.env.wasm.numThreads = Math.min(4, Math.max(1, cpus - 1));
+
+      const originalCreate = webOrt.InferenceSession.create;
+      webOrt.InferenceSession.create = function(model, options) {
+        if (options && options.executionProviders) {
+          options.executionProviders = options.executionProviders.map(ep => ep === 'cpu' ? 'wasm' : ep);
+        }
+        return originalCreate.call(this, model, options);
+      };
+
+      const { pipeline, env } = require('@huggingface/transformers');
 
       // Force local asset retrieval and disable external queries
       env.allowLocalModels = true;
       env.localModelPath = this.modelDir;
       env.cacheDir = this.modelDir;
 
-      // Route the WASM files to the local node_modules folder to prevent network fetch/caching issues
-      env.backends.onnx.wasm.wasmPaths = path.dirname(require.resolve('onnxruntime-web')) + path.sep;
+      // Route the WASM files to the local unpacked directory if packaged in app.asar
+      const { pathToFileURL } = require('url');
+      let wasmDir = path.dirname(require.resolve('onnxruntime-web')) + path.sep;
+      if (wasmDir.includes('app.asar')) {
+        wasmDir = wasmDir.replace('app.asar', 'app.asar.unpacked');
+      }
+      env.backends.onnx.wasm.wasmPaths = pathToFileURL(wasmDir).href;
 
-      const modelFilePath = path.join(this.modelDir, 'onnx', 'model_quantized.onnx');
-      if (!fs.existsSync(modelFilePath)) {
-        throw new Error(`Qwen ONNX model files are missing at: ${modelFilePath}`);
+      const quantizedPath = path.join(this.modelDir, 'onnx', 'model_quantized.onnx');
+      const standardPath = path.join(this.modelDir, 'onnx', 'model.onnx');
+      let modelFileName = 'model_quantized';
+
+      if (fs.existsSync(quantizedPath)) {
+        modelFileName = 'model_quantized';
+      } else if (fs.existsSync(standardPath)) {
+        modelFileName = 'model';
+      } else {
+        log.warn(`SmolLM2 ONNX model file not found in: ${this.modelDir}`);
+        return false;
       }
 
-      // Load text generation pipeline using local quantized model
+      // Load text generation pipeline using local ONNX model
       this.generator = await pipeline('text-generation', this.modelDir, {
         device: 'cpu',
-        model_file_name: 'model_quantized'
+        model_file_name: modelFileName
       });
 
       this.isInitialized = true;
-      log.info('Local Qwen ONNX model initialized successfully.');
+      log.info('Local SmolLM2 ONNX model initialized successfully.');
       return true;
     } catch (err) {
       log.error('Failed to initialize Local Qwen ONNX model:', err);
@@ -214,7 +205,7 @@ class LocalONNXProvider extends LLMProvider {
       return {
         text,
         tokensUsed: 0,
-        model: 'Qwen2.5-0.5B-Instruct-ONNX'
+        model: 'SmolLM2-135M-Instruct-ONNX'
       };
     } catch (err) {
       log.error('Chat completion failed:', err);
@@ -243,7 +234,7 @@ Return ONLY a valid JSON object matching the following structure (no markdown wr
       { role: 'user', content: prompt }
     ];
 
-    const result = await this.generateChatCompletion(messages, { maxTokens: 1024, temperature: 0.1 });
+    const result = await this.generateChatCompletion(messages, { maxTokens: 256, temperature: 0.1 });
     try {
       const cleaned = this._cleanJsonResponse(result.text);
       return JSON.parse(cleaned);
@@ -259,8 +250,10 @@ Return ONLY a valid JSON object matching the following structure (no markdown wr
 
   _cleanJsonResponse(text) {
     const raw = String(text || '').trim();
-    const match = raw.match(/^```(?:json)?\s*\n([\s\S]*?)\n```$/i);
-    return match ? match[1].trim() : raw;
+    // Match any ```json ... ``` block embedded in output, or strip code fence lines
+    const match = raw.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/i);
+    if (match) return match[1].trim();
+    return raw.replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
   }
 
   getCapabilities() {

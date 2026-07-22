@@ -19,7 +19,7 @@ class GraphBuilder {
   /**
    * Scan notes and rebuild the Knowledge Graph
    */
-  async rebuild() {
+  async rebuild(onProgress = null) {
     if (this.isRebuilding) {
       log.warn('Rebuild already in progress');
       return { success: false, error: 'Rebuild already in progress' };
@@ -43,13 +43,21 @@ class GraphBuilder {
 
       // Find all markdown files in the workspace
       const workspaceFiles = this._getWorkspaceMarkdownFiles();
-      log.info(`Found ${workspaceFiles.length} markdown notes to index for graph`);
-      logDb.addLog('graph', `Found ${workspaceFiles.length} markdown notes to index for graph`, 'info');
+      const total = workspaceFiles.length;
+      log.info(`Found ${total} markdown notes to index for graph`);
+      logDb.addLog('graph', `Found ${total} markdown notes to index for graph`, 'info');
 
       let processedCount = 0;
       let failedCount = 0;
 
-      for (const filePath of workspaceFiles) {
+      for (let i = 0; i < total; i++) {
+        // Yield event loop between heavy CPU/LLM processing steps so main thread stays 100% responsive
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        const filePath = workspaceFiles[i];
+        if (typeof onProgress === 'function') {
+          onProgress({ current: i + 1, total, noteName: path.basename(filePath) });
+        }
         try {
           if (!fs.existsSync(filePath)) {
             failedCount++;

@@ -79,8 +79,10 @@ contextBridge.exposeInMainWorld("notesApi", {
   aiPauseWorker: () => ipcRenderer.invoke("ai:worker:pause"),
   aiResumeWorker: () => ipcRenderer.invoke("ai:worker:resume"),
   aiDownloadModel: () => ipcRenderer.invoke("ai:model:download"),
+  aiDeleteModel: () => ipcRenderer.invoke("ai:model:delete"),
   aiGetModelStatus: () => ipcRenderer.invoke("ai:model:status"),
   aiDownloadGraphModel: () => ipcRenderer.invoke("ai:graph-model:download"),
+  aiDeleteGraphModel: () => ipcRenderer.invoke("ai:graph-model:delete"),
   aiGetGraphModelStatus: () => ipcRenderer.invoke("ai:graph-model:status"),
   onModelDownloadProgress: (callback) => {
     if (typeof callback !== 'function') return () => {};
@@ -93,6 +95,14 @@ contextBridge.exposeInMainWorld("notesApi", {
     const listener = (_event, payload) => callback(payload);
     ipcRenderer.on('ai:graph-model:progress', listener);
     return () => ipcRenderer.removeListener('ai:graph-model:progress', listener);
+  },
+  aiPauseGraphWorker: () => ipcRenderer.invoke("ai:graph:pause"),
+  aiResumeGraphWorker: () => ipcRenderer.invoke("ai:graph:resume"),
+  onGraphProgress: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('ai:graph:progress', listener);
+    return () => ipcRenderer.removeListener('ai:graph:progress', listener);
   },
   aiBuildGraph: (payload) => ipcRenderer.invoke("ai:graph:build", payload),
   aiGetGraph: (payload) => ipcRenderer.invoke("ai:graph:get", payload),

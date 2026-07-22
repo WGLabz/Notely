@@ -9,23 +9,35 @@ import {
   Position
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Search, RefreshCw, Layers, ShieldAlert, Database } from 'lucide-react';
-import { aiGetGraph, aiBuildGraph, aiGetGraphStatus, aiGetLogs, aiClearGraphData, aiGetPreferences, aiGetGraphModelStatus } from '../services/electronService';
+import { Search, RefreshCw, Layers, ShieldAlert, Database, Pause, Play, Sliders } from 'lucide-react';
+import {
+  aiGetGraph,
+  aiBuildGraph,
+  aiGetGraphStatus,
+  aiGetLogs,
+  aiClearGraphData,
+  aiGetPreferences,
+  aiGetGraphModelStatus,
+  aiPauseGraphWorker,
+  aiResumeGraphWorker,
+  onGraphProgress
+} from '../services/electronService';
+import { OverlayDialog } from './OverlayDialog';
 
 import * as d3Force from 'd3-force';
 import '../styles/KnowledgeGraph.css';
 
-// Custom Node component to bypass React Flow default padding, borders, and styles
+// Custom Node component
 const CustomNode = ({ data }) => {
   return (
-    <div style={{ 
-      width: '100%', 
-      height: '100%', 
-      display: 'flex', 
+    <div style={{
+      width: '100%',
+      height: '100%',
+      display: 'flex',
       flexDirection: 'column',
-      alignItems: 'center', 
-      justifyContent: 'center', 
-      boxSizing: 'border-box' 
+      alignItems: 'center',
+      justifyContent: 'center',
+      boxSizing: 'border-box'
     }}>
       <Handle type="target" position={Position.Top} style={{ background: 'transparent', border: 'none', top: '50%', left: '50%', pointerEvents: 'none' }} />
       {data.label}
@@ -38,8 +50,6 @@ const nodeTypes = {
   customNode: CustomNode,
 };
 
-// Curated node colors matching premium design system
-// Light/Dark mode compatible high-contrast text and border colors using CSS variables
 const TYPE_COLORS = {
   Note: { background: 'var(--kg-note-bg)', border: 'var(--kg-note-border)', text: 'var(--kg-note-border)' },
   Person: { background: 'var(--kg-person-bg)', border: 'var(--kg-person-border)', text: 'var(--kg-person-border)' },
@@ -73,18 +83,24 @@ export default function KnowledgeGraph({ onBack }) {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [graphStatus, setGraphStatus] = useState({ nodeCount: 0, edgeCount: 0, sizeBytes: 0 });
+  const [graphStatus, setGraphStatus] = useState({ nodeCount: 0, edgeCount: 0, sizeBytes: 0, isBuilding: false, isPaused: false, current: 0, total: 0, progress: 0, noteName: '' });
   const [selectedNode, setSelectedNode] = useState(null);
   const [graphLogs, setGraphLogs] = useState([]);
   const [preferences, setPreferences] = useState({
-    graphProvider: 'text-provider',
-    aiProvider: 'gemini'
+    graphProvider: 'local'
   });
   const [modelStatus, setModelStatus] = useState({
     downloaded: false,
     isDownloading: false,
     progress: 0
   });
+  const [isRebuilding, setIsRebuilding] = useState(false);
+  const [showProgressModal, setShowProgressModal] = useState(false);
+
+  // Force Layout State
+  const [chargeStrength, setChargeStrength] = useState(-280);
+  const [linkDistance, setLinkDistance] = useState(150);
+  const [collideRadius, setCollideRadius] = useState(80);
 
   const loadModelAndPrefs = useCallback(async () => {
     try {
@@ -101,10 +117,6 @@ export default function KnowledgeGraph({ onBack }) {
     }
   }, []);
 
-  useEffect(() => {
-    loadModelAndPrefs();
-  }, [loadModelAndPrefs]);
-
   // Load Graph Data
   const loadGraphData = useCallback(async () => {
     try {
@@ -120,13 +132,12 @@ export default function KnowledgeGraph({ onBack }) {
       }
 
       if (statusRes.success && statusRes.data) {
-        setGraphStatus(statusRes.data);
+        setGraphStatus(prev => ({ ...prev, ...statusRes.data }));
       }
 
       if (graphRes.success && graphRes.data) {
         const { entities, relationships } = graphRes.data;
 
-        // 1. Calculate degrees for centrality node sizing
         const degrees = {};
         entities.forEach(e => { degrees[e.id] = 0; });
         relationships.forEach(rel => {
@@ -134,7 +145,6 @@ export default function KnowledgeGraph({ onBack }) {
           if (degrees[rel.target_id] !== undefined) degrees[rel.target_id]++;
         });
 
-        // 2. Perform d3-force simulation layout
         const entityIds = new Set(entities.map(e => e.id));
         const forceNodes = entities.map(entity => ({
           id: entity.id,
@@ -151,30 +161,22 @@ export default function KnowledgeGraph({ onBack }) {
           }));
 
         const simulation = d3Force.forceSimulation(forceNodes)
-          .force('link', d3Force.forceLink(forceLinks).id(d => d.id).distance(150))
-          .force('charge', d3Force.forceManyBody().strength(-280))
+          .force('link', d3Force.forceLink(forceLinks).id(d => d.id).distance(linkDistance))
+          .force('charge', d3Force.forceManyBody().strength(chargeStrength))
           .force('center', d3Force.forceCenter(350, 300))
-          .force('collision', d3Force.forceCollide().radius(80))
+          .force('collision', d3Force.forceCollide().radius(collideRadius))
           .stop();
 
-        // Run simulation synchronously to compute layout coordinate sets
-        for (let i = 0; i < 180; i++) simulation.tick();
+        for (let i = 0; i < 40; i++) simulation.tick();
 
-        // Sanity check coordinates to prevent NaN values from corrupting React Flow rendering
         forceNodes.forEach(node => {
-          if (isNaN(node.x) || typeof node.x !== 'number') {
-            node.x = Math.random() * 500;
-          }
-          if (isNaN(node.y) || typeof node.y !== 'number') {
-            node.y = Math.random() * 500;
-          }
+          if (isNaN(node.x) || typeof node.x !== 'number') node.x = Math.random() * 500;
+          if (isNaN(node.y) || typeof node.y !== 'number') node.y = Math.random() * 500;
         });
 
-        // 3. Format nodes list
         const formattedNodes = forceNodes.map(node => {
           const entity = node.entity;
           const degree = degrees[entity.id] || 0;
-          // Scale size between 45px and 90px depending on connection weight (more compact)
           const nodeSize = Math.max(45, Math.min(90, 45 + degree * 6));
           const typeColors = TYPE_COLORS[entity.type] || DEFAULT_COLOR;
 
@@ -240,57 +242,79 @@ export default function KnowledgeGraph({ onBack }) {
     } finally {
       setLoading(false);
     }
-  }, [setNodes, setEdges]);
+  }, [setNodes, setEdges, chargeStrength, linkDistance, collideRadius]);
 
   useEffect(() => {
+    loadModelAndPrefs();
     loadGraphData();
-  }, [loadGraphData]);
+  }, [loadModelAndPrefs, loadGraphData]);
 
-  // Rebuild Graph Trigger
-  const handleRebuild = async () => {
+  useEffect(() => {
+    const unsubscribe = onGraphProgress((payload) => {
+      if (payload) {
+        setGraphStatus(prev => ({ ...prev, ...payload }));
+        if (!payload.isBuilding && isRebuilding) {
+          setIsRebuilding(false);
+          setShowProgressModal(false);
+          window.dispatchEvent(new CustomEvent('app:toast', {
+            detail: { message: 'Knowledge Graph successfully rebuilt.', type: 'success' }
+          }));
+          loadGraphData();
+        }
+      }
+    });
+
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
+  }, [isRebuilding, loadGraphData]);
+
+  const handlePauseResume = async () => {
     try {
-      setLoading(true);
-      setError('');
-      const rebuildRes = await aiBuildGraph();
-      if (rebuildRes.success) {
-        window.dispatchEvent(new CustomEvent('app:toast', {
-          detail: { message: 'Knowledge Graph rebuilt successfully.', type: 'success' }
-        }));
-        await loadGraphData();
+      if (graphStatus.isPaused) {
+        await aiResumeGraphWorker();
+        setGraphStatus(prev => ({ ...prev, isPaused: false }));
       } else {
-        setError(rebuildRes.error || 'Rebuild failed.');
+        await aiPauseGraphWorker();
+        setGraphStatus(prev => ({ ...prev, isPaused: true }));
       }
     } catch (err) {
-      setError(err.message || 'Failed to rebuild Knowledge Graph.');
-    } finally {
-      setLoading(false);
+      console.error(err);
     }
   };
 
-  // Node Click Selector
+  const handleRebuild = async () => {
+    try {
+      setError('');
+      setIsRebuilding(true);
+      setGraphStatus(prev => ({ ...prev, isBuilding: true, current: 0, noteName: 'Initializing ModernBERT worker...' }));
+      const rebuildRes = await aiBuildGraph();
+      if (!rebuildRes.success) {
+        setError(rebuildRes.error || 'Rebuild failed.');
+        setIsRebuilding(false);
+        setGraphStatus(prev => ({ ...prev, isBuilding: false }));
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to rebuild Knowledge Graph.');
+      setIsRebuilding(false);
+      setGraphStatus(prev => ({ ...prev, isBuilding: false }));
+    }
+  };
+
   const onNodeClick = useCallback((event, node) => {
     setSelectedNode(node.data.raw);
   }, []);
 
   const [hoveredNodeId, setHoveredNodeId] = useState(null);
-
-  const onNodeMouseEnter = useCallback((event, node) => {
-    setHoveredNodeId(node.id);
-  }, []);
-
-  const onNodeMouseLeave = useCallback(() => {
-    setHoveredNodeId(null);
-  }, []);
+  const onNodeMouseEnter = useCallback((event, node) => setHoveredNodeId(node.id), []);
+  const onNodeMouseLeave = useCallback(() => setHoveredNodeId(null), []);
 
   const handleTypeToggle = (type) => {
     setSelectedTypes(prev => ({ ...prev, [type]: !prev[type] }));
   };
 
-  // Filtered nodes & edges list computed on options changes
   const { filteredNodes, filteredEdges } = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
-    
-    // Determine neighbor matches when hovering a node
     const activeNeighbors = new Set();
     if (hoveredNodeId) {
       activeNeighbors.add(hoveredNodeId);
@@ -306,21 +330,14 @@ export default function KnowledgeGraph({ onBack }) {
       const searchMatch = !q || raw.name.toLowerCase().includes(q) || raw.type.toLowerCase().includes(q) || raw.id.toLowerCase().includes(q);
       const isVisible = typeMatch && searchMatch;
 
-      // Dynamic opacity styling for hovered connection highlighting
       let opacity = 1;
       if (isVisible && hoveredNodeId) {
-        if (!activeNeighbors.has(node.id)) {
-          opacity = 0.2;
-        }
+        if (!activeNeighbors.has(node.id)) opacity = 0.2;
       }
 
       return {
         ...node,
-        style: {
-          ...node.style,
-          display: isVisible ? 'flex' : 'none',
-          opacity
-        }
+        style: { ...node.style, display: isVisible ? 'flex' : 'none', opacity }
       };
     });
 
@@ -334,25 +351,15 @@ export default function KnowledgeGraph({ onBack }) {
       }
       return {
         ...edge,
-        style: {
-          ...edge.style,
-          display: isVisible ? 'block' : 'none',
-          opacity
-        },
-        labelStyle: {
-          ...edge.labelStyle,
-          opacity
-        },
-        labelBgStyle: {
-          ...edge.labelBgStyle,
-          opacity
-        }
+        style: { ...edge.style, display: isVisible ? 'block' : 'none', opacity },
+        labelStyle: { ...edge.labelStyle, opacity },
+        labelBgStyle: { ...edge.labelBgStyle, opacity }
       };
     });
 
-    return { 
-      filteredNodes: visibleNodes.filter(n => n.style.display !== 'none'), 
-      filteredEdges: visibleEdges.filter(e => e.style.display !== 'none') 
+    return {
+      filteredNodes: visibleNodes.filter(n => n.style.display !== 'none'),
+      filteredEdges: visibleEdges.filter(e => e.style.display !== 'none')
     };
   }, [nodes, edges, searchQuery, selectedTypes, hoveredNodeId]);
 
@@ -360,7 +367,6 @@ export default function KnowledgeGraph({ onBack }) {
 
   return (
     <div className="knowledge-graph-page">
-      {/* Breadcrumb — matches Git VC page pattern */}
       <div className="detail-topbar">
         <nav className="detail-breadcrumb" aria-label="Knowledge graph location">
           <span className="detail-breadcrumb-part">
@@ -372,6 +378,7 @@ export default function KnowledgeGraph({ onBack }) {
       </div>
 
       <div className="knowledge-graph-container">
+        {/* Header Bar with Live Top Progress Banner when Building */}
         <div className="kg-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px', height: '52px', boxSizing: 'border-box' }}>
           <div className="kg-search-wrapper" style={{ height: '32px' }}>
             <Search size={16} className="kg-search-icon" />
@@ -385,76 +392,101 @@ export default function KnowledgeGraph({ onBack }) {
             />
           </div>
 
-          {/* Unified Model & DB Status details pill in header */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '11px', background: 'var(--surface-muted)', border: '1px solid var(--border-soft)', padding: '0 12px', borderRadius: '6px', color: 'var(--text-secondary)', marginLeft: 'auto', height: '32px', boxSizing: 'border-box' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Provider:</span>
-              <strong style={{ color: 'var(--text-strong)' }}>{preferences.graphProvider === 'local' ? 'Local' : 'Cloud'}</strong>
+          {/* Real-time Top Building Progress Indicator */}
+          {graphStatus.isBuilding ? (
+            <div
+              onClick={() => setShowProgressModal(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                background: 'var(--surface-muted)',
+                border: '1px solid var(--accent-solid)',
+                padding: '0 12px',
+                borderRadius: '6px',
+                fontSize: '11px',
+                color: 'var(--text-strong)',
+                marginLeft: 'auto',
+                height: '32px',
+                cursor: 'pointer',
+                boxSizing: 'border-box'
+              }}
+              title="Click to view detailed extraction log"
+            >
+              <RefreshCw size={12} className="spin" style={{ color: 'var(--accent-solid)' }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                <span style={{ fontSize: '10px', fontWeight: 600 }}>{graphStatus.noteName || 'Extracting graph...'}</span>
+                <div style={{ width: '120px', height: '3px', background: 'var(--border-soft)', borderRadius: '2px', overflow: 'hidden' }}>
+                  <div style={{ width: `${graphStatus.progress || 0}%`, height: '100%', background: 'var(--accent-solid)', transition: 'width 0.2s ease' }} />
+                </div>
+              </div>
+              <span style={{ fontWeight: 700, fontSize: '10px', color: 'var(--accent-solid)' }}>{graphStatus.progress || 0}%</span>
             </div>
-            <span style={{ width: '1px', height: '10px', background: 'var(--border-soft)' }}></span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Model:</span>
-              <strong style={{ color: 'var(--text-strong)' }}>{preferences.graphProvider === 'local' ? 'Qwen2.5-0.5B' : preferences.aiProvider}</strong>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '11px', background: 'var(--surface-muted)', border: '1px solid var(--border-soft)', padding: '0 12px', borderRadius: '6px', color: 'var(--text-secondary)', marginLeft: 'auto', height: '32px', boxSizing: 'border-box' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Engine:</span>
+                <strong style={{ color: 'var(--text-strong)' }}>{preferences.graphProvider === 'local' ? 'ModernBERT 2-Model' : 'Cloud LLM'}</strong>
+              </div>
+              <span style={{ width: '1px', height: '10px', background: 'var(--border-soft)' }}></span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>DB Size:</span>
+                <strong style={{ color: 'var(--text-strong)' }}>{sizeMB} MB</strong>
+              </div>
+              <span style={{ width: '1px', height: '10px', background: 'var(--border-soft)' }}></span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600, color: preferences.graphProvider !== 'local' || modelStatus.downloaded ? 'var(--status-success-text)' : 'var(--text-warning)' }}>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: preferences.graphProvider !== 'local' || modelStatus.downloaded ? 'var(--status-success-border)' : 'var(--text-warning)' }}></span>
+                {preferences.graphProvider !== 'local' ? 'Active' : modelStatus.downloaded ? 'Ready' : 'Missing'}
+              </span>
             </div>
-            <span style={{ width: '1px', height: '10px', background: 'var(--border-soft)' }}></span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ color: 'var(--text-muted)' }}>DB Size:</span>
-              <strong style={{ color: 'var(--text-strong)' }}>{sizeMB} MB</strong>
-            </div>
-            <span style={{ width: '1px', height: '10px', background: 'var(--border-soft)' }}></span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600, color: preferences.graphProvider !== 'local' || modelStatus.downloaded ? 'var(--status-success-text)' : 'var(--text-warning)' }}>
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: preferences.graphProvider !== 'local' || modelStatus.downloaded ? 'var(--status-success-border)' : 'var(--text-warning)' }}></span>
-              {preferences.graphProvider !== 'local' ? 'Active' : modelStatus.downloaded ? 'Ready' : 'Missing'}
-            </span>
-          </div>
+          )}
 
           <div className="kg-stats-pill" style={{ gap: '12px', display: 'flex', alignItems: 'center', height: '32px', boxSizing: 'border-box', margin: 0, padding: '0 12px' }}>
             <Database size={12} />
             <span>Nodes: {graphStatus.nodeCount} | Edges: {graphStatus.edgeCount}</span>
           </div>
+
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={handlePauseResume}
+            style={{ display: 'flex', alignItems: 'center', gap: '4px', height: '32px', padding: '0 10px', fontSize: '11px' }}
+          >
+            {graphStatus.isPaused ? <Play size={12} /> : <Pause size={12} />}
+            <span>{graphStatus.isPaused ? 'Resume Worker' : 'Pause Worker'}</span>
+          </button>
         </div>
 
-        <div className="kg-body">          {/* Sidebar Filters */}
+        {/* Main Body */}
+        <div className="kg-body">
+          {/* Sidebar */}
           <div className="kg-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div style={{ flex: 1, overflowY: 'auto' }}>
-
-              {/* Entity Types Checklist (More Compact) */}
+              {/* Entity Types Checklist */}
               <div className="kg-sidebar-section" style={{ background: 'var(--surface-elevated)', padding: '14px', borderRadius: '8px', border: '1px solid var(--border-soft)', display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
                 <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', margin: 0, fontWeight: 600 }}>
                   <Layers size={12} />
                   Entity Types
                 </h4>
-                <div className="kg-filters-list" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {Object.keys(selectedTypes).map((type) => {
-                    const color = TYPE_COLORS[type] || DEFAULT_COLOR;
-                    const displayName = type === 'Note' ? 'Notes' : 
-                                      type === 'Person' ? 'People' :
-                                      type === 'Technology' ? 'Technologies' :
-                                      type === 'Company' ? 'Companies' :
-                                      type === 'Concept' ? 'Concepts' :
-                                      type === 'Task' ? 'Tasks' : `${type}s`;
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {Object.keys(TYPE_COLORS).map(type => {
+                    const color = TYPE_COLORS[type];
+                    const count = nodes.filter(n => n.data.raw.type === type).length;
                     return (
-                      <label key={type} className="kg-filter-checkbox-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '11px', color: 'var(--text-secondary)', padding: '2px 0' }}>
+                      <label key={type} className="kg-filter-checkbox" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', cursor: 'pointer', padding: '2px 0' }}>
                         <input
                           type="checkbox"
-                          checked={selectedTypes[type]}
+                          checked={selectedTypes[type] !== false}
                           onChange={() => handleTypeToggle(type)}
-                          style={{
-                            accentColor: color.border,
-                            width: '12px',
-                            height: '12px',
-                            cursor: 'pointer'
-                          }}
                         />
                         <span className="kg-filter-color-dot" style={{ width: '6px', height: '6px', borderRadius: '50%', background: color.border }}></span>
-                        <span style={{ fontWeight: selectedTypes[type] ? 600 : 400, color: selectedTypes[type] ? 'var(--text-strong)' : 'var(--text-secondary)' }}>{displayName}</span>
+                        <span style={{ fontWeight: selectedTypes[type] ? 600 : 400, color: selectedTypes[type] ? 'var(--text-strong)' : 'var(--text-secondary)' }}>{type} ({count})</span>
                       </label>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Extraction Logs Panel (Last 10) */}
+              {/* Extraction Logs Panel */}
               <div className="kg-sidebar-section" style={{ background: 'var(--surface-elevated)', padding: '14px', borderRadius: '8px', border: '1px solid var(--border-soft)', display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
                 <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', margin: 0, fontWeight: 600 }}>
                   Extraction Logs
@@ -473,37 +505,29 @@ export default function KnowledgeGraph({ onBack }) {
                   gap: '4px'
                 }}>
                   {graphLogs.length > 0 ? (
-                    graphLogs.slice(0, 10).map((log, i) => (
-                      <div key={log.id || i} style={{ color: log.level === 'error' ? 'var(--text-danger)' : 'var(--text-secondary)', lineHeight: 1.3 }}>
-                        <span style={{ color: 'var(--text-muted)', marginRight: '4px' }}>[{new Date(log.timestamp).toLocaleTimeString()}]</span>
-                        {log.message}
+                    graphLogs.slice(0, 10).map((logItem, i) => (
+                      <div key={logItem.id || i} style={{ color: logItem.level === 'error' ? 'var(--text-danger)' : 'var(--text-secondary)', lineHeight: 1.3 }}>
+                        <span style={{ color: 'var(--text-muted)', marginRight: '4px' }}>[{new Date(logItem.timestamp).toLocaleTimeString()}]</span>
+                        {logItem.message}
                       </div>
                     ))
                   ) : (
                     <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No extraction logs yet.</span>
                   )}
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <button 
-                    onClick={() => window.dispatchEvent(new CustomEvent('app:menu-action', { detail: { action: 'open-app-logs' } }))}
-                    style={{ background: 'transparent', border: 'none', color: 'var(--accent-solid)', fontSize: '10px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
-                  >
-                    View Dedicated Log Page →
-                  </button>
-                </div>
               </div>
             </div>
 
-            {/* Sticky Actions Panel (Matching Embeddings) */}
+            {/* Actions Panel */}
             <div className="kg-sidebar-section" style={{ background: 'var(--surface-elevated)', padding: '14px', borderRadius: '8px', border: '1px solid var(--border-soft)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <button
-                className="btn btn-secondary btn-icon-label"
+                className="btn btn-primary btn-icon-label"
                 onClick={handleRebuild}
-                disabled={loading}
+                disabled={loading || graphStatus.isBuilding}
                 style={{ width: '100%', justifyContent: 'center', height: '32px', fontSize: '11px' }}
               >
-                <RefreshCw size={12} className={loading ? 'spin' : ''} />
-                <span>Rebuild Knowledge Graph</span>
+                <RefreshCw size={12} className={graphStatus.isBuilding ? 'spin' : ''} />
+                <span>{graphStatus.isBuilding ? 'Building Graph...' : 'Rebuild Knowledge Graph'}</span>
               </button>
 
               <button
@@ -520,9 +544,9 @@ export default function KnowledgeGraph({ onBack }) {
               </button>
             </div>
 
-            {/* Node Details Sidebar */}
+            {/* Selected Node Inspector */}
             {selectedNode && (
-              <div className="kg-details-card animate-fade-in">
+              <div className="kg-details-card animate-fade-in" style={{ marginTop: '12px' }}>
                 <div className="kg-details-head">
                   <h4>Entity Details</h4>
                   <button className="kg-details-close" onClick={() => setSelectedNode(null)}>✕</button>
@@ -556,10 +580,9 @@ export default function KnowledgeGraph({ onBack }) {
                             if (typeof appOpenNote === 'function') {
                               await appOpenNote(selectedNode.note_path);
                             } else {
-                              // Fallback dispatch if exposed differently
                               window.dispatchEvent(new CustomEvent('app:open-note', { detail: { path: selectedNode.note_path } }));
                             }
-                            if (onBack) onBack(); // Return to editor view
+                            if (onBack) onBack();
                           } catch (err) {
                             console.error('[KG] Failed to open note:', err);
                           }
@@ -575,7 +598,7 @@ export default function KnowledgeGraph({ onBack }) {
             )}
           </div>
 
-          {/* React Flow Graph Visualizer */}
+          {/* Full-Height Graph Canvas Viewport */}
           <div className="kg-canvas-wrapper" style={{ flex: 1, height: '100%', position: 'relative' }}>
             {error && (
               <div className="kg-error-overlay">
@@ -603,6 +626,48 @@ export default function KnowledgeGraph({ onBack }) {
           </div>
         </div>
       </div>
+
+      {/* Progress Modal */}
+      {showProgressModal && (
+        <OverlayDialog
+          open={showProgressModal}
+          onClose={() => setShowProgressModal(false)}
+          title="Rebuilding Knowledge Graph"
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', width: '100%', minWidth: '420px', padding: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+              <span>{graphStatus.noteName || 'Extracting entities & relations...'}</span>
+              <strong style={{ color: 'var(--brand-primary)' }}>{graphStatus.progress || 0}%</strong>
+            </div>
+
+            <div style={{ width: '100%', height: '8px', background: 'var(--border-soft)', borderRadius: '4px', overflow: 'hidden' }}>
+              <div style={{ width: `${graphStatus.progress || 0}%`, height: '100%', background: 'var(--accent-solid)', transition: 'width 0.2s ease' }} />
+            </div>
+
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+              Processed: {graphStatus.current} / {graphStatus.total} notes
+            </div>
+
+            <div style={{ marginTop: '8px', maxHeight: '160px', overflowY: 'auto', background: 'var(--surface-muted)', border: '1px solid var(--border-soft)', borderRadius: '6px', padding: '8px' }}>
+              <div style={{ fontSize: '10px', fontWeight: 'bold', marginBottom: '4px', color: 'var(--text-muted)' }}>Recent Extraction Logs:</div>
+              {graphLogs.slice(-6).map((logItem, idx) => (
+                <div key={idx} style={{ fontSize: '10px', color: 'var(--text-secondary)', padding: '2px 0' }}>
+                  [{new Date(logItem.timestamp).toLocaleTimeString()}] {logItem.message}
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setShowProgressModal(false)}
+              >
+                Hide Modal (Run in Background)
+              </button>
+            </div>
+          </div>
+        </OverlayDialog>
+      )}
     </div>
   );
 }

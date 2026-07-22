@@ -2,12 +2,23 @@
  * workerManager.cjs - Manages background utilityProcess lifecycles and messaging
  */
 
-const { utilityProcess } = require('electron');
+const { utilityProcess, BrowserWindow } = require('electron');
 const path = require('path');
 
 let childProcess = null;
 let isPaused = false;
 let isWorking = false;
+let graphProgressState = {
+  isBuilding: false,
+  isPaused: false,
+  current: 0,
+  total: 0,
+  progress: 0,
+  noteName: '',
+  nodeCount: 0,
+  edgeCount: 0,
+  queueSize: 0
+};
 
 function startWorker(workspaceRoot, appDataDir, hfToken) {
   if (childProcess) {
@@ -31,14 +42,42 @@ function startWorker(workspaceRoot, appDataDir, hfToken) {
   });
 
   childProcess.on('message', (e) => {
-    const { type, error, working } = e || {};
+    const { type, error, working, payload } = e || {};
     if (type === 'error') {
       console.error('[Worker Manager] Child worker reported error:', error);
       isWorking = false;
     } else if (type === 'working') {
       isWorking = !!working;
-    } else if (type === 'progress') {
-      // Forward status progress triggers if needed
+    } else if (type === 'graphProgress') {
+      graphProgressState = {
+        isBuilding: payload?.isBuilding ?? true,
+        isPaused: payload?.isPaused ?? false,
+        current: payload?.current || 0,
+        total: payload?.total || 0,
+        progress: payload?.progress || 0,
+        noteName: payload?.noteName || '',
+        nodeCount: payload?.nodeCount || 0,
+        edgeCount: payload?.edgeCount || 0,
+        queueSize: payload?.queueSize || 0
+      };
+
+      // Broadcast to renderer windows
+      try {
+        const windows = BrowserWindow.getAllWindows();
+        for (const win of windows) {
+          if (win && !win.isDestroyed()) {
+            win.webContents.send('ai:graph:progress', graphProgressState);
+          }
+        }
+      } catch (err) {
+        console.error('[Worker Manager] Failed to broadcast graphProgress to renderer:', err.message);
+      }
+    } else if (type === 'graphComplete') {
+      graphProgressState = {
+        ...graphProgressState,
+        isBuilding: false,
+        noteName: ''
+      };
     }
   });
 
@@ -76,6 +115,40 @@ function renameNoteData(oldPath, newPath) {
   }
 }
 
+function rebuildGraph(workspaceFiles, providerConfig = null) {
+  graphProgressState = {
+    isBuilding: true,
+    isPaused: false,
+    current: 0,
+    total: Array.isArray(workspaceFiles) ? workspaceFiles.length : 0,
+    progress: 0,
+    noteName: 'Starting graph rebuild...',
+    nodeCount: 0,
+    edgeCount: 0,
+    queueSize: Array.isArray(workspaceFiles) ? workspaceFiles.length : 0
+  };
+  if (childProcess) {
+    childProcess.postMessage({
+      type: 'rebuildGraph',
+      payload: { workspaceFiles, providerConfig }
+    });
+  }
+}
+
+function pauseGraphWorker() {
+  if (childProcess) {
+    childProcess.postMessage({ type: 'pauseGraphWorker' });
+    graphProgressState.isPaused = true;
+  }
+}
+
+function resumeGraphWorker() {
+  if (childProcess) {
+    childProcess.postMessage({ type: 'resumeGraphWorker' });
+    graphProgressState.isPaused = false;
+  }
+}
+
 function pauseWorker() {
   if (childProcess) {
     childProcess.postMessage({ type: 'pause' });
@@ -105,7 +178,11 @@ module.exports = {
   renameNoteData,
   pauseWorker,
   resumeWorker,
+  pauseGraphWorker,
+  resumeGraphWorker,
   shutdownWorker,
+  rebuildGraph,
+  getGraphProgressState: () => graphProgressState,
   get isPaused() { return isPaused; },
   get isWorking() { return isWorking; }
 };

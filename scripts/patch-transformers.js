@@ -27,11 +27,17 @@ const replacement = `    const fsMod = await import("fs");
 if (code.includes(targetLF)) {
   code = code.replace(targetLF, replacement);
   fs.writeFileSync(filePath, code, 'utf8');
-  console.log('Successfully patched loadWasmFactory in transformers.node.mjs (LF)!');
-} else if (code.includes(targetCRLF)) {
-  code = code.replace(targetCRLF, replacement);
-  fs.writeFileSync(filePath, code, 'utf8');
-  console.log('Successfully patched loadWasmFactory in transformers.node.mjs (CRLF)!');
 } else {
   console.log('Target block not found. Already patched?');
+}
+
+// Patch onnxruntime-node require in transformers.node.cjs
+const cjsFilePath = path.resolve(__dirname, '../node_modules/@huggingface/transformers/dist/transformers.node.cjs');
+if (fs.existsSync(cjsFilePath)) {
+  let cjsCode = fs.readFileSync(cjsFilePath, 'utf8');
+  if (cjsCode.includes('require("onnxruntime-node")')) {
+    cjsCode = cjsCode.replace('require("onnxruntime-node")', 'require("onnxruntime-web")');
+    fs.writeFileSync(cjsFilePath, cjsCode, 'utf8');
+    console.log('Successfully patched onnxruntime-node require in transformers.node.cjs!');
+  }
 }

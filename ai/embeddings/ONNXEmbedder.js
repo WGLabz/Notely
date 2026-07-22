@@ -18,12 +18,15 @@ class ONNXEmbedder {
     if (this.isLoaded) return;
     try {
       log.info('Loading local ONNX embedding session...');
-      try {
-        this.ort = require('onnxruntime-node');
-      } catch (err) {
-        log.warn('Failed to load native onnxruntime-node. Trying onnxruntime-web (WASM) fallback:', err.message);
-        this.ort = require('onnxruntime-web');
+      this.ort = require('onnxruntime-web');
+      this.ort.env.wasm.numThreads = 1;
+
+      const { pathToFileURL } = require('url');
+      let wasmDir = path.dirname(require.resolve('onnxruntime-web')) + path.sep;
+      if (wasmDir.includes('app.asar')) {
+        wasmDir = wasmDir.replace('app.asar', 'app.asar.unpacked');
       }
+      this.ort.env.wasm.wasmPaths = pathToFileURL(wasmDir).href;
       
       const modelPath = path.join(this.modelDir, 'model.onnx');
       const vocabPath = path.join(this.modelDir, 'vocab.txt');
