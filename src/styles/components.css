@@ -2102,6 +2102,39 @@
   align-self: flex-end;
 }
 
+.ai-chat-resend-btn {
+  opacity: 0;
+  transition: opacity 0.15s ease-in-out, background-color 0.15s ease-in-out;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  flex-shrink: 0;
+  margin-left: 4px;
+  align-self: center;
+}
+
+.ai-chat-message:hover .ai-chat-resend-btn {
+  opacity: 0.75;
+}
+
+.ai-chat-resend-btn:hover {
+  opacity: 1 !important;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.ai-chat-resend-btn:disabled {
+  opacity: 0.3 !important;
+  cursor: not-allowed !important;
+  pointer-events: none;
+  background: transparent !important;
+}
+
 .ai-chat-message.assistant {
   background: #f0f4f3;
   color: #1b363c;

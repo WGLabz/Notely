@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Send, X, Trash2, Pencil, Check, History } from "lucide-react";
+import { Send, X, Trash2, Pencil, Check, History, RotateCcw } from "lucide-react";
 import AppButton from "./AppButton";
 import AppTextarea from "./AppTextarea";
 import { renderMarkdown } from "../utils/renderUtils";
@@ -109,6 +109,13 @@ export default function AIChatPanel({
   });
 
   const starterPrompts = useMemo(() => buildStarterPrompts(contextSummary), [contextSummary]);
+
+  const lastUserMessage = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "user") return messages[i];
+    }
+    return null;
+  }, [messages]);
 
   useEffect(() => {
     setDraft(intent?.query || "");
@@ -354,35 +361,47 @@ export default function AIChatPanel({
                 .trim();
               return (
                 <div key={message.id} className={`ai-chat-message ${message.role}`}>
-                  <div className="ai-chat-message-head">
-                    <span style={{ fontSize: "13px" }}>
-                      {message.role === "user" ? "👤" : (message.avatar || activePersona?.avatar || "🤖")}
-                    </span>
-                    <strong>{message.role === "user" ? "You" : (activePersona?.name || "AI")}</strong>
-                    <span style={{ marginLeft: "auto", fontSize: "9px", textTransform: "uppercase", opacity: 0.65 }}>
-                      {message.scopeLabel || message.scope || "auto"}
-                    </span>
-                  </div>
-                  <div
-                    className="ai-chat-message-body markdown-body"
-                    dangerouslySetInnerHTML={{ __html: renderMarkdown(cleanText) }}
-                    onClick={(event) => {
-                      const link = event.target.closest('a');
-                      if (link && link.href && link.href.startsWith('file://')) {
-                        event.preventDefault();
-                        let rawPath = decodeURIComponent(link.href.replace('file:///', ''));
-                        rawPath = rawPath.replace(/\//g, '\\');
-                        
-                        let lineNum = null;
-                        const hashMatch = rawPath.match(/#L(\d+)/i);
-                        if (hashMatch) {
-                          lineNum = parseInt(hashMatch[1], 10);
-                          rawPath = rawPath.replace(/#L\d+/i, '');
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "4px" }}>
+                    <div
+                      className="ai-chat-message-body markdown-body"
+                      style={{ flex: 1, minWidth: 0 }}
+                      dangerouslySetInnerHTML={{ __html: renderMarkdown(cleanText) }}
+                      onClick={(event) => {
+                        const link = event.target.closest('a');
+                        if (link && link.href && link.href.startsWith('file://')) {
+                          event.preventDefault();
+                          let rawPath = decodeURIComponent(link.href.replace('file:///', ''));
+                          rawPath = rawPath.replace(/\//g, '\\');
+                          
+                          let lineNum = null;
+                          const hashMatch = rawPath.match(/#L(\d+)/i);
+                          if (hashMatch) {
+                            lineNum = parseInt(hashMatch[1], 10);
+                            rawPath = rawPath.replace(/#L\d+/i, '');
+                          }
+                          onOpenDocument?.(rawPath, lineNum);
                         }
-                        onOpenDocument?.(rawPath, lineNum);
-                      }
-                    }}
-                  />
+                      }}
+                    />
+                    {message.role === "user" && message.id === lastUserMessage?.id && (
+                      <button
+                        type="button"
+                        className="ai-chat-resend-btn"
+                        disabled={isLoading || !!activeQueryId}
+                        onClick={() => {
+                          onSend?.({
+                            message: message.text || message.content,
+                            target: message.scope || scope,
+                            personaPrompt: activePersona?.prompt,
+                            isResend: true,
+                          });
+                        }}
+                        title="Resend this message"
+                      >
+                        <RotateCcw size={12} />
+                      </button>
+                    )}
+                  </div>
 
                   {message.role === "assistant" && message.references && message.references.length > 0 && (
                     <div className="ai-chat-message-references" style={{ marginTop: "6px", paddingTop: "5px", borderTop: "1px solid var(--border-soft)", fontSize: "10px" }}>

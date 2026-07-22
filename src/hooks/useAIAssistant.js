@@ -365,38 +365,41 @@ export function useAIAssistant({
     }
   }
 
-  async function handleAIChatSend({ message, target, personaPrompt }) {
+  async function handleAIChatSend({ message, target, personaPrompt, isResend = false }) {
     const scope = target || "auto";
-    const userEntry = {
-      id: `user-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      role: "user",
-      text: message,
-      scope,
-      scopeLabel: scope,
-    };
 
-    setAiChatMessages((currentMessages) => [...currentMessages, userEntry]);
+    if (!isResend) {
+      const userEntry = {
+        id: `user-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        role: "user",
+        text: message,
+        scope,
+        scopeLabel: scope,
+      };
 
-    // Lazily create a conversation session on first message
-    if (!currentConversationIdRef.current) {
-      try {
-        const firstLine = message.trim().split('\n')[0];
-        const draftTitle = firstLine.slice(0, 30) + (firstLine.length > 30 ? "..." : "");
-        const convResp = await aiCreateConversation(
-          draftTitle,
-          activePersona?.id || "default"
-        );
-        if (convResp?.success) {
-          currentConversationIdRef.current = convResp.data?.id;
+      setAiChatMessages((currentMessages) => [...currentMessages, userEntry]);
+
+      // Lazily create a conversation session on first message
+      if (!currentConversationIdRef.current) {
+        try {
+          const firstLine = message.trim().split('\n')[0];
+          const draftTitle = firstLine.slice(0, 30) + (firstLine.length > 30 ? "..." : "");
+          const convResp = await aiCreateConversation(
+            draftTitle,
+            activePersona?.id || "default"
+          );
+          if (convResp?.success) {
+            currentConversationIdRef.current = convResp.data?.id;
+          }
+        } catch {
+          // Non-fatal — chat still works, just not persisted
         }
-      } catch {
-        // Non-fatal — chat still works, just not persisted
       }
-    }
 
-    // Persist user message
-    if (currentConversationIdRef.current) {
-      aiAddMessage(currentConversationIdRef.current, "user", message).catch(() => {});
+      // Persist user message
+      if (currentConversationIdRef.current) {
+        aiAddMessage(currentConversationIdRef.current, "user", message).catch(() => {});
+      }
     }
 
     const queryId = `chat-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -415,7 +418,12 @@ export function useAIAssistant({
       references: [],
     };
 
-    setAiChatMessages((currentMessages) => [...currentMessages, assistantEntry]);
+    setAiChatMessages((currentMessages) => {
+      if (isResend && currentMessages.length > 0 && currentMessages[currentMessages.length - 1].role === "assistant") {
+        return [...currentMessages.slice(0, -1), assistantEntry];
+      }
+      return [...currentMessages, assistantEntry];
+    });
 
     try {
       const editorContext = aiEditorRef.current?.getContext?.() || {};
