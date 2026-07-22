@@ -99,7 +99,7 @@ class GraphQueue {
       if (this.graphDb?.db) {
         try {
           this.graphDb.db.prepare("UPDATE graph_queue SET status = 'processing' WHERE id = ?").run(job.id);
-        } catch {}
+        } catch { /* ignore update status error */ }
       }
     }
     return job;
@@ -117,7 +117,7 @@ class GraphQueue {
         try {
           const stmt = this.graphDb.db.prepare('UPDATE graph_queue SET status = ?, error = ?, retries = ? WHERE id = ?');
           stmt.run(status, error, job.retries, jobId);
-        } catch {}
+        } catch { /* ignore update status error */ }
       }
     }
   }
@@ -128,7 +128,7 @@ class GraphQueue {
     if (this.graphDb?.db) {
       try {
         this.graphDb.db.prepare('DELETE FROM graph_queue').run();
-      } catch {}
+      } catch { /* ignore delete queue error */ }
     }
     log.info('GraphQueue cleared');
   }

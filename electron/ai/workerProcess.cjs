@@ -12,10 +12,6 @@ let graphDb = null;
 let graphQueue = null;
 let graphWorker = null;
 let graphService = null;
-
-let currentWorkspaceRoot = null;
-let currentAppDataDir = null;
-
 if (process.parentPort) {
   process.parentPort.on('message', async (e) => {
     const { type, payload } = e.data || {};
@@ -23,8 +19,6 @@ if (process.parentPort) {
     try {
       if (type === 'start') {
         const { workspaceRoot, appDataDir } = payload;
-        currentWorkspaceRoot = workspaceRoot;
-        currentAppDataDir = appDataDir;
 
         const EmbeddingDB = require('../../ai/embeddings/EmbeddingDB');
         const IndexQueue = require('../../ai/queue/IndexQueue');
@@ -77,7 +71,7 @@ if (process.parentPort) {
                 results.push(fullPath);
               }
             }
-          } catch {}
+          } catch { /* ignore scan error */ }
           return results;
         }
 
@@ -88,7 +82,7 @@ if (process.parentPort) {
             if (graphDb && typeof graphDb.isNoteUpToDate === 'function' && graphDb.isNoteUpToDate(notePath, stat.mtimeMs)) {
               continue; // Skip unchanged notes already up-to-date in GraphDB
             }
-          } catch {}
+          } catch { /* ignore stat error */ }
           graphQueue.enqueue(notePath);
         }
 
@@ -146,8 +140,8 @@ if (process.parentPort) {
             db.prepare('UPDATE indexing_queue SET note_path = ? WHERE note_path = ?').run(newPath, oldPath);
             db.prepare('UPDATE indexing_log SET note_path = ? WHERE note_path = ?').run(newPath, oldPath);
             db.exec('COMMIT');
-          } catch (err) {
-            try { db.exec('ROLLBACK'); } catch {}
+          } catch {
+            try { db.exec('ROLLBACK'); } catch { /* ignore rollback error */ }
           }
         }
       } else if (type === 'rebuildGraph') {

@@ -2,7 +2,6 @@
  * EvidenceStore - Manages raw evidence records for provenance tracking
  */
 
-const crypto = require('crypto');
 const { createLogger } = require('../core/logger');
 
 const log = createLogger('EvidenceStore');

@@ -9,7 +9,7 @@ import {
   Position
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Search, RefreshCw, Layers, ShieldAlert, Database, Pause, Play, Sliders } from 'lucide-react';
+import { Search, RefreshCw, Layers, ShieldAlert, Database, Pause, Play } from 'lucide-react';
 import {
   aiGetGraph,
   aiBuildGraph,
@@ -98,9 +98,9 @@ export default function KnowledgeGraph({ onBack }) {
   const [showProgressModal, setShowProgressModal] = useState(false);
 
   // Force Layout State
-  const [chargeStrength, setChargeStrength] = useState(-280);
-  const [linkDistance, setLinkDistance] = useState(150);
-  const [collideRadius, setCollideRadius] = useState(80);
+  const [chargeStrength] = useState(-280);
+  const [linkDistance] = useState(150);
+  const [collideRadius] = useState(80);
 
   const loadModelAndPrefs = useCallback(async () => {
     try {

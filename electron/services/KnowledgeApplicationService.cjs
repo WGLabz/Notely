@@ -141,7 +141,7 @@ class KnowledgeApplicationService {
   /**
    * Find semantic topic clusters across workspace.
    */
-  async findClusters({ workspaceRoot, minSize = 2 }) {
+  async findClusters({ workspaceRoot: _workspaceRoot, minSize = 2 }) {
     if (this.agentInstance && this.agentInstance.clusteringService) {
       try {
         const clusters = await this.agentInstance.clusteringService.getClusters(minSize);
@@ -172,7 +172,7 @@ class KnowledgeApplicationService {
   /**
    * Trigger reindex of Knowledge services.
    */
-  async reindexKnowledge({ workspaceRoot, force = false }) {
+  async reindexKnowledge({ workspaceRoot, force: _force = false }) {
     if (this.agentInstance && this.agentInstance.graphBuilder) {
       try {
         await this.agentInstance.graphBuilder.rebuildGraph();

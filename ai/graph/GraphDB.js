@@ -101,7 +101,7 @@ class GraphDB {
       this.db.exec('COMMIT;');
       return result;
     } catch (err) {
-      try { this.db.exec('ROLLBACK;'); } catch {}
+      try { this.db.exec('ROLLBACK;'); } catch { /* ignore rollback errors */ }
       throw err;
     }
   }

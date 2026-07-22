@@ -18,8 +18,6 @@ import {
   aiGetHealth,
   aiGetModelStatus,
   onModelDownloadProgress,
-  aiGetGraphModelStatus,
-  onGraphModelDownloadProgress,
   aiDownloadModel,
   aiDeleteModel,
   aiEnable,

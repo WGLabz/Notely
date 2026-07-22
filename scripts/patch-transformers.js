@@ -10,7 +10,6 @@ if (!fs.existsSync(filePath)) {
 let code = fs.readFileSync(filePath, 'utf8');
 
 const targetLF = '    const blob = new Blob([code], { type: "text/javascript" });\n    return URL.createObjectURL(blob);';
-const targetCRLF = '    const blob = new Blob([code], { type: "text/javascript" });\r\n    return URL.createObjectURL(blob);';
 
 const replacement = `    const fsMod = await import("fs");
     const pathMod = await import("path");

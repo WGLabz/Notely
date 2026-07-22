@@ -66,8 +66,6 @@ class ModelDownloader {
 
         log.info(`Downloading SmolLM2 ONNX asset: ${file.name}...`);
         
-        const isModelFile = file.name.endsWith('.onnx');
-        
         await this.downloadFile(file.url, destPath, (bytesRead, totalBytes) => {
           if (totalBytes > 0) {
             const baseProgress = Math.round((completedCount / this.smolLM2ONNXFiles.length) * 100);

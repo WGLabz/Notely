@@ -129,7 +129,6 @@ class ModernBERTExtractor {
 
     const entities = options.knownEntities ? [...options.knownEntities] : [];
     const relationships = [];
-    const seenIds = new Set(entities.map(e => e.id));
 
     const sentences = this.segmentSentences(text);
 
@@ -294,7 +293,7 @@ class ModernBERTExtractor {
   /**
    * Dynamically normalize raw NER model labels without hardcoded domain word lists
    */
-  normalizeEntityType(rawLabel, word) {
+  normalizeEntityType(rawLabel, _word) {
     const cleanLabel = String(rawLabel || '').toUpperCase().replace(/^[BI]-/, '').trim();
 
     if (!cleanLabel) return 'Entity';

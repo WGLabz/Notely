@@ -325,7 +325,7 @@ class GraphService {
               });
             }
           }
-        } catch {}
+        } catch { /* ignore fallback extraction errors */ }
       }
 
       // 3. Neural AI Pipeline (ModernBERT NER + RE)
