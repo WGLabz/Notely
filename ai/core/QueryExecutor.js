@@ -73,18 +73,7 @@ class QueryExecutor {
       ...contextEngineTools
     };
 
-    // Prune tools for conversational follow-up queries to prevent redundant tool execution
-    const cleanQuery = query.toLowerCase().trim();
-    const followUpKeywords = [
-      'suggest', 'pick', 'choose', 'first', 'second', 'third', 'next', 'which',
-      'ok', 'great', 'fine', 'yes', 'no', 'sure', 'why', 'how about', 'what do you think'
-    ];
-    const isFollowUp = cleanQuery.length < 50 && followUpKeywords.some(kw => cleanQuery.includes(kw));
-    
     let toolChoice = 'auto';
-    if (isFollowUp && ceMessages.length > 0) {
-      toolChoice = 'none';
-    }
 
     // Build messages array
     let messages = [];

@@ -104,6 +104,59 @@ class LocalONNXProvider extends LLMProvider {
     return true;
   }
 
+  async getModelInstance() {
+    const self = this;
+    return {
+      specificationVersion: 'v4',
+      provider: 'local',
+      modelId: 'Qwen2.5-0.5B-Instruct-ONNX',
+      defaultObjectGenerationMode: undefined,
+      async doGenerate(options) {
+        const response = await self.generateChatCompletion(options.prompt || options.messages, {
+          maxTokens: options.maxTokens,
+          temperature: options.temperature
+        });
+        return {
+          text: response.text,
+          finishReason: 'stop',
+          usage: {
+            promptTokens: 0,
+            completionTokens: 0
+          },
+          rawCall: { rawPrompt: options.prompt, rawSettings: {} }
+        };
+      },
+      async doStream(options) {
+        const response = await self.generateChatCompletion(options.prompt || options.messages, {
+          maxTokens: options.maxTokens,
+          temperature: options.temperature
+        });
+        
+        const text = response.text;
+        
+        const stream = new ReadableStream({
+          start(controller) {
+            controller.enqueue({
+              type: 'text-delta',
+              textDelta: text
+            });
+            controller.close();
+          }
+        });
+        
+        return {
+          stream,
+          finishReason: 'stop',
+          usage: {
+            promptTokens: 0,
+            completionTokens: 0
+          },
+          rawCall: { rawPrompt: options.prompt, rawSettings: {} }
+        };
+      }
+    };
+  }
+
   async generateText(prompt, options = {}) {
     if (!this.isInitialized) await this.initialize();
     const { maxTokens = 512, temperature = 0.7 } = options;

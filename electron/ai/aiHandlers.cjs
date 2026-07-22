@@ -50,6 +50,7 @@ try {
 }
 
 const { aiService } = require('../../ai/core/AIService');
+const { applicationToolRegistry } = require('../tools/ApplicationToolRegistry.cjs');
 let handlersRegistered = false;
 
 // --- Input validation & sender trust guards -------------------------------
@@ -153,6 +154,7 @@ const activeQueryControllers = new Map();
 function initializeAIHandlers(electronApp, agent) {
   if (agent) {
     aiService.agent = agent;
+    applicationToolRegistry.setAgentInstance(agent);
     
     // Dynamically initialize embeddingDb and indexWorker if not present
     if (!agent.embeddingDb && agent.workspaceRoot) {
@@ -181,6 +183,20 @@ function initializeAIHandlers(electronApp, agent) {
     console.log('[AI IPC] Handlers already initialized; updated agent reference');
     return;
   }
+
+  // Application Tool Registry Handlers
+  registerHandler('tool:execute', async (event, payload) => {
+    const { toolName, args = {}, context = {} } = payload || {};
+    const workspaceRoot = agent?.workspaceRoot || context.workspaceRoot || null;
+    return applicationToolRegistry.executeTool(toolName, args, { ...context, workspaceRoot, caller: 'ipc_client' });
+  });
+
+  registerHandler('tool:list', async () => {
+    return {
+      success: true,
+      data: applicationToolRegistry.toMcpSchemas()
+    };
+  });
 
   // AI Initialization
   registerHandler(IPC_EVENTS.AI_INIT, handleInitialize);

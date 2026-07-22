@@ -587,6 +587,9 @@ export const AISettingsContent = ({ _onClose }) => {
                         </button>
                       </div>
                     )}
+                    <div style={{ color: "var(--text-muted)", fontSize: "10.5px", marginTop: "6px", borderLeft: "2px solid var(--accent-solid)", paddingLeft: "6px" }}>
+                      ⚠️ <strong>Hardware Warning:</strong> Running text models locally executes inference directly on your CPU. This requires a modern processor and at least 8GB-16GB RAM. Performance may cause temporary UI lag/freezes during generation.
+                    </div>
                   </div>
                 ) : (
                   <div className="api-key-group compact" style={{ marginBottom: "8px" }}>
@@ -675,6 +678,40 @@ export const AISettingsContent = ({ _onClose }) => {
                       >
                         <Zap size={12} /> Test
                       </button>
+                    </div>
+                    
+                    {/* Provider-specific details and helper links */}
+                    <div style={{ marginTop: "8px", padding: "8px 10px", background: "var(--surface-muted)", borderRadius: "6px", border: "1px solid var(--border-soft)", fontSize: "11px", display: "flex", flexDirection: "column", gap: "4px" }}>
+                      {selectedProvider === "groq" && (
+                        <>
+                          <div style={{ fontWeight: "600", color: "var(--text-strong)" }}>Groq Cloud Provider Info:</div>
+                          <div>
+                            Get your API key at: <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-solid)", textDecoration: "underline" }}>console.groq.com/keys</a>
+                          </div>
+                          <div style={{ color: "var(--text-muted)", fontSize: "10px", borderLeft: "2px solid var(--accent-solid)", paddingLeft: "6px" }}>
+                            ⚠️ <strong>Rate Limit Warning:</strong> Groq free tier has daily token limits (TPD). If you hit a 429 rate limit error, you will need to wait for quota reset or upgrade to a developer tier.
+                          </div>
+                        </>
+                      )}
+                      {selectedProvider === "gemini" && (
+                        <>
+                          <div style={{ fontWeight: "600", color: "var(--text-strong)" }}>Google Gemini Provider Info:</div>
+                          <div>
+                            Get your API key at: <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-solid)", textDecoration: "underline" }}>aistudio.google.com/app/apikey</a>
+                          </div>
+                          <div style={{ color: "var(--text-muted)", fontSize: "10px" }}>
+                            Gemini offers a generous free tier for developers with high limits.
+                          </div>
+                        </>
+                      )}
+                      {selectedProvider === "openai" && (
+                        <>
+                          <div style={{ fontWeight: "600", color: "var(--text-strong)" }}>OpenAI Provider Info:</div>
+                          <div>
+                            Get your API key at: <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-solid)", textDecoration: "underline" }}>platform.openai.com/api-keys</a>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}

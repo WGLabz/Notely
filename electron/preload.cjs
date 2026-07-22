@@ -302,5 +302,7 @@ contextBridge.exposeInMainWorld("notesApi", {
   browseImportFile: () => ipcRenderer.invoke("note-package:browse-import-file"),
   getNotePackageDefaults: () => ipcRenderer.invoke("note-package:get-defaults"),
   openExternal: (url) => ipcRenderer.invoke("shell:open-external", { url }),
+  executeTool: (payload) => ipcRenderer.invoke("tool:execute", payload),
+  listTools: () => ipcRenderer.invoke("tool:list"),
 });
 

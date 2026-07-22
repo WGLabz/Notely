@@ -1291,3 +1291,22 @@ export async function aiRejectKnowledge(id) {
   if (typeof api.aiRejectKnowledge !== 'function') throw new Error('Knowledge API unavailable.');
   return api.aiRejectKnowledge({ id });
 }
+
+// ─── Application Tool Layer ──────────────────────────────────────────────────
+
+export async function executeTool(toolName, args = {}, context = {}) {
+  const api = getNotesApi();
+  if (typeof api.executeTool !== 'function') {
+    throw new Error('Tool API unavailable.');
+  }
+  return api.executeTool({ toolName, args, context });
+}
+
+export async function listTools() {
+  const api = getNotesApi();
+  if (typeof api.listTools !== 'function') {
+    return { success: false, data: [] };
+  }
+  return api.listTools();
+}
+

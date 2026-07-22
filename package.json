@@ -131,7 +131,8 @@
     "asar": true,
     "asarUnpack": [
       "node_modules/node-pty/**/*",
-      "node_modules/node-llama-cpp/**/*"
+      "node_modules/onnxruntime-node/**/*",
+      "node_modules/onnxruntime-web/**/*"
     ],
     "win": {
       "signAndEditExecutable": false,
