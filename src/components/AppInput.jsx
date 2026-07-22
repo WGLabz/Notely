@@ -8,7 +8,8 @@ export const AppInput = forwardRef(function AppInput(
   },
   ref,
 ) {
-  return <input ref={ref} type={type} className={className} {...rest} />;
+  const classes = ["app-input", className].filter(Boolean).join(" ");
+  return <input ref={ref} type={type} className={classes} {...rest} />;
 });
 
 export default AppInput;

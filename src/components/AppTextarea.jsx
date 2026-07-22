@@ -8,8 +8,9 @@ export const AppTextarea = forwardRef(function AppTextarea(
   },
   ref,
 ) {
+  const classes = ["app-textarea", className].filter(Boolean).join(" ");
   return (
-    <textarea ref={ref} className={className} {...rest}>
+    <textarea ref={ref} className={classes} {...rest}>
       {children}
     </textarea>
   );

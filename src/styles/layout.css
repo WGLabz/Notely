@@ -711,8 +711,8 @@
 
 .global-search-input:focus {
   outline: none;
-  border-color: color-mix(in srgb, var(--accent-solid) 28%, var(--border-ui));
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-solid) 7%, transparent);
+  border-color: var(--focus-ring-color);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus-ring-color) 35%, transparent);
 }
 
 .global-search-filters {
