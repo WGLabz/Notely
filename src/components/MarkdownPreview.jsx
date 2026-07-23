@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, memo } from "react";
-import { Search, Copy, ExternalLink, Pencil, RefreshCw, Trash2, RotateCcw } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Search, Copy, ExternalLink, Pencil, RefreshCw, Trash2, RotateCcw, Download } from "lucide-react";
 import {
   renderMarkdown,
   parseDiagramBlocks,
@@ -415,12 +416,29 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
   const [contextMenu, setContextMenu] = useState(null);
   const [activeLinkPopup, setActiveLinkPopup] = useState(null);
   const linkHideTimerRef = useRef(null);
+  const isPopupHoveredRef = useRef(false);
   const handleLinkNavigateRef = useRef(null);
 
   const handleCopyLinkFromPreview = (href) => {
     if (!href) return;
     navigator.clipboard.writeText(href);
     onNotify?.(`Copied link path: ${href}`, "success");
+    setActiveLinkPopup(null);
+  };
+
+  const handleDownloadFileFromPreview = async (href) => {
+    if (!href) return;
+    const resolvedPath = resolveMarkdownLinkPath(basePath, href) || href;
+    try {
+      if (typeof window.notesApi?.openFolder === "function") {
+        await window.notesApi.openFolder(resolvedPath);
+        onNotify?.(`Opened file location: ${resolvedPath}`, "success");
+      } else {
+        onNotify?.(`File path: ${resolvedPath}`, "info");
+      }
+    } catch (err) {
+      onNotify?.(err?.message || "Failed to open file.", "error");
+    }
     setActiveLinkPopup(null);
   };
 
@@ -473,17 +491,29 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
       if (cache.has(cacheKey)) {
         const cached = cache.get(cacheKey);
         if (!cancelled && cached) image.src = cached;
-        try {
-          const annotation = await getImageAnnotation(basePath, assetPath);
-          if (!cancelled) applyImageAnnotation(image, annotation);
-        } catch {
-          if (!cancelled) applyImageAnnotation(image, null);
+        const annotationKey = `annotation:${assetPath}`;
+        if (cache.has(annotationKey)) {
+          if (!cancelled) applyImageAnnotation(image, cache.get(annotationKey));
+        } else {
+          try {
+            const annotation = await getImageAnnotation(basePath, assetPath);
+            cache.set(annotationKey, annotation);
+            if (!cancelled) applyImageAnnotation(image, annotation);
+          } catch {
+            if (!cancelled) applyImageAnnotation(image, null);
+          }
         }
-        try {
-          const originalStatus = await getImageOriginalStatus(basePath, assetPath);
-          if (!cancelled) applyImageOriginalBadge(image, Boolean(originalStatus?.hasOriginal));
-        } catch {
-          if (!cancelled) applyImageOriginalBadge(image, false);
+        const originalKey = `original:${assetPath}`;
+        if (cache.has(originalKey)) {
+          if (!cancelled) applyImageOriginalBadge(image, Boolean(cache.get(originalKey)));
+        } else {
+          try {
+            const originalStatus = await getImageOriginalStatus(basePath, assetPath);
+            cache.set(originalKey, Boolean(originalStatus?.hasOriginal));
+            if (!cancelled) applyImageOriginalBadge(image, Boolean(originalStatus?.hasOriginal));
+          } catch {
+            if (!cancelled) applyImageOriginalBadge(image, false);
+          }
         }
         return;
       }
@@ -500,13 +530,16 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
 
       try {
         const annotation = await getImageAnnotation(basePath, assetPath);
+        cache.set(`annotation:${assetPath}`, annotation);
         if (!cancelled) applyImageAnnotation(image, annotation);
       } catch {
         if (!cancelled) applyImageAnnotation(image, null);
       }
       try {
         const originalStatus = await getImageOriginalStatus(basePath, assetPath);
-        if (!cancelled) applyImageOriginalBadge(image, Boolean(originalStatus?.hasOriginal));
+        const hasOrig = Boolean(originalStatus?.hasOriginal);
+        cache.set(`original:${assetPath}`, hasOrig);
+        if (!cancelled) applyImageOriginalBadge(image, hasOrig);
       } catch {
         if (!cancelled) applyImageOriginalBadge(image, false);
       }
@@ -671,22 +704,37 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
       let annotation = null;
       let hasOriginal = false;
 
+      const cache = imageResolveCacheRef.current;
+
       try {
         fullSizeSrc = await readImage(basePath, assetPath);
       } catch {
         // Fall back to the rendered preview image if the full-size read fails.
       }
 
-      try {
-        annotation = await getImageAnnotation(basePath, assetPath);
-      } catch {
-        annotation = null;
+      const annotationKey = `annotation:${assetPath}`;
+      if (cache.has(annotationKey)) {
+        annotation = cache.get(annotationKey);
+      } else {
+        try {
+          annotation = await getImageAnnotation(basePath, assetPath);
+          cache.set(annotationKey, annotation);
+        } catch {
+          annotation = null;
+        }
       }
-      try {
-        const originalStatus = await getImageOriginalStatus(basePath, assetPath);
-        hasOriginal = Boolean(originalStatus?.hasOriginal);
-      } catch {
-        hasOriginal = false;
+
+      const originalKey = `original:${assetPath}`;
+      if (cache.has(originalKey)) {
+        hasOriginal = Boolean(cache.get(originalKey));
+      } else {
+        try {
+          const originalStatus = await getImageOriginalStatus(basePath, assetPath);
+          hasOriginal = Boolean(originalStatus?.hasOriginal);
+          cache.set(originalKey, hasOriginal);
+        } catch {
+          hasOriginal = false;
+        }
       }
 
       setCropState({
@@ -936,10 +984,26 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
       }
     };
 
+    const handleMediaDblClick = (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const figure = target.closest("figure.markdown-code-block");
+      if (figure) {
+        const editBtn = figure.querySelector('[data-code-edit="true"]');
+        if (editBtn) {
+          event.preventDefault();
+          event.stopPropagation();
+          editBtn.click();
+        }
+      }
+    };
+
     previewElement.addEventListener("click", handleMediaClick);
+    previewElement.addEventListener("dblclick", handleMediaDblClick);
 
     return () => {
       previewElement.removeEventListener("click", handleMediaClick);
+      previewElement.removeEventListener("dblclick", handleMediaDblClick);
     };
   }, [basePath, inlineLinkedMarkdown, onMediaClick, onNotify, content, onContentChange, confirm]);
 
@@ -948,7 +1012,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
     if (!previewElement) return;
 
     const handleMouseOver = (e) => {
-      const link = e.target.closest("a");
+      const link = e.target?.closest?.("a");
       if (link && previewElement.contains(link)) {
         if (linkHideTimerRef.current) {
           clearTimeout(linkHideTimerRef.current);
@@ -972,16 +1036,25 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
     };
 
     const handleMouseOut = (e) => {
-      const link = e.target.closest("a");
+      const link = e.target?.closest?.("a");
       if (link) {
+        if (linkHideTimerRef.current) clearTimeout(linkHideTimerRef.current);
         linkHideTimerRef.current = setTimeout(() => {
-          setActiveLinkPopup(null);
-        }, 500);
+          if (!isPopupHoveredRef.current) {
+            setActiveLinkPopup(null);
+          }
+        }, 1200);
       }
     };
 
     const handleScroll = () => {
-      setActiveLinkPopup(null);
+      // Don't close immediately on micro-scrolls; close only if not hovered
+      if (linkHideTimerRef.current) clearTimeout(linkHideTimerRef.current);
+      linkHideTimerRef.current = setTimeout(() => {
+        if (!isPopupHoveredRef.current) {
+          setActiveLinkPopup(null);
+        }
+      }, 400);
     };
 
     previewElement.addEventListener("mouseover", handleMouseOver);
@@ -1876,21 +1949,29 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
           }
         }}
       />
-      {activeLinkPopup && (
+      {activeLinkPopup && createPortal(
         <div
           className="link-hover-popup"
           style={{
             top: activeLinkPopup.position.top,
-            left: activeLinkPopup.position.left
+            left: activeLinkPopup.position.left,
+            zIndex: 999999,
           }}
           onMouseEnter={() => {
+            isPopupHoveredRef.current = true;
             if (linkHideTimerRef.current) {
               clearTimeout(linkHideTimerRef.current);
               linkHideTimerRef.current = null;
             }
           }}
           onMouseLeave={() => {
-            setActiveLinkPopup(null);
+            isPopupHoveredRef.current = false;
+            if (linkHideTimerRef.current) clearTimeout(linkHideTimerRef.current);
+            linkHideTimerRef.current = setTimeout(() => {
+              if (!isPopupHoveredRef.current) {
+                setActiveLinkPopup(null);
+              }
+            }, 800);
           }}
         >
           <button
@@ -1913,7 +1994,21 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
             <ExternalLink size={12} style={{ marginRight: "4px" }} />
             <span>Navigate</span>
           </button>
-        </div>
+          {!/^https?:\/\/|^\/\//i.test(activeLinkPopup.href || "") && (
+            <>
+              <div className="link-hover-popup-separator" />
+              <button
+                type="button"
+                className="link-hover-popup-btn"
+                onClick={() => handleDownloadFileFromPreview(activeLinkPopup.href)}
+              >
+                <Download size={12} style={{ marginRight: "4px" }} />
+                <span>Open File</span>
+              </button>
+            </>
+          )}
+        </div>,
+        document.body
       )}
     </>
   );

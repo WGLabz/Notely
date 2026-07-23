@@ -450,6 +450,7 @@ export default function App() {
     handleOpenReferencedDocument,
     handleLandingNavigateTo,
     openTabs,
+    handleReorderTabs,
     activeTabPath,
     tabStates,
     handleCloseTab,
@@ -2881,6 +2882,7 @@ export default function App() {
           <DocumentDetail
             document={current}
             openTabs={openTabs}
+            onReorderTabs={handleReorderTabs}
             activeTabPath={activeTabPath}
             tabStates={tabStates}
             documents={documents}

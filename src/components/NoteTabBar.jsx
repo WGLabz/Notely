@@ -7,6 +7,7 @@ import { getContrastColor } from "../utils/colorUtils";
 
 export function NoteTabBar({
   openTabs = [],
+  onReorderTabs,
   activeTabPath = null,
   tabStates = {},
   documents = [],
@@ -139,6 +140,35 @@ export function NoteTabBar({
     setAddDropdownOpen(false);
   };
 
+  const [draggedTabPath, setDraggedTabPath] = useState(null);
+
+  const handleTabDragStart = (e, filePath) => {
+    setDraggedTabPath(filePath);
+    e.dataTransfer.setData("text/plain", filePath);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleTabDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleTabDrop = (e, targetPath) => {
+    e.preventDefault();
+    if (!draggedTabPath || draggedTabPath === targetPath) return;
+
+    const fromIdx = openTabs.indexOf(draggedTabPath);
+    const toIdx = openTabs.indexOf(targetPath);
+
+    if (fromIdx !== -1 && toIdx !== -1) {
+      const nextTabs = [...openTabs];
+      const [moved] = nextTabs.splice(fromIdx, 1);
+      nextTabs.splice(toIdx, 0, moved);
+      onReorderTabs?.(nextTabs);
+    }
+    setDraggedTabPath(null);
+  };
+
   if (!openTabs.length) return null;
 
   return (
@@ -158,6 +188,10 @@ export function NoteTabBar({
               role="tab"
               aria-selected={isActive}
               title={filePath}
+              draggable={true}
+              onDragStart={(e) => handleTabDragStart(e, filePath)}
+              onDragOver={handleTabDragOver}
+              onDrop={(e) => handleTabDrop(e, filePath)}
               onContextMenu={(e) => handleContextMenu(e, filePath)}
               style={meta.color ? {
                 "--custom-bg-color": meta.color,

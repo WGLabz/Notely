@@ -159,6 +159,7 @@ const ExcalidrawComponent = ({
   documentPath,
   onClose,
   onSave,
+  onNotify,
 }) => {
   const excalidrawAPIRef = useRef(null);
   const lastSavedElementsRef = useRef(initialData?.elements || []);

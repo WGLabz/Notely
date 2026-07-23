@@ -35,6 +35,8 @@ export function EditorPane({
   activeFindMatchIndex = -1,
   showOriginalImages = false,
   inlineLinkedMarkdown = false,
+  outlineEnabled = true,
+  onOutlineEnabledChange,
   typoCheckEnabled = true,
   screenCaptureMode = "auto",
   ignoredSpellingWords = [],
@@ -50,6 +52,15 @@ export function EditorPane({
   const [editorReadyTick, setEditorReadyTick] = useState(0);
   const [selectedMediaPreview, setSelectedMediaPreview] = useState(null);
   const [scrollSyncEnabled, setScrollSyncEnabled] = useState(true);
+  const [tableEditorEnabled, setTableEditorEnabled] = useState(() => {
+    return localStorage.getItem("notes:table-editor-enabled") !== "false";
+  });
+
+  const handleTableEditorToggle = useCallback((nextValue) => {
+    const value = Boolean(nextValue);
+    setTableEditorEnabled(value);
+    localStorage.setItem("notes:table-editor-enabled", String(value));
+  }, []);
 
   const jumpToLine = useCallback((line) => {
     const editor = textareaRef?.current;
@@ -378,6 +389,7 @@ export function EditorPane({
     <MarkdownEditor
       value={value}
       onChange={onChange}
+      basePath={basePath}
       textareaRef={textareaRef}
       onNotify={onNotify}
       validationIssues={validationIssues}
@@ -397,6 +409,7 @@ export function EditorPane({
       onRejectInlineGhost={onRejectInlineGhost}
       findMatches={findMatches}
       activeFindMatchIndex={activeFindMatchIndex}
+      tableEditorEnabled={tableEditorEnabled}
       onEditorReady={() => setEditorReadyTick((value) => value + 1)}
       onSearchRequest={(query) => {
         window.dispatchEvent(new CustomEvent("open-global-search-query", { detail: { query } }));
@@ -420,6 +433,10 @@ export function EditorPane({
     ignoredSpellingWords,
     onIgnoreSpellingWord: onIgnoreSpellingWord,
     screenCaptureMode,
+    tableEditorEnabled,
+    onTableEditorToggle: handleTableEditorToggle,
+    outlineEnabled,
+    onOutlineEnabledChange,
   };
 
   const renderToolbar = () => (
@@ -496,7 +513,7 @@ export function EditorPane({
               <span className="pane-title-label">Editor</span>
             </div>
             {showToolbar ? renderToolbar() : null}
-            {showToolbar ? <MarkdownValidationBanner issues={validationIssues} status={validationStatus} /> : null}
+
             <div className="markdown-editor">{markdownEditor}</div>
           </section>
           <div

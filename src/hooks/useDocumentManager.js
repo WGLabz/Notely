@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import useConfirm from "./useConfirm";
 import { useWorkspaceScopedStorage } from "./useWorkspaceScopedStorage";
 import {
@@ -1144,6 +1144,12 @@ export function useDocumentManager({ notify }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const handleReorderTabs = useCallback((nextTabs) => {
+    if (Array.isArray(nextTabs)) {
+      setOpenTabs(nextTabs);
+    }
+  }, [setOpenTabs]);
+
   return {
     documents,
     setDocuments,
@@ -1205,6 +1211,7 @@ export function useDocumentManager({ notify }) {
     handleLandingNavigateTo,
     openTabs,
     setOpenTabs,
+    handleReorderTabs,
     activeTabPath,
     setActiveTabPath,
     tabStates,

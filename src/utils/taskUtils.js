@@ -22,11 +22,13 @@ function extractTaskMatches(text, regex, status) {
   regex.lastIndex = 0;
   let match;
   while ((match = regex.exec(source)) !== null) {
+    const line = source.slice(0, match.index).split(/\r?\n/).length;
     tasks.push({
       id: `${status}:${match.index}`,
       status,
       text: String(match[1] || "").trim(),
       index: match.index,
+      line,
     });
   }
 
