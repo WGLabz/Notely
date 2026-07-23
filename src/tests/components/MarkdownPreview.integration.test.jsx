@@ -387,12 +387,22 @@ describe("MarkdownPreview image behaviors", () => {
       await new Promise((r) => setTimeout(r, 100));
     });
 
+    expect(readImageMock).toHaveBeenCalledWith("C:/notes/doc.md", "images/photo.png");
     expect(onContentChange).toHaveBeenCalledTimes(1);
     const nextContent = onContentChange.mock.calls[0][0];
     expect(nextContent).toContain("![Excalidraw Diagram](");
     expect(nextContent).toContain('data-origin-asset="./images/photo.png"');
     expect(onNotify).toHaveBeenCalledWith("Image converted to Excalidraw diagram.", "success");
     expect(view.host.querySelector('[data-testid="excalidraw-modal"]')).not.toBeNull();
+
+    // Verify subsequent save while modal stays open updates diagram without duplicate markdown conversion
+    await act(async () => {
+      saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    expect(onNotify).toHaveBeenCalledWith("Diagram saved.", "success");
+    expect(onContentChange).toHaveBeenCalledTimes(1);
 
     const closeBtn = view.host.querySelector('[data-testid="excalidraw-close-btn"]');
     expect(closeBtn).not.toBeNull();
