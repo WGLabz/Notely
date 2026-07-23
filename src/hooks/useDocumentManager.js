@@ -364,15 +364,24 @@ export function useDocumentManager({ notify }) {
     if (!current) return;
     const reason = options?.reason || "manual-save";
     const silent = Boolean(options?.silent);
+    const overrideContent = options?.content;
+    const targetField = options?.field || (current.hasCleansed && !current.hasRawNotes ? "cleansed" : "rawNotes");
     setSaving(true);
     setError("");
+
+    const rawNotesToSave = (overrideContent !== undefined && targetField === "rawNotes")
+      ? overrideContent
+      : (current.rawNotes || "");
+    const cleansedToSave = (overrideContent !== undefined && targetField === "cleansed")
+      ? overrideContent
+      : (current.cleansed || "");
 
     try {
       const saved = await saveDocumentApi({
         filePath: current.filePath,
-        header: current.header,
-        rawNotes: current.rawNotes,
-        cleansed: current.cleansed,
+        header: current.header || "",
+        rawNotes: rawNotesToSave,
+        cleansed: cleansedToSave,
         reason,
       });
       

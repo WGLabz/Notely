@@ -351,7 +351,6 @@ const ExcalidrawComponent = ({
         appState: {
           ...appState,
           exportBackground: true,
-          // Always export a white image background so embedded note previews stay visually consistent.
           viewBackgroundColor: "#ffffff",
         },
         files,
@@ -366,6 +365,7 @@ const ExcalidrawComponent = ({
       onSave?.(diagramData, imageData);
     } catch (err) {
       console.error("Failed to save Excalidraw diagram:", err);
+      onNotify?.(err?.message || "Failed to save Excalidraw diagram.", "error");
     } finally {
       setIsSaving(false);
     }

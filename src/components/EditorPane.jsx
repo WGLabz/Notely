@@ -448,6 +448,7 @@ export function EditorPane({
             onMediaClick={setSelectedMediaPreview}
             showOriginalImages={showOriginalImages}
             inlineLinkedMarkdown={inlineLinkedMarkdown}
+            onForceSaveDocument={onForceSaveDocument}
             onSearchRequest={(query) => {
               window.dispatchEvent(new CustomEvent("open-global-search-query", { detail: { query } }));
             }}

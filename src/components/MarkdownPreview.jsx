@@ -10,10 +10,10 @@ import { readImage, replaceImage, deleteImage, renameImage, getImageAnnotation, 
 import { readFileAsDataUrl } from "../utils/mediaTypeUtils";
 import { createImageMarkdown, normalizeImagePathForMarkdown } from "../utils/markdownUtils";
 import { createDiagramMarkdown, generateDiagramId } from "../utils/diagramFileUtils";
-import { writeDiagramSource } from "../services/diagramService";
+import { writeDiagramSource, writeDiagramImage } from "../services/diagramService";
 import { getMediaTypeFromExtension } from "../utils/mediaUtils";
 import { formatImageDeleteResult } from "../utils/imageDeleteResult";
-import { removeImageReferenceFromMarkdown } from "../utils/imageMarkdownReferences";
+import { removeImageReferenceFromMarkdown, toComparableAssetPath, replaceFirstImageReferenceWithDiagram } from "../utils/imageMarkdownReferences";
 import useConfirm from "../hooks/useConfirm";
 import { MermaidBlock } from "./MermaidBlock";
 import { ExcalidrawBlock } from "./ExcalidrawBlock";
@@ -64,44 +64,6 @@ function getExcalidrawActionContext(target) {
 
 function sanitizeAttributeValue(value) {
   return String(value || "").replace(/"/g, "&quot;");
-}
-
-function toComparableAssetPath(value) {
-  let normalized = String(value || "").trim();
-  if (!normalized) return "";
-  for (let i = 0; i < 5; i += 1) {
-    try {
-      const next = decodeURIComponent(normalized);
-      if (next === normalized) break;
-      normalized = next;
-    } catch {
-      break;
-    }
-  }
-  return normalized.replace(/\\/g, "/");
-}
-
-function replaceFirstImageReferenceWithDiagram(content, targetAssetPath, replacementMarkdown) {
-  const source = String(content || "");
-  const targetComparable = toComparableAssetPath(targetAssetPath);
-  if (!targetComparable) {
-    return { nextContent: source, replaced: false, originalAlt: "" };
-  }
-
-  const imageRegex = /!\[([^\]]*)\]\((<[^>]+>|[^)]+)\)/g;
-  let replaced = false;
-  let originalAlt = "";
-  const nextContent = source.replace(imageRegex, (match, alt, rawPath) => {
-    if (replaced) return match;
-    const cleanedPath = String(rawPath || "").trim().replace(/^<|>$/g, "");
-    const comparablePath = toComparableAssetPath(cleanedPath);
-    if (comparablePath !== targetComparable) return match;
-    replaced = true;
-    originalAlt = String(alt || "").trim();
-    return replacementMarkdown;
-  });
-
-  return { nextContent, replaced, originalAlt };
 }
 
 function replaceDiagramReferenceWithOriginal(content, options = {}) {
@@ -164,16 +126,28 @@ function inferDataUrlMimeType(dataUrl) {
 }
 
 function measureDataUrlImage(dataUrl) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const image = new Image();
+    let settled = false;
+    const finish = (dimensions) => {
+      if (settled) return;
+      settled = true;
+      resolve(dimensions);
+    };
+
     image.onload = () => {
-      resolve({
+      finish({
         width: Number(image.naturalWidth || image.width || 1280),
         height: Number(image.naturalHeight || image.height || 720),
       });
     };
-    image.onerror = () => reject(new Error("Unable to load image for Excalidraw background."));
+    image.onerror = () => {
+      finish({ width: 1280, height: 720 });
+    };
     image.src = dataUrl;
+    setTimeout(() => {
+      finish({ width: 1280, height: 720 });
+    }, 0);
   });
 }
 
@@ -242,8 +216,10 @@ function buildExcalidrawInitialDataFromImage(imageDataUrl, dimensions = {}, imag
 }
 
 function resolveDocumentPathFromBase(basePath) {
-  if (!basePath) return "";
-  return String(basePath).split(/[\\/]/).slice(0, -1).join("/");
+  if (!basePath) return ".";
+  const parts = String(basePath).split(/[\\/]/);
+  if (parts.length <= 1) return ".";
+  return parts.slice(0, -1).join("/") || ".";
 }
 
 function applyImageAnnotation(image, annotation) {
@@ -459,6 +435,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
     initialData: null,
     sourceAssetPath: "",
     sourceAltText: "",
+    converted: false,
   });
   const parts = useMemo(() => {
     return parseDiagramBlocks(content);
@@ -479,10 +456,15 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
 
       const existingAssetPath = image.getAttribute("data-asset-path") || "";
       const src = image.getAttribute("src") || "";
-      const assetPath = existingAssetPath || src;
-      image.setAttribute("data-asset-path", assetPath);
+      const assetPath = (existingAssetPath && !/^(data:|blob:)/i.test(existingAssetPath))
+        ? existingAssetPath
+        : (!/^(data:|blob:)/i.test(src) ? src : "");
 
-      const shouldSkipResolution = !existingAssetPath && (!src || /^(data:|blob:|https?:)/i.test(src));
+      if (assetPath) {
+        image.setAttribute("data-asset-path", assetPath);
+      }
+
+      const shouldSkipResolution = !assetPath || /^(data:|blob:|https?:)/i.test(assetPath);
       if (shouldSkipResolution) return;
 
       const cache = imageResolveCacheRef.current;
@@ -1099,7 +1081,11 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
       return;
     }
 
-    const assetPath = imageElement.getAttribute("data-asset-path") || "";
+    const rawAsset = imageElement.getAttribute("data-asset-path") || imageElement.getAttribute("src") || "";
+    let assetPath = rawAsset.replace(/^https?:\/\/[^/]+\//i, "");
+    if (/^(?:file|app|atom):\/\//i.test(assetPath) || /^(?:[a-z]:\/|\/)/i.test(assetPath)) {
+      assetPath = toComparableAssetPath(assetPath, basePath);
+    }
     const isWorkspaceImage = Boolean(basePath && assetPath && !/^(https?:|data:|blob:)/i.test(assetPath));
 
     event?.preventDefault?.();
@@ -1248,6 +1234,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
       initialData: null,
       sourceAssetPath: "",
       sourceAltText: "",
+      converted: false,
     });
   };
 
@@ -1263,7 +1250,15 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
     closeContextMenu();
 
     try {
-      const fullSizeSrc = await readImage(basePath, sourceAssetPath);
+      let fullSizeSrc = null;
+      try {
+        fullSizeSrc = await readImage(basePath, sourceAssetPath);
+      } catch {
+        fullSizeSrc = contextMenu.src;
+      }
+      if (!fullSizeSrc) {
+        fullSizeSrc = contextMenu.src;
+      }
       const dimensions = await measureDataUrlImage(fullSizeSrc);
       const diagramId = generateDiagramId();
       const initialData = buildExcalidrawInitialDataFromImage(fullSizeSrc, dimensions, sourceAltText);
@@ -1275,6 +1270,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
         initialData,
         sourceAssetPath,
         sourceAltText,
+        converted: false,
       });
     } catch (error) {
       onNotify?.(error?.message || "Unable to open image in Excalidraw.", "error");
@@ -1282,17 +1278,26 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
   };
 
   const saveExcalidrawFromImageMenu = async (newDiagramData, previewImageData) => {
-    if (!diagramEditState.diagramId || !diagramEditState.documentPath || !diagramEditState.sourceAssetPath) {
+    if (!diagramEditState.diagramId || !diagramEditState.sourceAssetPath) {
+      onNotify?.("Missing diagram metadata required for save.", "error");
       return;
     }
 
+    const docPath = diagramEditState.documentPath || resolveDocumentPathFromBase(basePath) || ".";
     const sourceAssetPath = diagramEditState.sourceAssetPath;
     const sourceAltText = diagramEditState.sourceAltText || "Image";
 
     try {
-      const sourceSaved = await writeDiagramSource(diagramEditState.documentPath, diagramEditState.diagramId, newDiagramData);
-      if (!sourceSaved) {
-        throw new Error("Failed to persist diagram source.");
+      await writeDiagramSource(docPath, diagramEditState.diagramId, newDiagramData);
+
+      if (previewImageData) {
+        await writeDiagramImage(docPath, diagramEditState.diagramId, previewImageData);
+      }
+
+      if (diagramEditState.converted) {
+        onNotify?.("Diagram saved.", "success");
+        onForceSaveDocument?.();
+        return;
       }
 
       const baseMarkdown = createDiagramMarkdown("document", diagramEditState.diagramId);
@@ -1302,20 +1307,24 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
         ? baseMarkdown.replace(/\}$/, metadataSuffix)
         : `${baseMarkdown}{data-diagram-id="${diagramEditState.diagramId}" data-diagram-type="excalidraw" data-origin-asset="${sanitizeAttributeValue(normalizedOriginAsset)}" data-origin-alt="${sanitizeAttributeValue(sourceAltText)}"}`;
 
-      const replacementResult = replaceFirstImageReferenceWithDiagram(content, sourceAssetPath, diagramMarkdown);
+      const replacementResult = replaceFirstImageReferenceWithDiagram(content, sourceAssetPath, diagramMarkdown, basePath);
       if (!replacementResult.replaced) {
         throw new Error("Could not locate the source image markdown to replace.");
       }
 
       const finalContent = replacementResult.nextContent;
-      if (typeof onContentChange === "function" && finalContent !== String(content || "")) {
+      if (typeof onContentChange === "function") {
         onContentChange(finalContent);
       }
 
       onNotify?.("Image converted to Excalidraw diagram.", "success");
-      onForceSaveDocument?.();
-      void previewImageData;
+      onForceSaveDocument?.(finalContent);
+      setDiagramEditState((prev) => ({
+        ...prev,
+        converted: true,
+      }));
     } catch (error) {
+      console.error("saveExcalidrawFromImageMenu error:", error);
       onNotify?.(error?.message || "Unable to save Excalidraw diagram.", "error");
     }
   };
@@ -1344,6 +1353,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
       onContentChange(result.nextContent);
     }
     onNotify?.("Restored original image reference.", "success");
+    onForceSaveDocument?.(result.nextContent);
     closeContextMenu({ restoreFocus: false });
   };
 
@@ -1859,7 +1869,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
           if (nextContent !== null) {
             onContentChange(nextContent);
             setTimeout(() => {
-              onForceSaveDocument?.();
+              onForceSaveDocument?.(nextContent);
             }, 50);
           } else {
             onNotify?.("Failed to update code block. Source line might have shifted.", "error");

@@ -2918,8 +2918,8 @@ export default function App() {
             }}
             onRemoveIgnoredSpellingWord={handleRemoveDictionaryWord}
             onClearIgnoredSpellingWords={handleClearDictionary}
-            onForceSaveDocument={async () => {
-              await saveDocument({ reason: "diagram-or-code-save", silent: true });
+            onForceSaveDocument={async (nextContent) => {
+              await saveDocument({ reason: "diagram-or-code-save", silent: true, content: nextContent });
             }}
             autosaveEnabled={autosaveEnabled}
             setAutosaveEnabled={setAutosaveEnabled}
