@@ -387,7 +387,7 @@ describe("MarkdownPreview image behaviors", () => {
       await new Promise((r) => setTimeout(r, 100));
     });
 
-    expect(readImageMock).toHaveBeenCalledWith("C:/notes/doc.md", "images/photo.png");
+    expect(readImageMock).toHaveBeenNthCalledWith(2, "C:/notes/doc.md", "./images/photo.png");
     expect(onContentChange).toHaveBeenCalledTimes(1);
     const nextContent = onContentChange.mock.calls[0][0];
     expect(nextContent).toContain("![Excalidraw Diagram](");
