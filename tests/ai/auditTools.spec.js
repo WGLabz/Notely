@@ -23,10 +23,14 @@ describe('AI Subsystem Technical Audit Tests', () => {
   });
 
   afterAll(() => {
-    db.close();
-    graphDb.close();
+    db?.close?.();
+    graphDb?.close?.();
     if (fs.existsSync(tempDir)) {
-      fs.rmSync(tempDir, { recursive: true, force: true });
+      try {
+        fs.rmSync(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      } catch (_err) {
+        // Ignore ephemeral Windows file lock cleanup error
+      }
     }
   });
 
