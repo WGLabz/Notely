@@ -49,6 +49,7 @@ const GitCommitDialog = lazy(() =>
 );
 import { GitStatusBar } from "./components/GitStatusBar";
 import { AIStatusBar } from "./components/AIStatusBar";
+import NotePreviewModal from "./components/NotePreviewModal";
 
 const TasksPanel = lazy(() =>
   import("./components/TasksPanel").then((m) => ({ default: m.TasksPanel }))
@@ -362,6 +363,13 @@ export default function App() {
     effectiveTheme, setEffectiveTheme,
     zoomFactor, setZoomFactorState,
   } = useUIState();
+
+  const [globalNotePreviewTarget, setGlobalNotePreviewTarget] = useState({ open: false, filePath: null, lineNum: null });
+
+  const handlePreviewNote = useCallback((filePath, lineNum = null) => {
+    if (!filePath) return;
+    setGlobalNotePreviewTarget({ open: true, filePath, lineNum });
+  }, []);
 
   const [workspaceExportOpen, setWorkspaceExportOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -2663,6 +2671,7 @@ export default function App() {
           activeQueryId={activeQueryId}
           onApply={handleApplyAIResult}
           onOpenDocument={handleOpenReferencedDocumentFromUI}
+          onPreviewNote={handlePreviewNote}
           isLoading={aiQueryLoading}
           error={aiQueryError || null}
           contextSummary={aiContextSummary}
@@ -3685,6 +3694,16 @@ export default function App() {
 
 
       </div>
+      <NotePreviewModal
+        open={globalNotePreviewTarget.open}
+        filePath={globalNotePreviewTarget.filePath}
+        lineNum={globalNotePreviewTarget.lineNum}
+        onClose={() => setGlobalNotePreviewTarget({ open: false, filePath: null, lineNum: null })}
+        onOpenDocument={(path, line) => {
+          handleOpenReferencedDocumentFromUI(path, line);
+          setGlobalNotePreviewTarget({ open: false, filePath: null, lineNum: null });
+        }}
+      />
       <GlobalTooltip />
     </div>
   );

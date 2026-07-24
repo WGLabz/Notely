@@ -139,6 +139,7 @@ export function DrawioEditor({
       overlayClassName="excalidraw-modal-overlay"
       cardClassName="excalidraw-modal-container drawio-modal-container"
       useDefaultCardClass={false}
+      size=""
       initialFocusRef={saveButtonRef}
     >
       <div className="excalidraw-modal-header">

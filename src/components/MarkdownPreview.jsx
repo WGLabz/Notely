@@ -396,6 +396,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
   inlineLinkedMarkdown = false,
   onSearchRequest,
   onForceSaveDocument,
+  readOnly = false,
 }) {
   const previewRef = useRef(null);
   const menuRef = useRef(null);
@@ -1834,10 +1835,26 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
           }
         }}
       >
-        {parts.map((part, index) =>
-          part.type === "mermaid" ? (
-            <MermaidBlock code={part.value} index={index} key={`${part.type}-${index}`} />
-          ) : part.type === "excalidraw" ? (
+      {parts.map((part, index) =>
+        part.type === "mermaid" ? (
+          <MermaidBlock code={part.value} index={index} key={`${part.type}-${index}`} />
+        ) : part.type === "excalidraw" ? (
+          readOnly ? (
+            <div key={`${part.type}-${index}`} className="excalidraw-block">
+              <div className="excalidraw-preview-container" style={{ cursor: "default", pointerEvents: "none" }}>
+                {part.imagePath ? (
+                  <div className="excalidraw-preview-thumbnail">
+                    <img src={part.imagePath} alt="Diagram" className="diagram-image" />
+                  </div>
+                ) : (
+                  <div className="excalidraw-empty-state" style={{ pointerEvents: "none" }}>
+                    <div className="empty-icon">📐</div>
+                    <span>Excalidraw diagram</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
             <ExcalidrawBlock
               imagePath={part.imagePath}
               diagramId={part.diagramId}
@@ -1849,7 +1866,19 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
               key={`${part.type}-${index}`}
               onForceSaveNote={onForceSaveDocument}
             />
-          ) : part.type === "drawio" ? (
+          )
+        ) : part.type === "drawio" ? (
+          readOnly ? (
+            <div key={`${part.type}-${index}`} className="drawio-block">
+              {part.imagePath ? (
+                <img src={part.imagePath} alt="Draw.io diagram" style={{ maxWidth: "100%", display: "block" }} />
+              ) : (
+                <div style={{ padding: "12px", color: "var(--text-muted)", fontSize: "12px", fontStyle: "italic" }}>
+                  Draw.io diagram
+                </div>
+              )}
+            </div>
+          ) : (
             <DrawioBlock
               imagePath={part.imagePath}
               diagramId={part.diagramId}
@@ -1857,17 +1886,18 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
               key={`${part.type}-${index}`}
               onForceSaveNote={onForceSaveDocument}
             />
-          ) : (
-            <div
-              key={`${part.type}-${index}`}
-              dangerouslySetInnerHTML={{
-                __html: renderMarkdown(normalizeMarkdownImagePaths(part.value), {
-                  sourceLineOffset: part.startLine || 0,
-                }),
-              }}
-            />
           )
-        )}
+        ) : (
+          <div
+            key={`${part.type}-${index}`}
+            dangerouslySetInnerHTML={{
+              __html: renderMarkdown(normalizeMarkdownImagePaths(part.value), {
+                sourceLineOffset: part.startLine || 0,
+              }),
+            }}
+          />
+        )
+      )}
       </div>
       {contextMenu ? (
         <div

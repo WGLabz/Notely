@@ -23,8 +23,8 @@ describe('PersonaDB Frontmatter and Importing Tests', () => {
   it('should seed default built-ins', () => {
     const list = personaDB.list();
     assert.ok(list.length >= 4);
-    const def = list.find(p => p.id === 'default');
-    assert.strictEqual(def.name, 'Default Assistant');
+    const def = list.find(p => p.id === 'general');
+    assert.strictEqual(def.name, 'General Assistant');
   });
 
   it('should strictly parse valid persona markdown files', () => {
@@ -84,7 +84,7 @@ describe('PersonaDB Frontmatter and Importing Tests', () => {
 
   it('should throw an error when attempting to modify a builtin persona', () => {
     const builtinP = {
-      id: 'default',
+      id: 'general',
       name: 'Hacked Persona',
       description: 'Hacked Desc',
       prompt: 'Hacked prompt.',

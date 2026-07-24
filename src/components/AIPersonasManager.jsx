@@ -28,7 +28,18 @@ export default function AIPersonasManager({ onBack }) {
   const [editPrompt, setEditPrompt] = useState('');
   const [editName, setEditName] = useState('');
   const [editDesc, setEditDesc] = useState('');
-  const [editAvatar, setEditAvatar] = useState('??');
+  const [editAvatar, setEditAvatar] = useState('👤');
+  const [editPurpose, setEditPurpose] = useState('');
+  const [editExpertise, setEditExpertise] = useState('');
+  const [editTone, setEditTone] = useState('direct, clear, warm');
+  const [editVerbosity, setEditVerbosity] = useState('balanced');
+  const [editResponseStructure, setEditResponseStructure] = useState('');
+  const [editClarificationStrategy, setEditClarificationStrategy] = useState('');
+  const [editPreferredExamples, setEditPreferredExamples] = useState('');
+  const [editFallbackBehaviour, setEditFallbackBehaviour] = useState('');
+  const [editOwner, setEditOwner] = useState('User');
+  const [editSchemaVersion, setEditSchemaVersion] = useState('1.0.0');
+
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
@@ -37,6 +48,30 @@ export default function AIPersonasManager({ onBack }) {
   // Refs needed for MarkdownEditor & MarkdownToolbar hook integrations
   const editorRef = useRef(null);
 
+  const select = useCallback((p, force = false) => {
+    if (!force && dirty && !window.confirm('You have unsaved changes. Discard them?')) {
+      return;
+    }
+    setSelected(p);
+    setEditName(p.name);
+    setEditDesc(p.description ?? '');
+    setEditAvatar(p.avatar ?? '👤');
+    setEditPrompt(p.prompt ?? p.systemInstructions ?? '');
+    setEditPurpose(p.purpose ?? p.description ?? '');
+    setEditExpertise(Array.isArray(p.expertise) ? p.expertise.join(', ') : (p.expertise ?? ''));
+    setEditTone(p.tone ?? 'direct, clear, warm');
+    setEditVerbosity(p.verbosity ?? 'balanced');
+    setEditResponseStructure(p.responseStructure ?? '');
+    setEditClarificationStrategy(p.clarificationStrategy ?? '');
+    setEditPreferredExamples(p.preferredExamples ?? '');
+    setEditFallbackBehaviour(p.fallbackBehaviour ?? '');
+    setEditOwner(p.owner ?? 'User');
+    setEditSchemaVersion(p.schemaVersion ?? '1.0.0');
+    setDirty(false);
+    setError('');
+    setStatus('');
+  }, [dirty]);
+
   const load = useCallback(async () => {
     try {
       const res = await aiListPersonas();
@@ -44,7 +79,7 @@ export default function AIPersonasManager({ onBack }) {
         const list = res.data ?? [];
         setPersonas(list);
         if (list.length > 0 && !selected) {
-          const def = list.find(p => p.id === 'default') || list[0];
+          const def = list.find(p => p.id === 'general') || list[0];
           select(def, true);
         }
       }
@@ -56,20 +91,6 @@ export default function AIPersonasManager({ onBack }) {
   useEffect(() => {
     load();
   }, [load]);
-
-  const select = useCallback((p, force = false) => {
-    if (!force && dirty && !window.confirm('You have unsaved changes. Discard them?')) {
-      return;
-    }
-    setSelected(p);
-    setEditName(p.name);
-    setEditDesc(p.description ?? '');
-    setEditAvatar(p.avatar ?? '👤');
-    setEditPrompt(p.prompt ?? '');
-    setDirty(false);
-    setError('');
-    setStatus('');
-  }, [dirty]);
 
   const handleChange = (val) => {
     setEditPrompt(val);
@@ -97,14 +118,38 @@ export default function AIPersonasManager({ onBack }) {
       setError('System prompt cannot be empty.');
       return;
     }
+
+    // Direct name collision check against other existing personas
+    const nameCollision = personas.find(p => p.id !== selected.id && p.name.trim().toLowerCase() === editName.trim().toLowerCase());
+    if (nameCollision) {
+      setError(`A persona named "${nameCollision.name}" already exists. Please choose a unique name.`);
+      return;
+    }
+
     try {
       setError('');
       setStatus('');
-      const updated = { ...selected, name: editName, description: editDesc, prompt: editPrompt, avatar: editAvatar };
+      const updated = {
+        ...selected,
+        name: editName.trim(),
+        description: editDesc,
+        prompt: editPrompt,
+        avatar: editAvatar,
+        purpose: editPurpose,
+        expertise: editExpertise.split(',').map(s => s.trim()).filter(Boolean),
+        tone: editTone,
+        verbosity: editVerbosity,
+        responseStructure: editResponseStructure,
+        clarificationStrategy: editClarificationStrategy,
+        preferredExamples: editPreferredExamples,
+        fallbackBehaviour: editFallbackBehaviour,
+        owner: editOwner,
+        schemaVersion: editSchemaVersion
+      };
       const res = await aiSavePersona(updated);
       if (res.success) {
         setDirty(false);
-        setStatus('Saved successfully.');
+        setStatus('Saved successfully and synced to .md file.');
         setSelected(updated);
         await load();
       } else {
@@ -124,21 +169,24 @@ export default function AIPersonasManager({ onBack }) {
       id: newId,
       name: 'New Custom Persona',
       description: 'Brief custom instructions description.',
-      prompt: [
-        '# Persona Prompt Instructions',
-        '',
-        '## 1. Identity & Tone',
-        '- Role: [Define who you are, e.g., Code Assistant]',
-        '- Tone: [e.g., Concise, technically precise]',
-        '',
-        '## 2. Capabilities & Constraints',
-        '- Instructions: [How you should formulate answers]',
-        '- Constraints: [What you should avoid doing]',
-        '',
-        '## 3. Context Integration',
-        '- Guidelines: [How you should reference note context and format file:/// links]'
-      ].join('\n'),
+      purpose: 'Help users with custom task workflows',
+      expertise: ['Note Synthesis', 'Task Execution'],
+      tone: 'direct, clear, warm',
+      verbosity: 'balanced',
+      responseStructure: 'Summary -> Detailed Solution -> Next Steps',
+      clarificationStrategy: 'Ask direct questions when intent is ambiguous',
+      preferredExamples: 'Code snippets, structured markdown lists',
+      fallbackBehaviour: 'Provide best effort summary of note context',
+      owner: 'User',
+      schemaVersion: '1.0.0',
       avatar: '👤',
+      prompt: [
+        '## Role Definition & Mindset',
+        'You are a custom AI assistant tailored for workspace tasks.',
+        '',
+        '## Communication Style & Tone',
+        '- Direct, helpful, concise, and structured.'
+      ].join('\n'),
       type: 'custom',
       version: '1.0'
     };
@@ -146,6 +194,16 @@ export default function AIPersonasManager({ onBack }) {
     setEditName(newP.name);
     setEditDesc(newP.description);
     setEditAvatar(newP.avatar);
+    setEditPurpose(newP.purpose);
+    setEditExpertise(newP.expertise.join(', '));
+    setEditTone(newP.tone);
+    setEditVerbosity(newP.verbosity);
+    setEditResponseStructure(newP.responseStructure);
+    setEditClarificationStrategy(newP.clarificationStrategy);
+    setEditPreferredExamples(newP.preferredExamples);
+    setEditFallbackBehaviour(newP.fallbackBehaviour);
+    setEditOwner(newP.owner);
+    setEditSchemaVersion(newP.schemaVersion);
     setEditPrompt(newP.prompt);
     setDirty(true);
     setError('');
@@ -246,7 +304,7 @@ export default function AIPersonasManager({ onBack }) {
       <div className="knowledge-graph-container">
         <div className="kg-header-actions" style={{ justifyContent: 'space-between', marginBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '20px' }}>{selected?.avatar || '??'}</span>
+            <span style={{ fontSize: '20px' }}>{selected?.avatar || '👤'}</span>
             <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-strong)', margin: 0 }}>
               Persona Registry Manager
             </h2>
@@ -313,7 +371,7 @@ export default function AIPersonasManager({ onBack }) {
                       transition: 'all 0.15s ease'
                     }}
                   >
-                    <span style={{ fontSize: '16px', marginRight: '4px' }}>{p.avatar || '??'}</span>
+                    <span style={{ fontSize: '16px', marginRight: '4px' }}>{p.avatar || '👤'}</span>
                     <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
                     {p.type === 'builtin' ? (
                       <span style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.04em', background: 'var(--border-soft)', padding: '2px 4px', borderRadius: '3px', color: 'var(--text-muted)' }}>Built-in</span>
@@ -426,27 +484,78 @@ export default function AIPersonasManager({ onBack }) {
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <label style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>Persona Name</label>
-                      <input
-                        value={editName}
-                        onChange={e => { setEditName(e.target.value); setDirty(true); }}
-                        disabled={selected.type === 'builtin'}
-                        placeholder="Persona Name..."
-                        style={{
-                          fontSize: '14px',
-                          fontWeight: 600,
-                          border: '1px solid var(--border-soft)',
-                          background: 'var(--surface-bg)',
-                          borderRadius: '6px',
-                          width: '100%',
-                          padding: '8px 12px',
-                          color: 'var(--text-strong)',
-                          outline: 'none',
-                          transition: 'border-color 0.15s ease'
-                        }}
-                      />
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+                        <label style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>Persona Name</label>
+                        <input
+                          value={editName}
+                          onChange={e => { setEditName(e.target.value); setDirty(true); }}
+                          disabled={selected.type === 'builtin'}
+                          placeholder="Persona Name..."
+                          style={{
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            border: '1px solid var(--border-soft)',
+                            background: 'var(--surface-bg)',
+                            borderRadius: '6px',
+                            width: '100%',
+                            padding: '6px 10px',
+                            color: 'var(--text-strong)',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '150px' }}>
+                        <label style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>Tone</label>
+                        <select
+                          value={editTone}
+                          onChange={e => { setEditTone(e.target.value); setDirty(true); }}
+                          disabled={selected.type === 'builtin'}
+                          style={{
+                            fontSize: '12px',
+                            border: '1px solid var(--border-soft)',
+                            background: 'var(--surface-bg)',
+                            borderRadius: '6px',
+                            width: '100%',
+                            padding: '6px 10px',
+                            color: 'var(--text-strong)',
+                            outline: 'none'
+                          }}
+                        >
+                          <option value="direct, clear, warm">Direct, Clear, Warm</option>
+                          <option value="creative, energetic, open-minded">Creative, Energetic</option>
+                          <option value="analytical, precise, practical">Analytical, Precise</option>
+                          <option value="analytical, structured, strategic">Structured, Strategic</option>
+                          <option value="methodical, organized, structured">Methodical, Structured</option>
+                          <option value="curious, analytical, thorough">Curious, Thorough</option>
+                          <option value="encouraging, patient, structured">Patient, Educational</option>
+                        </select>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '130px' }}>
+                        <label style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>Verbosity</label>
+                        <select
+                          value={editVerbosity}
+                          onChange={e => { setEditVerbosity(e.target.value); setDirty(true); }}
+                          disabled={selected.type === 'builtin'}
+                          style={{
+                            fontSize: '12px',
+                            border: '1px solid var(--border-soft)',
+                            background: 'var(--surface-bg)',
+                            borderRadius: '6px',
+                            width: '100%',
+                            padding: '6px 10px',
+                            color: 'var(--text-strong)',
+                            outline: 'none'
+                          }}
+                        >
+                          <option value="concise">Concise</option>
+                          <option value="balanced">Balanced</option>
+                          <option value="detailed">Detailed</option>
+                          <option value="thorough">Thorough</option>
+                        </select>
+                      </div>
                     </div>
+
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       <label style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>Description</label>
                       <input
@@ -460,13 +569,81 @@ export default function AIPersonasManager({ onBack }) {
                           background: 'var(--surface-bg)',
                           borderRadius: '6px',
                           width: '100%',
-                          padding: '8px 12px',
+                          padding: '6px 10px',
                           color: 'var(--text-muted)',
-                          outline: 'none',
-                          transition: 'border-color 0.15s ease'
+                          outline: 'none'
                         }}
                       />
                     </div>
+                  </div>
+                </div>
+
+                {/* Extended Frontmatter Metadata Form */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 16px', padding: '12px 16px', borderBottom: '1px solid var(--border-soft)', background: 'var(--surface-subtle, rgba(0,0,0,0.02))' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    <label style={{ fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Purpose</label>
+                    <input
+                      value={editPurpose}
+                      onChange={e => { setEditPurpose(e.target.value); setDirty(true); }}
+                      disabled={selected.type === 'builtin'}
+                      placeholder="e.g. Help users generate new ideas..."
+                      style={{ fontSize: '11px', border: '1px solid var(--border-soft)', background: 'var(--surface-bg)', borderRadius: '4px', padding: '4px 8px', color: 'var(--text-primary)' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    <label style={{ fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Expertise (comma separated)</label>
+                    <input
+                      value={editExpertise}
+                      onChange={e => { setEditExpertise(e.target.value); setDirty(true); }}
+                      disabled={selected.type === 'builtin'}
+                      placeholder="e.g. Ideation, Problem Solving, Lateral Thinking"
+                      style={{ fontSize: '11px', border: '1px solid var(--border-soft)', background: 'var(--surface-bg)', borderRadius: '4px', padding: '4px 8px', color: 'var(--text-primary)' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    <label style={{ fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Response Structure</label>
+                    <input
+                      value={editResponseStructure}
+                      onChange={e => { setEditResponseStructure(e.target.value); setDirty(true); }}
+                      disabled={selected.type === 'builtin'}
+                      placeholder="e.g. Overview -> Category Map -> Recommendations"
+                      style={{ fontSize: '11px', border: '1px solid var(--border-soft)', background: 'var(--surface-bg)', borderRadius: '4px', padding: '4px 8px', color: 'var(--text-primary)' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    <label style={{ fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Clarification Strategy</label>
+                    <input
+                      value={editClarificationStrategy}
+                      onChange={e => { setEditClarificationStrategy(e.target.value); setDirty(true); }}
+                      disabled={selected.type === 'builtin'}
+                      placeholder="e.g. Prompt user with open-ended angles..."
+                      style={{ fontSize: '11px', border: '1px solid var(--border-soft)', background: 'var(--surface-bg)', borderRadius: '4px', padding: '4px 8px', color: 'var(--text-primary)' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    <label style={{ fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Preferred Examples</label>
+                    <input
+                      value={editPreferredExamples}
+                      onChange={e => { setEditPreferredExamples(e.target.value); setDirty(true); }}
+                      disabled={selected.type === 'builtin'}
+                      placeholder="e.g. Bulleted idea categories, Excalidraw trees"
+                      style={{ fontSize: '11px', border: '1px solid var(--border-soft)', background: 'var(--surface-bg)', borderRadius: '4px', padding: '4px 8px', color: 'var(--text-primary)' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    <label style={{ fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Fallback Behaviour</label>
+                    <input
+                      value={editFallbackBehaviour}
+                      onChange={e => { setEditFallbackBehaviour(e.target.value); setDirty(true); }}
+                      disabled={selected.type === 'builtin'}
+                      placeholder="e.g. Offer 3 distinct creative directions"
+                      style={{ fontSize: '11px', border: '1px solid var(--border-soft)', background: 'var(--surface-bg)', borderRadius: '4px', padding: '4px 8px', color: 'var(--text-primary)' }}
+                    />
                   </div>
                 </div>
 
