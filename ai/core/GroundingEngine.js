@@ -55,13 +55,13 @@ class GroundingEngine {
     }));
 
     const hallucinations = [];
-    const titleRegex = /note\s+(?:titled|named|called|titled:?)\s+["']?([A-Za-z0-9\s\-_]+)["']?/gi;
+    const titleRegex = /(?:a\s+)?note\s+(?:titled|named|called|on|about|titled:?)\s+["']?([A-Za-z0-9\s\-_]+?)["']?(?=[,.\n\r]|\s+that|\s+covers|\s+discusses|\s+is|\s+covers)/gi;
 
     const cleanedText = text.replace(titleRegex, (match, claimedTitle) => {
       const normTitle = String(claimedTitle || '').trim().toLowerCase();
-      if (normTitle && !noteBasenames.has(normTitle)) {
+      if (normTitle && normTitle.length > 2 && !noteBasenames.has(normTitle)) {
         hallucinations.push(claimedTitle);
-        return `note (no matching file found for "${claimedTitle}")`;
+        return `(no note file found in workspace matching "${claimedTitle}")`;
       }
       return match;
     });
