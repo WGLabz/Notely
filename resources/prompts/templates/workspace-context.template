@@ -1,0 +1,8 @@
+---
+CURATED WORKSPACE CONTEXT:
+- Workspace Folder: {{workspaceRoot}}
+- Active File: {{activeNotePath}}
+- Active Note Content:
+{{activeNoteContent}}
+- Document Count: {{documentCount}}
+---

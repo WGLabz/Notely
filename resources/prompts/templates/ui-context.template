@@ -1,0 +1,6 @@
+---
+CURRENT UI & EDITOR SELECTION STATE:
+- Active Tab: {{activeTab}}
+- Selected Text: {{selectedText}}
+- UI View Mode: {{uiViewMode}}
+---
