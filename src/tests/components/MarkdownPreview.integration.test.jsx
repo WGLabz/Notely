@@ -3,13 +3,36 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MarkdownPreview } from "../../components/MarkdownPreview";
+import { toComparableAssetPath, replaceFirstImageReferenceWithDiagram } from "../../utils/imageMarkdownReferences";
 
 vi.mock("../../components/MermaidBlock", () => ({
   MermaidBlock: () => null,
 }));
 
 vi.mock("../../components/ExcalidrawEditor", () => ({
-  default: () => null,
+  default: ({ onSave, onClose }) => (
+    <div data-testid="excalidraw-modal">
+      <button
+        data-testid="excalidraw-save-btn"
+        type="button"
+        onClick={async () => {
+          await onSave?.({ elements: [] }, "data:image/png;base64,test");
+        }}
+      >
+        Save Diagram
+      </button>
+      <button data-testid="excalidraw-close-btn" type="button" onClick={onClose}>
+        Close Diagram
+      </button>
+    </div>
+  ),
+}));
+
+vi.mock("../../services/diagramService", () => ({
+  writeDiagramSource: async () => true,
+  writeDiagramImage: async () => true,
+  readDiagramSource: async () => ({ success: true, data: "{}" }),
+  readDiagramImage: async () => "data:image/png;base64,sample",
 }));
 
 const readImageMock = vi.fn();
@@ -29,6 +52,31 @@ vi.mock("../../services/electronService", () => ({
 }));
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+
+beforeEach(() => {
+  window.notesApi = {
+    writeDiagramSource: vi.fn().mockResolvedValue({ success: true }),
+    writeDiagramImage: vi.fn().mockResolvedValue({ success: true }),
+    readDiagramSource: vi.fn().mockResolvedValue({ success: true, data: "{}" }),
+    readDiagramImage: vi.fn().mockResolvedValue("data:image/png;base64,sample"),
+  };
+});
+
+describe("path and diagram replacement helpers", () => {
+  it("normalizes path variants for comparison", () => {
+    expect(toComparableAssetPath("./images/photo.png")).toBe("images/photo.png");
+    expect(toComparableAssetPath("images/photo.png")).toBe("images/photo.png");
+    expect(toComparableAssetPath("images/photo.png?v=123")).toBe("images/photo.png");
+    expect(toComparableAssetPath("images\\photo.png")).toBe("images/photo.png");
+  });
+
+  it("replaces image reference in markdown regardless of ./ prefix or attributes", () => {
+    const markdown = "Note text ![My Image](./images/photo.png){width=100}";
+    const result = replaceFirstImageReferenceWithDiagram(markdown, "images/photo.png", "![Excalidraw](diagram.png)");
+    expect(result.replaced).toBe(true);
+    expect(result.nextContent).toBe("Note text ![Excalidraw](diagram.png)");
+  });
+});
 
 function waitFor(ms) {
   return new Promise((resolve) => {
@@ -282,6 +330,86 @@ describe("MarkdownPreview image behaviors", () => {
       "Directory links like ./ are not supported here. Link a specific .md file.",
       "info"
     );
+
+    view.unmount();
+  });
+
+  it("converts image to Excalidraw diagram and keeps modal open upon save until closed", async () => {
+    window.notesApi = {
+      writeDiagramSource: vi.fn().mockImplementation(async () => ({ success: true })),
+      writeDiagramImage: vi.fn().mockImplementation(async () => ({ success: true })),
+      readDiagramSource: vi.fn().mockImplementation(async () => ({ success: true, data: "{}" })),
+      readDiagramImage: vi.fn().mockImplementation(async () => "data:image/png;base64,sample"),
+    };
+    readImageMock.mockResolvedValue("data:image/png;base64,sampleimage");
+    const onContentChange = vi.fn();
+    const onNotify = vi.fn();
+
+    const view = renderPreview({
+      content: "Here is an image: ![Diagram](./images/photo.png)",
+      basePath: "C:/notes/doc.md",
+      onNotify,
+      onContentChange,
+    });
+
+    await act(async () => {
+      await waitFor(10);
+    });
+
+    const img = view.host.querySelector("img");
+    expect(img).toBeTruthy();
+
+    await act(async () => {
+      img.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 100, clientY: 100 }));
+    });
+
+    const editWithExcalidrawBtn = Array.from(view.host.querySelectorAll("button[role='menuitem']")).find(
+      (btn) => btn.textContent?.includes("Edit with Excalidraw")
+    );
+    expect(editWithExcalidrawBtn).toBeTruthy();
+
+    await act(async () => {
+      editWithExcalidrawBtn.click();
+      await new Promise((r) => setTimeout(r, 100));
+    });
+
+    const modal = view.host.querySelector('[data-testid="excalidraw-modal"]');
+    expect(modal).not.toBeNull();
+
+    const saveBtn = view.host.querySelector('[data-testid="excalidraw-save-btn"]');
+    expect(saveBtn).not.toBeNull();
+
+    await act(async () => {
+      saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    });
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 100));
+    });
+
+    expect(readImageMock).toHaveBeenNthCalledWith(2, "C:/notes/doc.md", "./images/photo.png");
+    expect(onContentChange).toHaveBeenCalledTimes(1);
+    const nextContent = onContentChange.mock.calls[0][0];
+    expect(nextContent).toContain("![Excalidraw Diagram](");
+    expect(nextContent).toContain('data-origin-asset="./images/photo.png"');
+    expect(onNotify).toHaveBeenCalledWith("Image converted to Excalidraw diagram.", "success");
+    expect(view.host.querySelector('[data-testid="excalidraw-modal"]')).not.toBeNull();
+
+    // Verify subsequent save while modal stays open updates diagram without duplicate markdown conversion
+    await act(async () => {
+      saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    expect(onNotify).toHaveBeenCalledWith("Diagram saved.", "success");
+    expect(onContentChange).toHaveBeenCalledTimes(1);
+
+    const closeBtn = view.host.querySelector('[data-testid="excalidraw-close-btn"]');
+    expect(closeBtn).not.toBeNull();
+    await act(async () => {
+      closeBtn.click();
+    });
+    expect(view.host.querySelector('[data-testid="excalidraw-modal"]')).toBeNull();
 
     view.unmount();
   });

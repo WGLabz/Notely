@@ -13,15 +13,16 @@ The Outline panel shows a navigation tree of all headings in the current note. U
 
 ### Open the Outline
 
+- **Toolbar:** Click **View ▾** dropdown → check **Document Outline**
 - **Menu:** View → Show Outline
 - **Shortcut:** `Ctrl + Alt + L`
 
 ### Using the Outline
 
-- Click any heading in the Outline panel to scroll the editor to that section.
+- Click any heading in the Outline panel to place a single cursor at that section and scroll the editor directly to it.
 - The Outline updates in real time as you write.
 - The active heading is highlighted based on the editor scroll position.
-- Works in Edit, Split, and Preview modes.
+- Works seamlessly in Edit, Split, and Preview modes.
 
 ::: info Focus Mode Interaction
 The Outline panel is **automatically hidden** when Focus Mode is active. Toggle Focus Mode off to use the Outline.

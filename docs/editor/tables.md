@@ -28,11 +28,16 @@ Notely includes an inline table editor that lets you edit Markdown tables in a s
 
 When your cursor is inside a Markdown table in Edit mode, the **inline table editor** opens automatically as an overlay panel.
 
+::: tip Toggle Table Editor in View Menu
+You can enable or disable the Visual Table Editor modal at any time from the **View ▾** dropdown menu on the editor toolbar. When disabled, tables can be edited directly as raw Markdown text.
+:::
+
 The table editor shows:
 - **Header cells** — editable in the top row
 - **Data cells** — editable in a grid layout
 - **Action chips** — row and column controls
 - **Alignment controls** — per-column alignment buttons in the header
+- **Maximize / Restore** — expand table editor to full screen for large tables
 
 ## Edit Cells
 
@@ -41,6 +46,10 @@ Click any cell in the grid to edit its content. Standard text editing applies �
 ::: warning Pipe Characters in Cells
 If you need a literal `|` character inside a cell, use the escaped form `\|`. This is handled automatically by the table editor.
 :::
+
+## Paste Excel & Web Tables Directly
+
+You can copy tables directly from Microsoft Excel, Word, or web pages and paste them (`Ctrl+V`) straight into the editor. Notely automatically converts HTML tabular markup into clean, formatted Markdown table syntax at your cursor.
 
 ## Add and Remove Rows
 
@@ -76,8 +85,9 @@ Alignment is written as Markdown column separators:
 
 | Control | Shortcut | Action |
 |---|---|---|
-| **Save** | — | Writes the edited table back to Markdown source |
+| **Save Table** | `Ctrl + Enter` | Writes the edited table back to Markdown source |
 | **Cancel** | `Esc` | Discards changes and closes the editor |
+| **Clear** | — | Clears all data cells in the grid |
 
 ::: tip Background Scroll Lock
 While the table editor is open, background page scrolling is locked. The table content panel has its own scroll when the table is large. This prevents accidental position changes while editing.
@@ -89,8 +99,8 @@ When you edit a table that already exists in your note, Notely preserves the ori
 
 ## Tips
 
-::: tip Large Tables
-For very large tables, the inline editor panel scrolls independently. Use the header controls to keep the alignment buttons in view.
+::: tip Large Tables & Full Screen Mode
+For very large tables, click the **Maximize** icon in the table editor header to expand the grid to full window size. Use the header controls to keep column alignment buttons in view.
 :::
 
 ::: tip Escaped Paths

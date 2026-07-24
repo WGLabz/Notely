@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import useConfirm from "./useConfirm";
 import { useWorkspaceScopedStorage } from "./useWorkspaceScopedStorage";
 import {
@@ -113,11 +113,6 @@ export function useDocumentManager({ notify }) {
       setHistory([]);
     }
   }, [workspaceStorageScope, setOpenTabs, setActiveTabPath, setCurrent, setHistory]);
-
-  useEffect(() => {
-    setActiveTabPath(null);
-    setCurrent(null);
-  }, [setActiveTabPath, setCurrent]);
 
   useEffect(() => {
     if (!activeTabPath) {
@@ -333,7 +328,7 @@ export function useDocumentManager({ notify }) {
     });
 
     const cached = tabStates[filePath];
-    if (cached) {
+    if (cached && !options.forceReload) {
       setActiveTabPath(filePath);
       setCurrent(cached.doc);
       setSavedHash(cached.savedHash);
@@ -364,15 +359,24 @@ export function useDocumentManager({ notify }) {
     if (!current) return;
     const reason = options?.reason || "manual-save";
     const silent = Boolean(options?.silent);
+    const overrideContent = options?.content;
+    const targetField = options?.field || (current.hasCleansed && !current.hasRawNotes ? "cleansed" : "rawNotes");
     setSaving(true);
     setError("");
+
+    const rawNotesToSave = (overrideContent !== undefined && targetField === "rawNotes")
+      ? overrideContent
+      : (current.rawNotes || "");
+    const cleansedToSave = (overrideContent !== undefined && targetField === "cleansed")
+      ? overrideContent
+      : (current.cleansed || "");
 
     try {
       const saved = await saveDocumentApi({
         filePath: current.filePath,
-        header: current.header,
-        rawNotes: current.rawNotes,
-        cleansed: current.cleansed,
+        header: current.header || "",
+        rawNotes: rawNotesToSave,
+        cleansed: cleansedToSave,
         reason,
       });
       
@@ -404,10 +408,30 @@ export function useDocumentManager({ notify }) {
     }
   }
 
-  async function handleReloadCurrentFromDisk() {
-    if (!current?.filePath) return;
+  async function reloadDocument(filePath) {
+    if (!filePath) return;
+    try {
+      await openDocument(filePath, { forceReload: true, preserveActiveTab: true });
+    } catch (err) {
+      setError(err?.message || "Unable to reload document.");
+      throw err;
+    }
+  }
 
-    if (dirty) {
+  async function handleReloadCurrentFromDisk(targetFilePath) {
+    const filePathToReload = targetFilePath || current?.filePath;
+    if (!filePathToReload) return;
+
+    const state = tabStates[filePathToReload];
+    const isTargetDirty = state
+      ? state.savedHash !== JSON.stringify({
+          header: state.doc?.header || "",
+          rawNotes: state.doc?.rawNotes || "",
+          cleansed: state.doc?.cleansed || "",
+        })
+      : dirty;
+
+    if (isTargetDirty) {
       const confirmed = await confirm({
         title: "Discard Changes?",
         message: "Reload this note from disk and discard unsaved changes?",
@@ -419,11 +443,44 @@ export function useDocumentManager({ notify }) {
     }
 
     try {
-      await openDocument(current.filePath, { preserveActiveTab: true });
+      await reloadDocument(filePathToReload);
       notify("Reloaded latest file from disk.", "success");
     } catch (err) {
-      setError(err?.message || "Unable to reload document.");
       notify(err?.message || "Unable to reload document.", "error");
+    }
+  }
+
+  async function handleReloadWorkspace() {
+    setLoading(true);
+    try {
+      await loadDocumentsData();
+      if (openTabs && openTabs.length > 0) {
+        for (const filePath of openTabs) {
+          try {
+            const doc = await readDocument(filePath);
+            const hash = JSON.stringify({
+              header: doc.header || "",
+              rawNotes: doc.rawNotes || "",
+              cleansed: doc.cleansed || "",
+            });
+            setTabStates((prev) => ({
+              ...prev,
+              [filePath]: { doc, savedHash: hash },
+            }));
+            if (activeTabPath === filePath) {
+              setCurrent(doc);
+              setSavedHash(hash);
+            }
+          } catch {
+            // ignore missing files during reload
+          }
+        }
+      }
+      notify("Workspace reloaded from disk.", "success");
+    } catch (err) {
+      notify(err?.message || "Failed to reload workspace.", "error");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -1070,8 +1127,12 @@ export function useDocumentManager({ notify }) {
     }
   }
 
-  async function handleOpenReferencedDocument(filePath, lineNumber) {
+  async function handleOpenReferencedDocument(filePath, optionsOrLineNumber) {
     if (!filePath) return;
+    const options = (typeof optionsOrLineNumber === "object" && optionsOrLineNumber !== null)
+      ? optionsOrLineNumber
+      : { lineNumber: optionsOrLineNumber };
+
     if (current && dirty && current.filePath !== filePath) {
       const confirmed = await confirm({
         title: "Discard Changes?",
@@ -1082,7 +1143,7 @@ export function useDocumentManager({ notify }) {
       });
       if (!confirmed) return;
     }
-    await openDocument(filePath, { lineNumber });
+    await openDocument(filePath, options);
   }
 
   async function handleLandingNavigateUp() {
@@ -1135,6 +1196,12 @@ export function useDocumentManager({ notify }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const handleReorderTabs = useCallback((nextTabs) => {
+    if (Array.isArray(nextTabs)) {
+      setOpenTabs(nextTabs);
+    }
+  }, [setOpenTabs]);
+
   return {
     documents,
     setDocuments,
@@ -1175,6 +1242,8 @@ export function useDocumentManager({ notify }) {
     loadDocumentsData,
     openDocument,
     saveDocument,
+    reloadDocument,
+    handleReloadWorkspace,
     handleReloadCurrentFromDisk,
     handleRenameCurrentDocument,
     handleDeleteCurrentDocument,
@@ -1196,6 +1265,7 @@ export function useDocumentManager({ notify }) {
     handleLandingNavigateTo,
     openTabs,
     setOpenTabs,
+    handleReorderTabs,
     activeTabPath,
     setActiveTabPath,
     tabStates,

@@ -941,7 +941,11 @@ export function MarkdownToolbar({
       <AppIconButton onClick={runMarkdownValidation} title="Validate markdown syntax" aria-label="Validate markdown syntax">
         <CheckCircle2 size={18} />
       </AppIconButton>
-      <span className={`toolbar-validation-summary ${validationStatus}`} data-tooltip={validationSummary}>
+      <span
+        className={`toolbar-validation-summary ${validationStatus}${validationIssues.length ? " has-issues" : ""}`}
+        data-tooltip={validationSummary}
+      >
+        {validationIssues.length > 0 && <span className="toolbar-issue-dot" aria-hidden="true" />}
         {validationSummary}
       </span>
 

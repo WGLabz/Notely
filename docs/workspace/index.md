@@ -40,6 +40,10 @@ Switch views from the **View** menu or the Command Palette.
 
 ---
 
-## 4. Unsaved Changes Guard
+## 5. Workspace & Document Reloading
 
-If you attempt to close a note tab with unsaved edits, Notely will display a **Discard Changes** confirmation dialog to prevent accidental data loss. You can choose to save changes first, discard them, or cancel the action to return to editing.
+Keep your workspace and active notes synchronized with external changes on disk:
+
+- **Reload Workspace**: Click the **Reload** button in the landing list controls, select **Workspace → Reload Workspace** (`Ctrl + Alt + R`), or run **Reload Workspace from Disk** in the Command Palette to re-scan all workspace documents, folder structures, open note tabs, and git status.
+- **External Change Banner & Reload Note**: When an active note is modified externally by another tool or process, Notely detects the change, temporarily disables autosave to prevent overwriting disk state, and displays a warning banner. Click **Reload content from disk**, select **File → Reload Note from Disk** (`Ctrl + Shift + R`), right-click the note tab and choose **Reload from Disk**, or use the Command Palette to force-load the latest file content from disk.
+

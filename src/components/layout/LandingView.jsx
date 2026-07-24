@@ -45,6 +45,7 @@ export function LandingView({
   onShowUpdateModal,
   onDismissUpdate,
   onCopyLinkPath,
+  onReloadWorkspace,
   aiSidebar = null,
   _aiPanelVisible = false,
   _isAIConfigured = false,
@@ -234,6 +235,7 @@ export function LandingView({
             visibleNoteCount={visibleNoteCount}
             totalNoteCount={noteCount}
             onCreateNote={() => onDashboardAction("new-note")}
+            onReloadWorkspace={onReloadWorkspace}
           />
           <DocumentList
             documents={visibleDocuments}

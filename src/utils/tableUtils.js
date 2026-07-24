@@ -194,3 +194,50 @@ export function serializeMarkdownTable({ headers, alignments, rows }, options = 
   const tableArray = [headers, ...rows];
   return markdownTable(tableArray, { align: alignments });
 }
+
+export function htmlTableToMarkdown(htmlString) {
+  if (!htmlString || !/<table/i.test(htmlString)) return null;
+
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlString, "text/html");
+    const table = doc.querySelector("table");
+    if (!table) return null;
+
+    const rows = Array.from(table.querySelectorAll("tr"));
+    if (!rows.length) return null;
+
+    const matrix = [];
+    rows.forEach((row) => {
+      const cells = Array.from(row.querySelectorAll("th, td")).map((cell) =>
+        cell.textContent.trim().replace(/\|/g, "\\|").replace(/\s+/g, " ")
+      );
+      if (cells.length) matrix.push(cells);
+    });
+
+    if (!matrix.length) return null;
+
+    const maxCols = Math.max(...matrix.map((row) => row.length));
+    if (maxCols === 0) return null;
+
+    const normalized = matrix.map((row) => {
+      const copy = [...row];
+      while (copy.length < maxCols) copy.push("");
+      return copy;
+    });
+
+    const header = normalized[0];
+    const body = normalized.slice(1);
+    const separator = Array(maxCols).fill("---");
+
+    const mdLines = [
+      `| ${header.join(" | ")} |`,
+      `| ${separator.join(" | ")} |`,
+      ...body.map((row) => `| ${row.join(" | ")} |`),
+    ];
+
+    return mdLines.join("\n");
+  } catch {
+    return null;
+  }
+}

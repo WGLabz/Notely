@@ -157,8 +157,8 @@ class AIConfig {
           enablePatternLearning: true,
           enableEmbeddings: true,
           enableRelationshipDiscovery: true,
-          maxTokensPerQuery: 2048,
-          temperature: 0.7,
+          graphProvider: 'gliner-glirel',
+          graphConfidence: 0.60,
           providerModels: {},
         };
       }

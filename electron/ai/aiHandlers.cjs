@@ -340,24 +340,23 @@ async function handleInitialize(event, payload) {
 
     const result = await aiService.initialize(appDataDir, workspaceRoot, llmProvider, embeddingConfig);
 
-    // Apply saved graphProvider preference (local Qwen vs text-provider)
+    // Apply saved graphProvider preference (gliner-glirel ONNX vs text-provider Cloud LLM)
     if (aiService.agent) {
-      if (prefs.graphProvider === 'local') {
+      if (prefs.graphProvider === 'text-provider') {
+        const activeProvider = aiService.agent.llmRegistry?.getActiveProvider();
+        aiService.agent.setGraphProvider(activeProvider);
+      } else {
         try {
-          const ModelDownloader = require('../../ai/embeddings/ModelDownloader');
-          const modelDownloader = new ModelDownloader(appDataDir);
-          if (modelDownloader.isGraphModelDownloaded()) {
-            const LocalONNXProvider = require('../../ai/providers/LocalONNXProvider');
-            const localLlm = new LocalONNXProvider({ appDataDir });
-            await localLlm.initialize();
-            aiService.agent.llmRegistry.register('local', localLlm);
-            aiService.agent.setGraphProvider(localLlm);
+          const GraphModelDownloader = require('../../ai/graph/GraphModelDownloader');
+          const modelDownloader = new GraphModelDownloader(appDataDir);
+          if (modelDownloader.isModelDownloaded()) {
+            aiService.agent.setGraphProvider('gliner-glirel');
+          } else {
+            aiService.agent.setGraphProvider(null);
           }
         } catch (graphErr) {
-          console.warn('[AI IPC] Local ONNX graph provider init failed:', graphErr.message);
+          console.warn('[AI IPC] Local GLiNER/GLiREL ONNX graph provider init notice:', graphErr.message);
         }
-      } else {
-        aiService.agent.setGraphProvider(null);
       }
     }
 
@@ -776,6 +775,10 @@ async function handleBuildGraph(_event, _payload) {
   try {
     if (!aiService.isEnabled() || !aiService.agent) {
       throw new Error('AI agent is disabled or not initialized');
+    }
+
+    if (aiService.agent.graphDb) {
+      aiService.agent.graphDb.clear();
     }
 
     const LogDB = require('../../ai/logs/LogDB');

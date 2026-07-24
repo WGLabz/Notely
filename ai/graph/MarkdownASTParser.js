@@ -29,9 +29,82 @@ class MarkdownASTParser {
     const inlineCodes = [];
     const callouts = [];
     const mathFormulas = [];
+    const metadataEntities = [];
+    const frontmatter = {};
 
     if (!content || typeof content !== 'string') {
-      return { rootEntity, links, tags, media, attachments, urls, codeBlocks, sections, keyTerms, inlineCodes, callouts, mathFormulas };
+      return { rootEntity, links, tags, media, attachments, urls, codeBlocks, sections, keyTerms, inlineCodes, callouts, mathFormulas, metadataEntities, frontmatter };
+    }
+
+    // 0. Frontmatter & Key-Value Header Metadata Parsing (Tags, Name, Location, Time)
+    const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+    const fmText = fmMatch ? fmMatch[1] : '';
+    const metaBlockText = (fmText ? fmText + '\n' : '') + content.slice(0, 1500);
+
+    const kvRegex = /^(?:[ \t]*[-*]\s+)?([a-zA-Z0-9_\s]+):\s*(.*)$/gm;
+    let kvMatch;
+    while ((kvMatch = kvRegex.exec(metaBlockText)) !== null) {
+      const key = kvMatch[1].trim().toLowerCase();
+      const valStr = kvMatch[2].trim();
+
+      if (!key || !valStr) continue;
+
+      if (key === 'tags' || key === 'tag') {
+        const tagList = valStr.split(/[,;\s]+/).map(t => t.replace(/^[#\s]+|[#\s]+$/g, '')).filter(Boolean);
+        tagList.forEach(t => {
+          tags.push({
+            tagName: `#${t}`,
+            name: t,
+            spanStart: kvMatch.index,
+            spanEnd: kvMatch.index + kvMatch[0].length
+          });
+        });
+        frontmatter.tags = tagList;
+      } else if (key === 'name' || key === 'names' || key === 'author' || key === 'attendees' || key === 'people') {
+        const names = valStr.split(/[,;]+/).map(n => n.trim()).filter(n => n.length > 1);
+        names.forEach(n => {
+          metadataEntities.push({
+            name: n,
+            type: 'Person',
+            relation: 'has_person'
+          });
+        });
+        frontmatter.names = names;
+      } else if (key === 'location' || key === 'venue' || key === 'place' || key === 'city') {
+        const loc = valStr.trim();
+        if (loc) {
+          metadataEntities.push({
+            name: loc,
+            type: 'Location',
+            relation: 'located_in'
+          });
+          frontmatter.location = loc;
+        }
+      } else if (key === 'time' || key === 'date' || key === 'datetime') {
+        frontmatter.time = valStr;
+      } else {
+        frontmatter[key] = valStr;
+      }
+    }
+
+    if (fmText) {
+      const bulletRegex = /^\s*[-*]\s+([a-zA-Z0-9_-]+)\s*$/gm;
+      let bMatch;
+      while ((bMatch = bulletRegex.exec(fmText)) !== null) {
+        const item = bMatch[1].trim();
+        if (item && !['tags', 'name', 'time', 'location'].includes(item.toLowerCase())) {
+          tags.push({
+            tagName: `#${item}`,
+            name: item,
+            spanStart: bMatch.index,
+            spanEnd: bMatch.index + bMatch[0].length
+          });
+        }
+      }
+    }
+
+    if (Object.keys(frontmatter).length > 0) {
+      rootEntity.properties.metadata = frontmatter;
     }
 
     // 1. Wikilinks: [[Target Note]] or [[Target Note|Display Alias]]
@@ -227,7 +300,9 @@ class MarkdownASTParser {
       inlineCodes,
       callouts,
       mathFormulas,
-      tasks
+      tasks,
+      metadataEntities,
+      frontmatter
     };
   }
 }

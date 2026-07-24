@@ -25,6 +25,8 @@ Use shortcuts to navigate and edit notes quickly.
 
 <ShortcutTable :shortcuts="[
   { action: 'Create New Note', key: 'Ctrl + N' },
+  { action: 'Reload Current Note from Disk', key: 'Ctrl + Shift + R' },
+  { action: 'Reload Workspace from Disk', key: 'Ctrl + Alt + R' },
   { action: 'Find in Note', key: 'Ctrl + F' },
   { action: 'Find and Replace', key: 'Ctrl + H' },
   { action: 'Toggle Focus Mode', key: 'Ctrl + Alt + F' },

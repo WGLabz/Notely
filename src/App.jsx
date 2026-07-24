@@ -433,6 +433,8 @@ export default function App() {
     openDocument,
     saveDocument,
     handleReloadCurrentFromDisk,
+    reloadDocument: _reloadDocument,
+    handleReloadWorkspace,
     handleDeleteCurrentDocument,
     handleDeleteCurrentFolder,
     handleRemoveListEntry,
@@ -450,6 +452,7 @@ export default function App() {
     handleOpenReferencedDocument,
     handleLandingNavigateTo,
     openTabs,
+    handleReorderTabs,
     activeTabPath,
     tabStates,
     handleCloseTab,
@@ -899,8 +902,8 @@ export default function App() {
     }
   }
 
-  async function handleOpenReferencedDocumentFromUI(filePath, lineNumber) {
-    await handleOpenReferencedDocument(filePath, lineNumber);
+  async function handleOpenReferencedDocumentFromUI(filePath, optionsOrLineNumber) {
+    await handleOpenReferencedDocument(filePath, optionsOrLineNumber);
     setLandingAssetsOpen(false);
   }
 
@@ -1693,6 +1696,11 @@ export default function App() {
         return;
       }
 
+      if (action === "reload-workspace") {
+        handleReloadWorkspace();
+        return;
+      }
+
       if (action === "remove-document") {
         handleDeleteCurrentDocument();
         return;
@@ -1941,6 +1949,8 @@ export default function App() {
     { id: "open-global-search", label: "Open Global Search", group: "Search", shortcut: "Ctrl/Cmd+Shift+F", aliases: "find everywhere search all notes quick open jump" },
     { id: "open-shortcuts", label: "Open Keyboard Shortcuts", group: "Help", shortcut: "Ctrl/Cmd+/", aliases: "hotkeys keymap shortcuts" },
     { id: "open-workspace", label: "Open Workspace", group: "Workspace", shortcut: "Ctrl/Cmd+Shift+N", aliases: "open workspace folder notes root path" },
+    { id: "reload-workspace", label: "Reload Workspace from Disk", group: "Workspace", shortcut: "Ctrl/Cmd+Alt+R", aliases: "refresh reload workspace disk" },
+    { id: "reload-document", label: "Reload Current Note from Disk", group: "Editor", shortcut: "Ctrl/Cmd+Shift+R", disabled: !current, aliases: "refresh reload note file disk" },
     { id: "export-workspace-zip", label: "Export Workspace as Zip", group: "Workspace", aliases: "export backup archive zip workspace" },
     { id: "open-workspace-graph", label: "Open Workspace Graph", group: "Navigation", aliases: "graph map relationships links topology" },
     { id: "open-tasks-panel", label: "Open Tasks Panel", group: "Navigation", aliases: "tasks todos checkboxes unchecked open items" },
@@ -2221,6 +2231,16 @@ export default function App() {
         return;
       }
       await handleOpenListItem(target);
+      return;
+    }
+
+    if (resolvedCommandId === "reload-document") {
+      await handleReloadCurrentFromDisk();
+      return;
+    }
+
+    if (resolvedCommandId === "reload-workspace") {
+      await handleReloadWorkspace();
       return;
     }
 
@@ -2846,6 +2866,7 @@ export default function App() {
             onShowUpdateModal={() => setShowUpdateModal(true)}
             onDismissUpdate={() => setUpdateStatus("dismissed")}
             onCopyLinkPath={handleCopyLinkPath}
+            onReloadWorkspace={handleReloadWorkspace}
           />
           {landingAssetsOpen ? (
             <OverlayDialog open={landingAssetsOpen} onClose={() => setLandingAssetsOpen(false)} ariaLabel="Assets" cardClassName="assets-dialog-card">
@@ -2881,6 +2902,7 @@ export default function App() {
           <DocumentDetail
             document={current}
             openTabs={openTabs}
+            onReorderTabs={handleReorderTabs}
             activeTabPath={activeTabPath}
             tabStates={tabStates}
             documents={documents}
@@ -2918,8 +2940,8 @@ export default function App() {
             }}
             onRemoveIgnoredSpellingWord={handleRemoveDictionaryWord}
             onClearIgnoredSpellingWords={handleClearDictionary}
-            onForceSaveDocument={async () => {
-              await saveDocument({ reason: "diagram-or-code-save", silent: true });
+            onForceSaveDocument={async (nextContent) => {
+              await saveDocument({ reason: "diagram-or-code-save", silent: true, content: nextContent });
             }}
             autosaveEnabled={autosaveEnabled}
             setAutosaveEnabled={setAutosaveEnabled}
@@ -2968,6 +2990,7 @@ export default function App() {
             onOutlineEnabledChange={setOutlineEnabled}
             focusModeEnabled={focusModeEnabled}
             onFocusModeChange={setFocusModeEnabled}
+            onReloadFromDisk={(filePath) => handleReloadCurrentFromDisk(filePath)}
             aiSidebar={aiSidebarComponent}
           />
         </Suspense>

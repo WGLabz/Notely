@@ -959,8 +959,20 @@
     transform 120ms ease;
 }
 
+.detail-task-popover::before {
+  content: "";
+  position: absolute;
+  top: -14px;
+  left: 0;
+  right: 0;
+  height: 16px;
+  background: transparent;
+}
+
 .detail-task-summary:hover .detail-task-popover,
-.detail-task-summary:focus-within .detail-task-popover {
+.detail-task-summary:focus-within .detail-task-popover,
+.detail-task-summary.open .detail-task-popover,
+.detail-task-popover:hover {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
@@ -3174,6 +3186,10 @@
   display: flex;
   justify-content: flex-end;
   padding: 3px 10px;
+  height: 33px;
+  min-height: 33px;
+  max-height: 33px;
+  box-sizing: border-box;
   border-bottom: 1px solid #d9dedb;
   background: #f7f8f7;
 }
@@ -3212,7 +3228,10 @@
 }
 
 .pane-toolbar-spacer {
+  height: 33px;
   min-height: 33px;
+  max-height: 33px;
+  box-sizing: border-box;
   border-bottom: 1px solid #d9dedb;
   background: #f7f8f7;
 }
@@ -3228,6 +3247,13 @@
   overflow: hidden;
   min-height: 360px;
   border: 0;
+  transition: outline 0.15s ease, box-shadow 0.15s ease;
+}
+
+.markdown-editor.cm-drop-active {
+  outline: 2px dashed var(--accent-solid, #0969da);
+  outline-offset: -4px;
+  box-shadow: inset 0 0 12px rgba(9, 105, 218, 0.15);
 }
 
 /* In focus-mode the editor must be fully constrained by the grid cell so mouse-scroll works */
@@ -3301,6 +3327,29 @@
 
 .toolbar-validation-summary.error {
   color: var(--status-danger-text);
+}
+
+.toolbar-validation-summary.has-issues {
+  color: var(--status-warning-text, #b45309);
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbar-issue-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+  animation: issue-pulse 2s ease-in-out infinite;
+}
+
+@keyframes issue-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
 }
 
 .editor-toolbar button.toolbar-btn-capture {
@@ -4680,6 +4729,16 @@
   z-index: 1000;
   box-shadow: var(--shadow-sm);
   animation: fadeIn 0.12s ease-out;
+}
+
+.link-hover-popup::after {
+  content: "";
+  position: absolute;
+  bottom: -10px;
+  left: 0;
+  right: 0;
+  height: 12px;
+  background: transparent;
 }
 
 .link-hover-popup-btn {

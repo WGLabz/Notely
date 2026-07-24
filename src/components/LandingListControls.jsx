@@ -1,4 +1,4 @@
-import { FilePlus2, FileText, Folder } from "lucide-react";
+import { FilePlus2, FileText, Folder, RefreshCw } from "lucide-react";
 import AppButton from "./AppButton";
 import AppSelect from "./AppSelect";
 
@@ -16,6 +16,7 @@ export function LandingListControls({
   visibleNoteCount,
   totalNoteCount,
   onCreateNote,
+  onReloadWorkspace,
 }) {
   return (
     <div className="landing-list-controls" aria-label="List controls">
@@ -90,6 +91,19 @@ export function LandingListControls({
           <em>Notes</em>
         </span>
       </div>
+
+      {onReloadWorkspace && (
+        <AppButton
+          variant="small"
+          className="landing-reload-btn"
+          onClick={onReloadWorkspace}
+          data-tooltip="Reload workspace from disk"
+          aria-label="Reload workspace from disk"
+        >
+          <RefreshCw size={14} />
+          <span>Reload</span>
+        </AppButton>
+      )}
 
       {onCreateNote && (
         <AppButton

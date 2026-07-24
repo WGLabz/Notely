@@ -708,6 +708,7 @@ export function DocumentDetail({
   autosaveEnabled = false,
   setAutosaveEnabled,
   openTabs = [],
+  onReorderTabs,
   activeTabPath = null,
   tabStates = {},
   documents = [],
@@ -722,10 +723,12 @@ export function DocumentDetail({
   onOpenInEditor,
   onRevealInExplorer,
   onCopyLinkPath,
+  onReloadFromDisk,
 }) {
   const { confirm } = useConfirm();
   const MAX_EDITOR_HISTORY = 200;
   const textareaRef = useRef(null);
+  const taskPopoverTimerRef = useRef(null);
   const historyStateRef = useRef({
     raw: { undo: [], redo: [] },
     cleansed: { undo: [], redo: [] },
@@ -759,6 +762,15 @@ export function DocumentDetail({
       return Number.isNaN(parsed) ? 380 : parsed;
     },
   });
+
+  const [targetLine, setTargetLine] = useState(initialLine);
+
+  useEffect(() => {
+    if (initialLine != null) {
+      setTargetLine(initialLine);
+    }
+  }, [initialLine]);
+
   const workspaceLayoutRef = useRef(null);
 
   const clampOutlineWidth = (w) => Math.min(Math.max(w, 150), 350);
@@ -867,11 +879,13 @@ export function DocumentDetail({
 
   const handleReloadFromDisk = async () => {
     try {
-      if (typeof onOpenDocument === "function") {
-        await onOpenDocument(document.filePath);
-        setChangedOnDisk(false);
-        onNotify?.("Note reloaded from disk.", "success");
+      if (typeof onReloadFromDisk === "function") {
+        await onReloadFromDisk(document.filePath);
+      } else if (typeof onOpenDocument === "function") {
+        await onOpenDocument(document.filePath, { forceReload: true, preserveActiveTab: true });
       }
+      setChangedOnDisk(false);
+      onNotify?.("Note reloaded from disk.", "success");
     } catch (err) {
       onNotify?.(err?.message || "Failed to reload document.", "error");
     }
@@ -1126,11 +1140,13 @@ export function DocumentDetail({
     requestAnimationFrame(restore);
     const lateRestoreA = window.setTimeout(restore, 80);
     const lateRestoreB = window.setTimeout(restore, 220);
+    const lateRestoreC = window.setTimeout(restore, 300);
 
     return () => {
       canceled = true;
       window.clearTimeout(lateRestoreA);
       window.clearTimeout(lateRestoreB);
+      window.clearTimeout(lateRestoreC);
     };
   };
 
@@ -1211,32 +1227,54 @@ export function DocumentDetail({
 
   const jumpToLine = (line) => {
     const safeLine = Math.max(Number(line) || 1, 1);
-    if (mode !== "edit" && mode !== "split") {
+    setTargetLine(safeLine);
+    
+    if (mode === "preview") {
+      const previewEl = window.document.querySelector(".markdown-preview, .preview-container");
+      if (previewEl) {
+        const targetNode = previewEl.querySelector(`[data-source-line="${safeLine}"]`) ||
+          Array.from(previewEl.querySelectorAll("[data-source-line]")).find(el => Number(el.getAttribute("data-source-line")) >= safeLine);
+        if (targetNode) {
+          targetNode.scrollIntoView({ behavior: "smooth", block: "center" });
+          return;
+        }
+      }
       setEditorMode("edit", { announce: false, force: true });
       requestAnimationFrame(() => jumpToLine(safeLine));
       return;
     }
 
     const editor = textareaRef?.current;
-    if (!editor) return;
+    if (editor) {
+      const lines = (content || "").split(/\r?\n/);
+      let startIndex = 0;
+      for (let index = 0; index < Math.min(safeLine - 1, lines.length); index += 1) {
+        startIndex += lines[index].length + 1;
+      }
 
-    const lines = (content || "").split(/\r?\n/);
-    let startIndex = 0;
-    for (let index = 0; index < Math.min(safeLine - 1, lines.length); index += 1) {
-      startIndex += lines[index].length + 1;
+      editor.focus();
+      editor.selectionStart = startIndex;
+      editor.selectionEnd = startIndex;
+
+      const lineHeight = typeof editor.getLineHeight === "function"
+        ? editor.getLineHeight()
+        : parseFloat(window.getComputedStyle(editor).lineHeight) || 20;
+      const viewportHeight = Number(editor.clientHeight) || lineHeight * 20;
+      const targetTop = (safeLine - 1) * lineHeight - viewportHeight * 0.66;
+      const maxScroll = Math.max(0, (Number(editor.scrollHeight) || 0) - viewportHeight);
+      editor.scrollTop = Math.max(0, Math.min(targetTop, maxScroll));
     }
 
-    editor.focus();
-    editor.selectionStart = startIndex;
-    editor.selectionEnd = startIndex;
-
-    const lineHeight = typeof editor.getLineHeight === "function"
-      ? editor.getLineHeight()
-      : parseFloat(window.getComputedStyle(editor).lineHeight) || 20;
-    const viewportHeight = Number(editor.clientHeight) || lineHeight * 20;
-    const targetTop = (safeLine - 1) * lineHeight - viewportHeight * 0.66;
-    const maxScroll = Math.max(0, (Number(editor.scrollHeight) || 0) - viewportHeight);
-    editor.scrollTop = Math.max(0, Math.min(targetTop, maxScroll));
+    if (mode === "split") {
+      const previewEl = window.document.querySelector(".markdown-preview, .preview-container");
+      if (previewEl) {
+        const targetNode = previewEl.querySelector(`[data-source-line="${safeLine}"]`) ||
+          Array.from(previewEl.querySelectorAll("[data-source-line]")).find(el => Number(el.getAttribute("data-source-line")) >= safeLine);
+        if (targetNode) {
+          targetNode.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }
+    }
   };
 
   const openFindPanel = ({ showReplace = false } = {}) => {
@@ -1707,6 +1745,7 @@ export function DocumentDetail({
       {!isFocusMode && (
         <NoteTabBar
           openTabs={openTabs}
+          onReorderTabs={onReorderTabs}
           activeTabPath={activeTabPath}
           tabStates={tabStates}
           documents={documents}
@@ -1721,6 +1760,7 @@ export function DocumentDetail({
           onOpenInEditor={onOpenInEditor}
           onRevealInExplorer={onRevealInExplorer}
           onCopyLinkPath={onCopyLinkPath}
+          onReloadFromDisk={onReloadFromDisk}
         />
       )}
       {!isFocusMode && (
@@ -1747,9 +1787,20 @@ export function DocumentDetail({
           </nav>
           {taskCounts.total > 0 && (
             <div
-              className="detail-task-summary"
-              onMouseEnter={() => setIsTaskSummaryOpen(true)}
-              onMouseLeave={() => setIsTaskSummaryOpen(false)}
+              className={`detail-task-summary${isTaskSummaryOpen ? " open" : ""}`}
+              onMouseEnter={() => {
+                if (taskPopoverTimerRef.current) {
+                  clearTimeout(taskPopoverTimerRef.current);
+                  taskPopoverTimerRef.current = null;
+                }
+                setIsTaskSummaryOpen(true);
+              }}
+              onMouseLeave={() => {
+                if (taskPopoverTimerRef.current) clearTimeout(taskPopoverTimerRef.current);
+                taskPopoverTimerRef.current = setTimeout(() => {
+                  setIsTaskSummaryOpen(false);
+                }, 450);
+              }}
               onFocus={() => setIsTaskSummaryOpen(true)}
               onBlur={(event) => {
                 if (!event.currentTarget.contains(event.relatedTarget)) {
@@ -1784,7 +1835,13 @@ export function DocumentDetail({
                     <strong>Open</strong>
                     <ul className="detail-task-popover-list">
                       {openTaskItems.map((task) => (
-                        <li className="detail-task-popover-item open" key={task.id}>
+                        <li
+                          className="detail-task-popover-item open"
+                          key={task.id}
+                          onClick={() => jumpToLine(task.line)}
+                          style={{ cursor: "pointer" }}
+                          title="Click to jump to task in editor"
+                        >
                           <span className="detail-task-popover-marker">[ ]</span>
                           <span>{task.text}</span>
                         </li>
@@ -1797,7 +1854,13 @@ export function DocumentDetail({
                     <strong>Closed</strong>
                     <ul className="detail-task-popover-list">
                       {closedTaskItems.map((task) => (
-                        <li className="detail-task-popover-item closed" key={task.id}>
+                        <li
+                          className="detail-task-popover-item closed"
+                          key={task.id}
+                          onClick={() => jumpToLine(task.line)}
+                          style={{ cursor: "pointer" }}
+                          title="Click to jump to task in editor"
+                        >
                           <span className="detail-task-popover-marker">[x]</span>
                           <span>{task.text}</span>
                         </li>
@@ -2096,8 +2159,10 @@ export function DocumentDetail({
             onRemoveIgnoredSpellingWord={onRemoveIgnoredSpellingWord}
             onClearIgnoredSpellingWords={onClearIgnoredSpellingWords}
             onForceSaveDocument={onForceSaveDocument}
-            initialLine={initialLine}
+            initialLine={targetLine ?? initialLine}
             onLineJumped={onLineJumped}
+            outlineEnabled={outlineEnabled}
+            onOutlineEnabledChange={onOutlineEnabledChange}
           />
         </main>
 
@@ -2144,17 +2209,7 @@ export function DocumentDetail({
             {aiSidebar}
           </div>
         )}
-        {!aiPanelVisible && aiEnabled ? (
-          <button
-            type="button"
-            className="ai-panel-reveal"
-            onClick={onShowAI}
-            data-tooltip="Show AI panel"
-            aria-label="Show AI panel"
-          >
-            AI
-          </button>
-        ) : null}
+
       </div>
 
 

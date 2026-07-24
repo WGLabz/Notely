@@ -134,6 +134,9 @@ md.core.ruler.push("notely-source-lines", (state) => {
 md.renderer.rules.image = (tokens, idx, options, env, self) => {
   const token = tokens[idx];
   const src = token.attrGet("src") || "";
+  if (src && !token.attrGet("data-asset-path") && !/^(data:|blob:)/i.test(src)) {
+    token.attrSet("data-asset-path", src);
+  }
   const label = getImageDisplayName(src, token.content || token.attrGet("alt") || "Image");
   const imageHtml = defaultImageRenderer(tokens, idx, options, env, self);
   return `<span class="markdown-image-frame">${imageHtml}<span class="markdown-image-actions"><button type="button" class="markdown-image-action" data-image-action="view" aria-label="View image">View</button><button type="button" class="markdown-image-action" data-image-action="edit" aria-label="Annotate image">Annotate</button></span><span class="markdown-image-name" data-tooltip="${escapeHtml(label)}">${escapeHtml(label)}</span></span>`;

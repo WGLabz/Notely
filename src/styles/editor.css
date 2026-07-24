@@ -29,6 +29,22 @@
   border-radius: 6px;
   background: #f6f8fa;
   overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.preview .markdown-code-block:hover {
+  border-color: #8c959f;
+}
+
+.preview .markdown-code-block:hover [data-code-edit="true"] {
+  border-color: var(--accent-solid, #0969da);
+  background: var(--accent-subtle, #ddf4ff);
+  color: var(--accent-solid, #0969da);
+  font-weight: bold;
+}
+
+.preview .markdown-code-pre {
+  cursor: pointer;
 }
 
 .preview .markdown-code-header {
@@ -3130,70 +3146,9 @@
 .table-editor-toolbar {
   display: flex;
   align-items: center;
-  gap: 6px;
-}
-
-.table-editor-toolbar button {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: rgba(0, 0, 0, 0.04);
-  border: 1px solid rgba(0,0,0,0.02);
-  color: var(--text-primary);
-  padding: 0 8px;
-  min-height: 24px;
-  border-radius: var(--radius-md);
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.table-editor-toolbar .action-chip {
-  line-height: 1;
-}
-
-[data-theme='dark'] .table-editor-toolbar button {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255,255,255,0.02);
-}
-
-.table-editor-toolbar button:hover {
-  background: rgba(0, 0, 0, 0.08);
-  transform: translateY(-1px);
-}
-
-[data-theme='dark'] .table-editor-toolbar button:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.table-editor-toolbar button:active {
-  transform: translateY(0);
-}
-
-.table-editor-toolbar .primary-btn {
-  background: linear-gradient(135deg, var(--accent-color, #3b82f6) 0%, #2563eb 100%);
-  color: white;
-  border: none;
-  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.25);
-  text-shadow: 0 1px 2px rgba(0,0,0,0.1);
-}
-
-.table-editor-toolbar .primary-btn:hover {
-  background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
-  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
-  transform: translateY(-2px);
-}
-
-.table-editor-toolbar .cancel-btn {
-  padding: 6px 10px;
-  background: transparent;
-  border: 1px solid transparent;
-}
-
-.table-editor-toolbar .cancel-btn:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  gap: 8px;
+  margin-top: auto;
+  flex-shrink: 0;
 }
 
 .table-editor-grid-container {

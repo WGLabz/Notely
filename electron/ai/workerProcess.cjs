@@ -173,11 +173,11 @@ if (process.parentPort) {
       } else if (type === 'resume') {
         if (indexWorker) indexWorker.resume();
       } else if (type === 'reloadGraphModel') {
-        if (graphService && typeof graphService.getExtractor === 'function') {
-          const extractor = graphService.getExtractor();
-          if (extractor && typeof extractor.load === 'function') {
-            extractor.isLoaded = false;
-            await extractor.load().catch(() => {});
+        if (graphService && typeof graphService.getPipeline === 'function') {
+          const pipeline = graphService.getPipeline();
+          if (pipeline && typeof pipeline.load === 'function') {
+            pipeline.isInitialized = false;
+            await pipeline.load().catch(() => {});
           }
         }
       } else if (type === 'shutdown') {

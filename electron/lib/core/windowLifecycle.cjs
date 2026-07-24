@@ -349,22 +349,23 @@ function createWindowLifecycle(deps) {
       : "script-src 'self' 'unsafe-inline'";
  
     const connectSrc = isDev
-      ? "connect-src 'self' https://api.languagetool.org ws: http://127.0.0.1:* http://localhost:*"
-      : "connect-src 'self' https://api.languagetool.org";
+      ? "connect-src 'self' https://api.languagetool.org https://esm.sh https://unpkg.com ws: http://127.0.0.1:* http://localhost:*"
+      : "connect-src 'self' https://api.languagetool.org https://esm.sh https://unpkg.com";
  
     return [
       "default-src 'self'",
       scriptSrc,
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com data:",
-      "img-src 'self' data: blob: file:",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://esm.sh https://unpkg.com data:",
+      "img-src 'self' data: blob: file: https://esm.sh https://unpkg.com",
       "media-src 'self' data: blob: file:",
-      "font-src 'self' https://fonts.gstatic.com data:",
+      "font-src 'self' https://fonts.gstatic.com https://esm.sh https://unpkg.com data:",
       connectSrc,
       "worker-src 'self' blob:",
+      "child-src 'self' blob: data:",
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'none'",
-      "frame-src 'self' https://embed.draw.io https://viewer.diagrams.net https://embed.diagrams.net https://app.diagrams.net"
+      "frame-src 'self' blob: data: https://embed.draw.io https://viewer.diagrams.net https://embed.diagrams.net https://app.diagrams.net"
     ].join("; ");
   }
  

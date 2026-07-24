@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, memo } from "react";
-import { Search, Copy, ExternalLink, Pencil, RefreshCw, Trash2, RotateCcw } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Search, Copy, ExternalLink, Pencil, RefreshCw, Trash2, RotateCcw, Download } from "lucide-react";
 import {
   renderMarkdown,
   parseDiagramBlocks,
@@ -10,10 +11,10 @@ import { readImage, replaceImage, deleteImage, renameImage, getImageAnnotation, 
 import { readFileAsDataUrl } from "../utils/mediaTypeUtils";
 import { createImageMarkdown, normalizeImagePathForMarkdown } from "../utils/markdownUtils";
 import { createDiagramMarkdown, generateDiagramId } from "../utils/diagramFileUtils";
-import { writeDiagramSource } from "../services/diagramService";
+import { writeDiagramSource, writeDiagramImage } from "../services/diagramService";
 import { getMediaTypeFromExtension } from "../utils/mediaUtils";
 import { formatImageDeleteResult } from "../utils/imageDeleteResult";
-import { removeImageReferenceFromMarkdown } from "../utils/imageMarkdownReferences";
+import { removeImageReferenceFromMarkdown, toComparableAssetPath, replaceFirstImageReferenceWithDiagram } from "../utils/imageMarkdownReferences";
 import useConfirm from "../hooks/useConfirm";
 import { MermaidBlock } from "./MermaidBlock";
 import { ExcalidrawBlock } from "./ExcalidrawBlock";
@@ -64,44 +65,6 @@ function getExcalidrawActionContext(target) {
 
 function sanitizeAttributeValue(value) {
   return String(value || "").replace(/"/g, "&quot;");
-}
-
-function toComparableAssetPath(value) {
-  let normalized = String(value || "").trim();
-  if (!normalized) return "";
-  for (let i = 0; i < 5; i += 1) {
-    try {
-      const next = decodeURIComponent(normalized);
-      if (next === normalized) break;
-      normalized = next;
-    } catch {
-      break;
-    }
-  }
-  return normalized.replace(/\\/g, "/");
-}
-
-function replaceFirstImageReferenceWithDiagram(content, targetAssetPath, replacementMarkdown) {
-  const source = String(content || "");
-  const targetComparable = toComparableAssetPath(targetAssetPath);
-  if (!targetComparable) {
-    return { nextContent: source, replaced: false, originalAlt: "" };
-  }
-
-  const imageRegex = /!\[([^\]]*)\]\((<[^>]+>|[^)]+)\)/g;
-  let replaced = false;
-  let originalAlt = "";
-  const nextContent = source.replace(imageRegex, (match, alt, rawPath) => {
-    if (replaced) return match;
-    const cleanedPath = String(rawPath || "").trim().replace(/^<|>$/g, "");
-    const comparablePath = toComparableAssetPath(cleanedPath);
-    if (comparablePath !== targetComparable) return match;
-    replaced = true;
-    originalAlt = String(alt || "").trim();
-    return replacementMarkdown;
-  });
-
-  return { nextContent, replaced, originalAlt };
 }
 
 function replaceDiagramReferenceWithOriginal(content, options = {}) {
@@ -164,16 +127,28 @@ function inferDataUrlMimeType(dataUrl) {
 }
 
 function measureDataUrlImage(dataUrl) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const image = new Image();
+    let settled = false;
+    const finish = (dimensions) => {
+      if (settled) return;
+      settled = true;
+      resolve(dimensions);
+    };
+
     image.onload = () => {
-      resolve({
+      finish({
         width: Number(image.naturalWidth || image.width || 1280),
         height: Number(image.naturalHeight || image.height || 720),
       });
     };
-    image.onerror = () => reject(new Error("Unable to load image for Excalidraw background."));
+    image.onerror = () => {
+      finish({ width: 1280, height: 720 });
+    };
     image.src = dataUrl;
+    setTimeout(() => {
+      finish({ width: 1280, height: 720 });
+    }, 0);
   });
 }
 
@@ -242,8 +217,10 @@ function buildExcalidrawInitialDataFromImage(imageDataUrl, dimensions = {}, imag
 }
 
 function resolveDocumentPathFromBase(basePath) {
-  if (!basePath) return "";
-  return String(basePath).split(/[\\/]/).slice(0, -1).join("/");
+  if (!basePath) return ".";
+  const parts = String(basePath).split(/[\\/]/);
+  if (parts.length <= 1) return ".";
+  return parts.slice(0, -1).join("/") || ".";
 }
 
 function applyImageAnnotation(image, annotation) {
@@ -439,12 +416,29 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
   const [contextMenu, setContextMenu] = useState(null);
   const [activeLinkPopup, setActiveLinkPopup] = useState(null);
   const linkHideTimerRef = useRef(null);
+  const isPopupHoveredRef = useRef(false);
   const handleLinkNavigateRef = useRef(null);
 
   const handleCopyLinkFromPreview = (href) => {
     if (!href) return;
     navigator.clipboard.writeText(href);
     onNotify?.(`Copied link path: ${href}`, "success");
+    setActiveLinkPopup(null);
+  };
+
+  const handleDownloadFileFromPreview = async (href) => {
+    if (!href) return;
+    const resolvedPath = resolveMarkdownLinkPath(basePath, href) || href;
+    try {
+      if (typeof window.notesApi?.openFolder === "function") {
+        await window.notesApi.openFolder(resolvedPath);
+        onNotify?.(`Opened file location: ${resolvedPath}`, "success");
+      } else {
+        onNotify?.(`File path: ${resolvedPath}`, "info");
+      }
+    } catch (err) {
+      onNotify?.(err?.message || "Failed to open file.", "error");
+    }
     setActiveLinkPopup(null);
   };
 
@@ -459,6 +453,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
     initialData: null,
     sourceAssetPath: "",
     sourceAltText: "",
+    converted: false,
   });
   const parts = useMemo(() => {
     return parseDiagramBlocks(content);
@@ -479,10 +474,15 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
 
       const existingAssetPath = image.getAttribute("data-asset-path") || "";
       const src = image.getAttribute("src") || "";
-      const assetPath = existingAssetPath || src;
-      image.setAttribute("data-asset-path", assetPath);
+      const assetPath = (existingAssetPath && !/^(data:|blob:)/i.test(existingAssetPath))
+        ? existingAssetPath
+        : (!/^(data:|blob:)/i.test(src) ? src : "");
 
-      const shouldSkipResolution = !existingAssetPath && (!src || /^(data:|blob:|https?:)/i.test(src));
+      if (assetPath) {
+        image.setAttribute("data-asset-path", assetPath);
+      }
+
+      const shouldSkipResolution = !assetPath || /^(data:|blob:|https?:)/i.test(assetPath);
       if (shouldSkipResolution) return;
 
       const cache = imageResolveCacheRef.current;
@@ -491,17 +491,29 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
       if (cache.has(cacheKey)) {
         const cached = cache.get(cacheKey);
         if (!cancelled && cached) image.src = cached;
-        try {
-          const annotation = await getImageAnnotation(basePath, assetPath);
-          if (!cancelled) applyImageAnnotation(image, annotation);
-        } catch {
-          if (!cancelled) applyImageAnnotation(image, null);
+        const annotationKey = `annotation:${assetPath}`;
+        if (cache.has(annotationKey)) {
+          if (!cancelled) applyImageAnnotation(image, cache.get(annotationKey));
+        } else {
+          try {
+            const annotation = await getImageAnnotation(basePath, assetPath);
+            cache.set(annotationKey, annotation);
+            if (!cancelled) applyImageAnnotation(image, annotation);
+          } catch {
+            if (!cancelled) applyImageAnnotation(image, null);
+          }
         }
-        try {
-          const originalStatus = await getImageOriginalStatus(basePath, assetPath);
-          if (!cancelled) applyImageOriginalBadge(image, Boolean(originalStatus?.hasOriginal));
-        } catch {
-          if (!cancelled) applyImageOriginalBadge(image, false);
+        const originalKey = `original:${assetPath}`;
+        if (cache.has(originalKey)) {
+          if (!cancelled) applyImageOriginalBadge(image, Boolean(cache.get(originalKey)));
+        } else {
+          try {
+            const originalStatus = await getImageOriginalStatus(basePath, assetPath);
+            cache.set(originalKey, Boolean(originalStatus?.hasOriginal));
+            if (!cancelled) applyImageOriginalBadge(image, Boolean(originalStatus?.hasOriginal));
+          } catch {
+            if (!cancelled) applyImageOriginalBadge(image, false);
+          }
         }
         return;
       }
@@ -518,13 +530,16 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
 
       try {
         const annotation = await getImageAnnotation(basePath, assetPath);
+        cache.set(`annotation:${assetPath}`, annotation);
         if (!cancelled) applyImageAnnotation(image, annotation);
       } catch {
         if (!cancelled) applyImageAnnotation(image, null);
       }
       try {
         const originalStatus = await getImageOriginalStatus(basePath, assetPath);
-        if (!cancelled) applyImageOriginalBadge(image, Boolean(originalStatus?.hasOriginal));
+        const hasOrig = Boolean(originalStatus?.hasOriginal);
+        cache.set(`original:${assetPath}`, hasOrig);
+        if (!cancelled) applyImageOriginalBadge(image, hasOrig);
       } catch {
         if (!cancelled) applyImageOriginalBadge(image, false);
       }
@@ -689,22 +704,37 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
       let annotation = null;
       let hasOriginal = false;
 
+      const cache = imageResolveCacheRef.current;
+
       try {
         fullSizeSrc = await readImage(basePath, assetPath);
       } catch {
         // Fall back to the rendered preview image if the full-size read fails.
       }
 
-      try {
-        annotation = await getImageAnnotation(basePath, assetPath);
-      } catch {
-        annotation = null;
+      const annotationKey = `annotation:${assetPath}`;
+      if (cache.has(annotationKey)) {
+        annotation = cache.get(annotationKey);
+      } else {
+        try {
+          annotation = await getImageAnnotation(basePath, assetPath);
+          cache.set(annotationKey, annotation);
+        } catch {
+          annotation = null;
+        }
       }
-      try {
-        const originalStatus = await getImageOriginalStatus(basePath, assetPath);
-        hasOriginal = Boolean(originalStatus?.hasOriginal);
-      } catch {
-        hasOriginal = false;
+
+      const originalKey = `original:${assetPath}`;
+      if (cache.has(originalKey)) {
+        hasOriginal = Boolean(cache.get(originalKey));
+      } else {
+        try {
+          const originalStatus = await getImageOriginalStatus(basePath, assetPath);
+          hasOriginal = Boolean(originalStatus?.hasOriginal);
+          cache.set(originalKey, hasOriginal);
+        } catch {
+          hasOriginal = false;
+        }
       }
 
       setCropState({
@@ -954,10 +984,26 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
       }
     };
 
+    const handleMediaDblClick = (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const figure = target.closest("figure.markdown-code-block");
+      if (figure) {
+        const editBtn = figure.querySelector('[data-code-edit="true"]');
+        if (editBtn) {
+          event.preventDefault();
+          event.stopPropagation();
+          editBtn.click();
+        }
+      }
+    };
+
     previewElement.addEventListener("click", handleMediaClick);
+    previewElement.addEventListener("dblclick", handleMediaDblClick);
 
     return () => {
       previewElement.removeEventListener("click", handleMediaClick);
+      previewElement.removeEventListener("dblclick", handleMediaDblClick);
     };
   }, [basePath, inlineLinkedMarkdown, onMediaClick, onNotify, content, onContentChange, confirm]);
 
@@ -966,7 +1012,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
     if (!previewElement) return;
 
     const handleMouseOver = (e) => {
-      const link = e.target.closest("a");
+      const link = e.target?.closest?.("a");
       if (link && previewElement.contains(link)) {
         if (linkHideTimerRef.current) {
           clearTimeout(linkHideTimerRef.current);
@@ -990,16 +1036,25 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
     };
 
     const handleMouseOut = (e) => {
-      const link = e.target.closest("a");
+      const link = e.target?.closest?.("a");
       if (link) {
+        if (linkHideTimerRef.current) clearTimeout(linkHideTimerRef.current);
         linkHideTimerRef.current = setTimeout(() => {
-          setActiveLinkPopup(null);
-        }, 500);
+          if (!isPopupHoveredRef.current) {
+            setActiveLinkPopup(null);
+          }
+        }, 1200);
       }
     };
 
     const handleScroll = () => {
-      setActiveLinkPopup(null);
+      // Don't close immediately on micro-scrolls; close only if not hovered
+      if (linkHideTimerRef.current) clearTimeout(linkHideTimerRef.current);
+      linkHideTimerRef.current = setTimeout(() => {
+        if (!isPopupHoveredRef.current) {
+          setActiveLinkPopup(null);
+        }
+      }, 400);
     };
 
     previewElement.addEventListener("mouseover", handleMouseOver);
@@ -1099,7 +1154,11 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
       return;
     }
 
-    const assetPath = imageElement.getAttribute("data-asset-path") || "";
+    const rawAsset = imageElement.getAttribute("data-asset-path") || imageElement.getAttribute("src") || "";
+    let assetPath = rawAsset.replace(/^https?:\/\/[^/]+\//i, "");
+    if (/^(?:file|app|atom):\/\//i.test(assetPath) || /^(?:[a-z]:\/|\/)/i.test(assetPath)) {
+      assetPath = toComparableAssetPath(assetPath, basePath);
+    }
     const isWorkspaceImage = Boolean(basePath && assetPath && !/^(https?:|data:|blob:)/i.test(assetPath));
 
     event?.preventDefault?.();
@@ -1248,6 +1307,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
       initialData: null,
       sourceAssetPath: "",
       sourceAltText: "",
+      converted: false,
     });
   };
 
@@ -1263,7 +1323,15 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
     closeContextMenu();
 
     try {
-      const fullSizeSrc = await readImage(basePath, sourceAssetPath);
+      let fullSizeSrc = null;
+      try {
+        fullSizeSrc = await readImage(basePath, sourceAssetPath);
+      } catch {
+        fullSizeSrc = contextMenu.src;
+      }
+      if (!fullSizeSrc) {
+        fullSizeSrc = contextMenu.src;
+      }
       const dimensions = await measureDataUrlImage(fullSizeSrc);
       const diagramId = generateDiagramId();
       const initialData = buildExcalidrawInitialDataFromImage(fullSizeSrc, dimensions, sourceAltText);
@@ -1275,6 +1343,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
         initialData,
         sourceAssetPath,
         sourceAltText,
+        converted: false,
       });
     } catch (error) {
       onNotify?.(error?.message || "Unable to open image in Excalidraw.", "error");
@@ -1282,17 +1351,26 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
   };
 
   const saveExcalidrawFromImageMenu = async (newDiagramData, previewImageData) => {
-    if (!diagramEditState.diagramId || !diagramEditState.documentPath || !diagramEditState.sourceAssetPath) {
+    if (!diagramEditState.diagramId || !diagramEditState.sourceAssetPath) {
+      onNotify?.("Missing diagram metadata required for save.", "error");
       return;
     }
 
+    const docPath = diagramEditState.documentPath || resolveDocumentPathFromBase(basePath) || ".";
     const sourceAssetPath = diagramEditState.sourceAssetPath;
     const sourceAltText = diagramEditState.sourceAltText || "Image";
 
     try {
-      const sourceSaved = await writeDiagramSource(diagramEditState.documentPath, diagramEditState.diagramId, newDiagramData);
-      if (!sourceSaved) {
-        throw new Error("Failed to persist diagram source.");
+      await writeDiagramSource(docPath, diagramEditState.diagramId, newDiagramData);
+
+      if (previewImageData) {
+        await writeDiagramImage(docPath, diagramEditState.diagramId, previewImageData);
+      }
+
+      if (diagramEditState.converted) {
+        onNotify?.("Diagram saved.", "success");
+        onForceSaveDocument?.();
+        return;
       }
 
       const baseMarkdown = createDiagramMarkdown("document", diagramEditState.diagramId);
@@ -1302,20 +1380,24 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
         ? baseMarkdown.replace(/\}$/, metadataSuffix)
         : `${baseMarkdown}{data-diagram-id="${diagramEditState.diagramId}" data-diagram-type="excalidraw" data-origin-asset="${sanitizeAttributeValue(normalizedOriginAsset)}" data-origin-alt="${sanitizeAttributeValue(sourceAltText)}"}`;
 
-      const replacementResult = replaceFirstImageReferenceWithDiagram(content, sourceAssetPath, diagramMarkdown);
+      const replacementResult = replaceFirstImageReferenceWithDiagram(content, sourceAssetPath, diagramMarkdown, basePath);
       if (!replacementResult.replaced) {
         throw new Error("Could not locate the source image markdown to replace.");
       }
 
       const finalContent = replacementResult.nextContent;
-      if (typeof onContentChange === "function" && finalContent !== String(content || "")) {
+      if (typeof onContentChange === "function") {
         onContentChange(finalContent);
       }
 
       onNotify?.("Image converted to Excalidraw diagram.", "success");
-      onForceSaveDocument?.();
-      void previewImageData;
+      onForceSaveDocument?.(finalContent);
+      setDiagramEditState((prev) => ({
+        ...prev,
+        converted: true,
+      }));
     } catch (error) {
+      console.error("saveExcalidrawFromImageMenu error:", error);
       onNotify?.(error?.message || "Unable to save Excalidraw diagram.", "error");
     }
   };
@@ -1344,6 +1426,7 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
       onContentChange(result.nextContent);
     }
     onNotify?.("Restored original image reference.", "success");
+    onForceSaveDocument?.(result.nextContent);
     closeContextMenu({ restoreFocus: false });
   };
 
@@ -1859,28 +1942,36 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
           if (nextContent !== null) {
             onContentChange(nextContent);
             setTimeout(() => {
-              onForceSaveDocument?.();
+              onForceSaveDocument?.(nextContent);
             }, 50);
           } else {
             onNotify?.("Failed to update code block. Source line might have shifted.", "error");
           }
         }}
       />
-      {activeLinkPopup && (
+      {activeLinkPopup && createPortal(
         <div
           className="link-hover-popup"
           style={{
             top: activeLinkPopup.position.top,
-            left: activeLinkPopup.position.left
+            left: activeLinkPopup.position.left,
+            zIndex: 999999,
           }}
           onMouseEnter={() => {
+            isPopupHoveredRef.current = true;
             if (linkHideTimerRef.current) {
               clearTimeout(linkHideTimerRef.current);
               linkHideTimerRef.current = null;
             }
           }}
           onMouseLeave={() => {
-            setActiveLinkPopup(null);
+            isPopupHoveredRef.current = false;
+            if (linkHideTimerRef.current) clearTimeout(linkHideTimerRef.current);
+            linkHideTimerRef.current = setTimeout(() => {
+              if (!isPopupHoveredRef.current) {
+                setActiveLinkPopup(null);
+              }
+            }, 800);
           }}
         >
           <button
@@ -1903,7 +1994,21 @@ export const MarkdownPreview = memo(function MarkdownPreviewContent({
             <ExternalLink size={12} style={{ marginRight: "4px" }} />
             <span>Navigate</span>
           </button>
-        </div>
+          {!/^https?:\/\/|^\/\//i.test(activeLinkPopup.href || "") && (
+            <>
+              <div className="link-hover-popup-separator" />
+              <button
+                type="button"
+                className="link-hover-popup-btn"
+                onClick={() => handleDownloadFileFromPreview(activeLinkPopup.href)}
+              >
+                <Download size={12} style={{ marginRight: "4px" }} />
+                <span>Open File</span>
+              </button>
+            </>
+          )}
+        </div>,
+        document.body
       )}
     </>
   );

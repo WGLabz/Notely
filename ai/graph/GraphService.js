@@ -7,7 +7,7 @@ const { createLogger } = require('../core/logger');
 const MarkdownASTParser = require('./MarkdownASTParser');
 const EvidenceStore = require('./EvidenceStore');
 const EntityResolver = require('./EntityResolver');
-const ModernBERTExtractor = require('./ModernBERTExtractor');
+const GLiNERGLiRELPipeline = require('./GLiNERGLiRELPipeline');
 
 const log = createLogger('GraphService');
 
@@ -18,14 +18,17 @@ class GraphService {
     this.astParser = new MarkdownASTParser();
     this.evidenceStore = new EvidenceStore(graphDb);
     this.entityResolver = new EntityResolver(graphDb);
-    this.modernbertExtractor = null;
+    this.pipeline = null;
   }
 
-  getExtractor() {
-    if (!this.modernbertExtractor && this.agent?.appDataDir) {
-      this.modernbertExtractor = new ModernBERTExtractor(this.agent.appDataDir);
+  getPipeline() {
+    if (!this.pipeline && this.agent?.appDataDir) {
+      this.pipeline = new GLiNERGLiRELPipeline(this.agent.appDataDir);
     }
-    return this.modernbertExtractor;
+    return this.pipeline;
+  }
+  getExtractor() {
+    return this.getPipeline();
   }
 
   /**
@@ -310,6 +313,25 @@ class GraphService {
         });
       }
 
+      // 1k. Header & Frontmatter Metadata Entities (Name: Person, Location: Place, etc.)
+      for (const metaEnt of (ast.metadataEntities || [])) {
+        const metaId = this.entityResolver.generateEntityId(metaEnt.name, metaEnt.type || 'Entity');
+        this.graphDb.upsertEntity({
+          id: metaId,
+          name: metaEnt.name,
+          canonical_name: metaEnt.name,
+          type: metaEnt.type || 'Entity'
+        });
+
+        this.graphDb.upsertRelationship({
+          source_id: rootEntityId,
+          target_id: metaId,
+          type: metaEnt.relation || 'mentions',
+          weight: 0.95,
+          confidence: 1.0
+        });
+      }
+
       // 2. Cross-Note Plain Text Mention Mining
       if (this.graphDb?.db) {
         try {
@@ -328,11 +350,13 @@ class GraphService {
         } catch { /* ignore fallback extraction errors */ }
       }
 
-      // 3. Neural AI Pipeline (ModernBERT NER + RE)
-      const extractor = this.getExtractor();
-      if (extractor && typeof extractor.extractEntitiesAndRelations === 'function') {
-        const aiResults = await extractor.extractEntitiesAndRelations(content, {
-          confidenceThreshold: 0.60,
+      // 3. Neural AI Pipeline (GLiNER NER + GLiREL RE)
+      const pipeline = this.getPipeline();
+      if (pipeline && typeof pipeline.extractEntitiesAndRelations === 'function') {
+        const prefs = this.agent?.config ? this.agent.config.loadPreferences() : {};
+        const confidenceThreshold = prefs.graphConfidence || 0.60;
+        const aiResults = await pipeline.extractEntitiesAndRelations(content, ast, {
+          confidenceThreshold,
           evidenceStore: this.evidenceStore,
           sourceId: filePath
         });

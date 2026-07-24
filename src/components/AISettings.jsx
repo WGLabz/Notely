@@ -549,16 +549,34 @@ export const AISettingsContent = ({ _onClose }) => {
 
                 {selectedProvider === 'local' ? (
                   <div style={{ padding: "8px 10px", background: "var(--surface-muted)", borderRadius: "6px", border: "1px solid var(--border-soft)", marginBottom: "8px" }}>
-                    <h4 style={{ fontSize: "11px", fontWeight: "600", margin: "0 0 4px 0" }}>Local Model Status (Qwen ONNX)</h4>
+                    <h4 style={{ fontSize: "11px", fontWeight: "600", margin: "0 0 4px 0" }}>Local Model Status (GLiNER + GLiREL ONNX)</h4>
                     {modelStatus.downloaded ? (
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--status-success-text)", fontSize: "11px" }}>
-                        <Database size={12} />
-                        <span>Qwen2.5-0.5B ONNX model is downloaded and ready offline.</span>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--status-success-text)", fontSize: "11px" }}>
+                          <Database size={12} />
+                          <span>GLiNER & GLiREL ONNX model weights downloaded and ready offline.</span>
+                        </div>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={async () => {
+                            if (!window.confirm('Delete local GLiNER and GLiREL ONNX weights from disk?')) return;
+                            try {
+                              const { aiDeleteGraphModel } = await import('../services/electronService');
+                              await aiDeleteGraphModel();
+                              setModelStatus({ downloaded: false, isDownloading: false, progress: 0 });
+                            } catch (err) {
+                              console.error(err);
+                            }
+                          }}
+                          style={{ display: "flex", gap: "4px", alignItems: "center", padding: "3px 6px", fontSize: "10px", color: "var(--text-danger)" }}
+                        >
+                          <Trash2 size={12} /> Delete
+                        </button>
                       </div>
                     ) : modelStatus.isDownloading ? (
                       <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px" }}>
-                          <span>Downloading local weights...</span>
+                          <span>Downloading GLiNER & GLiREL weights...</span>
                           <span>{modelStatus.progress}%</span>
                         </div>
                         <div style={{ width: "100%", height: "4px", background: "var(--border-soft)", borderRadius: "2px", overflow: "hidden" }}>
@@ -567,7 +585,7 @@ export const AISettingsContent = ({ _onClose }) => {
                       </div>
                     ) : (
                       <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                        <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>Qwen ONNX model not found. Click the button below or go to Knowledge Graph tab to download.</span>
+                        <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>GLiNER + GLiREL ONNX models not found. Click below or go to Knowledge Graph tab to download.</span>
                         <button
                           className="btn btn-secondary btn-sm"
                           onClick={async () => {
@@ -584,13 +602,10 @@ export const AISettingsContent = ({ _onClose }) => {
                           style={{ display: "flex", gap: "6px", alignItems: "center", padding: "6px 12px", width: "fit-content" }}
                         >
                           <Download size={12} />
-                          <span>Download Qwen2.5-0.5B ONNX (350MB)</span>
+                          <span>Download GLiNER & GLiREL Models</span>
                         </button>
                       </div>
                     )}
-                    <div style={{ color: "var(--text-muted)", fontSize: "10.5px", marginTop: "6px", borderLeft: "2px solid var(--accent-solid)", paddingLeft: "6px" }}>
-                      ⚠️ <strong>Hardware Warning:</strong> Running text models locally executes inference directly on your CPU. This requires a modern processor and at least 8GB-16GB RAM. Performance may cause temporary UI lag/freezes during generation.
-                    </div>
                   </div>
                 ) : (
                   <div className="api-key-group compact" style={{ marginBottom: "8px" }}>

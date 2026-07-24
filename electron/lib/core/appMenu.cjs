@@ -144,6 +144,11 @@ function buildAppMenuTemplate(win, context = {}) {
         },
         { type: "separator" },
         {
+          label: "Reload Workspace from Disk",
+          accelerator: "CmdOrCtrl+Alt+R",
+          click: () => sendMenuAction(win, "reload-workspace")
+        },
+        {
           label: "Export/Import note package",
           click: () => sendMenuAction(win, "open-export-import")
         },
@@ -478,6 +483,11 @@ function buildAppMenuTemplate(win, context = {}) {
           label: "Workspace Activity",
           accelerator: "CmdOrCtrl+Shift+A",
           click: () => sendMenuAction(win, "open-workspace-activity")
+        },
+        {
+          label: "Reload Workspace",
+          accelerator: "CmdOrCtrl+Alt+R",
+          click: () => sendMenuAction(win, "reload-workspace")
         },
         { type: "separator" },
         {

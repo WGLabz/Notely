@@ -79,11 +79,32 @@ When issues are found, a badge appears in the editor header. Click it to jump to
 
 → [Typo and Validation Settings](/settings-reference#typo-check)
 
+### Tab Context Menu
+
+Right-click any note tab at the top of the editor pane to access tab actions:
+
+- **Close Actions**: Close Tab, Close Other Tabs, Close Tabs to the Right, Close Saved Tabs, Close All Tabs.
+- **Reload from Disk**: Force-reload the selected note from disk, discarding unsaved memory buffers.
+- **System Actions**: Open in VS Code, Reveal in File Explorer.
+- **Personalization & Linking**: Set Icon & Color, Copy Link Path.
+
+### External Disk Change Detection
+
+If an open note is modified externally on disk by another tool, Notely automatically:
+
+1. Detects the external file change.
+2. Temporarily disables autosave to prevent overwriting external updates.
+3. Displays a warning banner with a **Reload content from disk** button.
+
+Click **Reload content from disk**, press `Ctrl + Shift + R`, or right-click the tab and choose **Reload from Disk** to load the updated content.
+
 ## Keyboard Shortcuts
 
 | Action | Shortcut |
 |---|---|
 | New Note | `Ctrl + N` |
+| Reload Current Note from Disk | `Ctrl + Shift + R` |
+| Reload Workspace from Disk | `Ctrl + Alt + R` |
 | Find in note | `Ctrl + F` |
 | Find and Replace | `Ctrl + H` |
 | Show Outline | `Ctrl + Alt + L` |

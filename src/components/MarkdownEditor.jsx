@@ -11,6 +11,7 @@ import { insertMediaFromFiles } from "../services/imageService";
 import { applyMarkdownQuickFix, applyValidationSuggestion, getIssueFixType } from "../utils/markdownQuickFix";
 import { editorTheme } from "../utils/editorTheme";
 import { generateDiagramId } from "../utils/diagramFileUtils";
+import { useClipboardPaste } from "../hooks/useClipboardPaste";
 
 function getLineStartIndex(text, lineNumber) {
   const targetLine = Math.max(lineNumber, 1);
@@ -274,8 +275,28 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
   activeFindMatchIndex = -1,
   onEditorReady,
   onInlineAIContinue,
+  tableEditorEnabled = true,
+  basePath,
 }) {
   const viewRef = useRef(null);
+
+  const handleInsertMarkdownAtCursor = useCallback((mdText) => {
+    if (!viewRef.current || !mdText) return;
+    const view = viewRef.current;
+    const selection = view.state.selection.main;
+    view.dispatch({
+      changes: { from: selection.from, to: selection.to, insert: mdText },
+      selection: { anchor: selection.from + mdText.length },
+    });
+    onChange?.(view.state.doc.toString());
+  }, [onChange]);
+
+  const { handlePaste } = useClipboardPaste({
+    enabled: !readOnly,
+    basePath,
+    onInsertMarkdown: handleInsertMarkdownAtCursor,
+    onNotify,
+  });
   const menuRef = useRef(null);
   const [contextMenu, setContextMenu] = useState(null);
   const [slashMenu, setSlashMenu] = useState(null);
@@ -336,6 +357,56 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
     }
   }, [slashMenu, viewRef, SLASH_COMMANDS, onNotify]);
 
+  const lastScrollTopRef = useRef(0);
+
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view?.scrollDOM) return;
+    const handleScroll = () => {
+      if (view?.scrollDOM) {
+        lastScrollTopRef.current = view.scrollDOM.scrollTop;
+      }
+    };
+    const scrollDOM = view.scrollDOM;
+    scrollDOM.addEventListener("scroll", handleScroll, { passive: true });
+    return () => scrollDOM.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    if (viewRef.current?.scrollDOM && lastScrollTopRef.current > 0) {
+      const targetScroll = lastScrollTopRef.current;
+      requestAnimationFrame(() => {
+        if (viewRef.current?.scrollDOM) {
+          viewRef.current.scrollDOM.scrollTop = targetScroll;
+        }
+      });
+      window.setTimeout(() => {
+        if (viewRef.current?.scrollDOM) {
+          viewRef.current.scrollDOM.scrollTop = targetScroll;
+        }
+      }, 60);
+    }
+  }, [value]);
+
+  useEffect(() => {
+    if (viewRef.current && Number.isFinite(focusedLine) && focusedLine > 0) {
+      const view = viewRef.current;
+      const safeLine = Math.max(1, Math.min(focusedLine, view.state.doc.lines));
+      const lineObj = view.state.doc.line(safeLine);
+
+      // Single cursor at start of line without selecting/highlighting block!
+      view.dispatch({
+        selection: { anchor: lineObj.from },
+        scrollIntoView: true,
+      });
+
+      if (view.scrollDOM) {
+        const block = view.lineBlockAt(lineObj.from);
+        view.scrollDOM.scrollTop = Math.max(0, block.top - view.scrollDOM.clientHeight / 3);
+      }
+    }
+  }, [focusedLine]);
+
   const [themeMode, setThemeMode] = useState(() => {
     return document.documentElement.getAttribute("data-theme") || "light";
   });
@@ -351,6 +422,8 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
 
   const valueLength = String(value || "").length;
   const decorationsSynced = docLength === valueLength;
+  const [isDragOver, setIsDragOver] = useState(false);
+  const dragCounterRef = useRef(0);
 
   // Explicit hotkey trigger for inline AI completion (Alt-\)
   useEffect(() => {
@@ -513,6 +586,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
       requestAnimationFrame(restoreViewport);
       window.setTimeout(restoreViewport, 80);
       window.setTimeout(restoreViewport, 220);
+      window.setTimeout(restoreViewport, 300);
     };
 
     applyChange(scheduleViewportRestore);
@@ -853,6 +927,10 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
         }
         return false;
       },
+      paste(event) {
+        void handlePaste(event);
+        return false;
+      },
       drop(event, view) {
         const files = event.dataTransfer?.files || [];
         if (!files.length) return false;
@@ -1002,10 +1080,29 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
         },
       },
     ]),
-  ], [findMatchDecorations, ghostSuggestionDecorations, onChange, onNotify, onOpenFind, onRedo, onToggleFind, onUndo, validationDecorations, validationIssues, _activeLine, aiEnabled, onAcceptInlineGhost, onRejectInlineGhost, ghostSuggestion, slashMenu, activeSlashIndex, SLASH_COMMANDS, triggerSlashCommand]);
+  ], [findMatchDecorations, ghostSuggestionDecorations, handlePaste, onChange, onNotify, onOpenFind, onRedo, onToggleFind, onUndo, validationDecorations, validationIssues, _activeLine, aiEnabled, onAcceptInlineGhost, onRejectInlineGhost, ghostSuggestion, slashMenu, activeSlashIndex, SLASH_COMMANDS, triggerSlashCommand]);
 
   return (
-    <div className="markdown-editor">
+    <div
+      className={`markdown-editor${isDragOver ? " cm-drop-active" : ""}`}
+      onDragEnter={(e) => {
+        if (e.dataTransfer?.types?.includes("Files")) {
+          dragCounterRef.current += 1;
+          setIsDragOver(true);
+        }
+      }}
+      onDragLeave={() => {
+        dragCounterRef.current -= 1;
+        if (dragCounterRef.current <= 0) {
+          dragCounterRef.current = 0;
+          setIsDragOver(false);
+        }
+      }}
+      onDrop={() => {
+        dragCounterRef.current = 0;
+        setIsDragOver(false);
+      }}
+    >
       <CodeMirror
         className="markdown-codemirror"
         value={value}
@@ -1076,7 +1173,7 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
               node = node.parent;
             }
 
-            if (tableNode) {
+            if (tableNode && tableEditorEnabled !== false) {
               const from = tableNode.from;
               const to = tableNode.to;
               const text = update.state.sliceDoc(from, to);
@@ -1115,9 +1212,17 @@ export const MarkdownEditor = memo(function MarkdownEditorContent({
           style={activeTableInfo.style}
           onCommit={(newMarkdown) => {
             if (viewRef.current) {
+              const scrollTop = viewRef.current.scrollDOM.scrollTop;
               viewRef.current.dispatch({
-                changes: { from: activeTableInfo.from, to: activeTableInfo.to, insert: newMarkdown }
+                changes: { from: activeTableInfo.from, to: activeTableInfo.to, insert: newMarkdown },
+                scrollIntoView: false,
               });
+              // Restore scroll after dispatch since CodeMirror may reset it
+              const restore = () => {
+                if (viewRef.current) viewRef.current.scrollDOM.scrollTop = scrollTop;
+              };
+              requestAnimationFrame(restore);
+              setTimeout(restore, 300);
             }
             setActiveTableInfo(null);
             viewRef.current?.focus();
