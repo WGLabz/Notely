@@ -14,16 +14,18 @@ const GraphBuilder = require('../graph/GraphBuilder');
 const WorkspaceBrain = require('./WorkspaceBrain');
 const ReasoningBrain = require('./ReasoningBrain');
 const ActionBrain = require('./ActionBrain');
+const ContextOrchestrator = require('./ContextOrchestrator');
 
 class Agent {
   constructor(databaseManager, llmRegistry) {
     this.db = databaseManager;
     this.llmRegistry = llmRegistry;
 
-    // Initialize 3-Brain Architecture
+    // Initialize 3-Brain Architecture & Context Orchestrator
     this.workspaceBrain = new WorkspaceBrain(this);
     this.reasoningBrain = new ReasoningBrain(this.llmRegistry);
     this.actionBrain = new ActionBrain(this);
+    this.contextOrchestrator = new ContextOrchestrator(this);
 
     // Initialize services — EmbeddingService receives null here; the actual
     // embeddingProvider is injected after construction via setEmbeddingProvider()

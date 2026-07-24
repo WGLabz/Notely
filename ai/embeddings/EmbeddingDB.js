@@ -301,18 +301,45 @@ class EmbeddingDB {
 
   searchTextFallback(query, topK = 5) {
     try {
-      const stmt = this.db.prepare(`
-        SELECT note_path, content 
-        FROM chunks 
-        WHERE content LIKE ? 
-        LIMIT ?
-      `);
-      const results = stmt.all(`%${query}%`, topK);
-      return results.map(r => ({
-        note_path: r.note_path,
-        content: r.content,
-        score: 0.5
-      }));
+      if (!this.db) return [];
+      const cleanStr = String(query || '').toLowerCase();
+      // Extract keywords >= 3 chars, ignoring stop words
+      const stopWords = new Set(['what', 'do', 'we', 'have', 'oin', 'the', 'and', 'for', 'with', 'this', 'that', 'from', 'you', 'your']);
+      const terms = cleanStr
+        .replace(/[^a-z0-9\s_\-]/g, '')
+        .split(/\s+/)
+        .filter(w => w.length >= 3 && !stopWords.has(w));
+
+      if (terms.length === 0) {
+        terms.push(cleanStr);
+      }
+
+      const results = [];
+      const seenPaths = new Set();
+
+      // Search each keyword across content and note_path
+      for (const term of terms) {
+        const stmt = this.db.prepare(`
+          SELECT note_path, content 
+          FROM chunks 
+          WHERE LOWER(content) LIKE ? OR LOWER(note_path) LIKE ?
+          LIMIT ?
+        `);
+        const rows = stmt.all(`%${term}%`, `%${term}%`, topK);
+        for (const r of rows) {
+          if (!seenPaths.has(r.note_path)) {
+            seenPaths.add(r.note_path);
+            results.push({
+              note_path: r.note_path,
+              content: r.content,
+              score: 0.6
+            });
+          }
+        }
+        if (results.length >= topK) break;
+      }
+
+      return results;
     } catch (err) {
       log.error('Text search fallback failed:', err.message);
       return [];

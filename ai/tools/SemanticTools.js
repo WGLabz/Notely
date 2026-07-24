@@ -69,17 +69,17 @@ class SemanticToolRunner {
 
   async run(toolName, args) {
     if (toolName === 'find_discussions') {
-      const topic = args.topic;
+      const topic = args.topic || '';
       if (this.agent.contextEngine?.hybridRetriever) {
-        return this.agent.contextEngine.hybridRetriever.retrieve(`meeting discussion decision ${topic}`, 5);
+        return this.agent.contextEngine.hybridRetriever.search(topic, null, 5);
       }
       return this.agent.workspaceBrain?.getWorkspaceFacts(topic) || [];
     }
 
     if (toolName === 'find_architecture') {
-      const component = args.component;
+      const component = args.component || '';
       if (this.agent.contextEngine?.hybridRetriever) {
-        return this.agent.contextEngine.hybridRetriever.retrieve(`architecture spec system design ${component}`, 5);
+        return this.agent.contextEngine.hybridRetriever.search(component, null, 5);
       }
       return this.agent.workspaceBrain?.getWorkspaceFacts(component) || [];
     }

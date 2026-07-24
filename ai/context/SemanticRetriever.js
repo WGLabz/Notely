@@ -54,12 +54,22 @@ class SemanticRetriever {
       }
     }
 
-    if (!scored.length) return [];
+    if (!scored.length) {
+      return typeof this.embeddingDB.searchTextFallback === 'function'
+        ? this.embeddingDB.searchTextFallback(query, topK)
+        : [];
+    }
 
-    // Filter by similarity score threshold (e.g. >= 0.70)
-    const thresholdFiltered = scored.filter(item => item.score >= 0.70);
+    // Sort scored vector items by similarity descending
+    scored.sort((a, b) => b.score - a.score);
 
-    thresholdFiltered.sort((a, b) => b.score - a.score);
+    // Filter by realistic local similarity threshold (>= 0.35 for ONNX BGE embeddings)
+    let thresholdFiltered = scored.filter(item => item.score >= 0.35);
+
+    // Fallback to keyword search if no vector matches passed threshold
+    if (thresholdFiltered.length === 0 && typeof this.embeddingDB.searchTextFallback === 'function') {
+      return this.embeddingDB.searchTextFallback(query, topK);
+    }
 
     // Deduplicate by note_path to avoid duplicate chunks from the same note
     const seenNotes = new Set();

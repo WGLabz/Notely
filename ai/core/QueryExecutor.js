@@ -66,18 +66,30 @@ class QueryExecutor {
       });
     }
 
-    // Proactive WorkspaceBrain retrieval for current query topic
-    if (this.agent.workspaceBrain) {
+    // Multi-Tool Planning & Context Orchestration
+    let orchestratorTrace = [];
+    if (this.agent.contextOrchestrator) {
       try {
-        const facts = await this.agent.workspaceBrain.getWorkspaceFacts(query, context);
-        if (this.agent.reasoningBrain) {
-          const evidenceStr = this.agent.reasoningBrain.formatEvidenceContext(facts);
-          if (evidenceStr) {
-            finalSystemPrompt += `\n\n[PROACTIVE WORKSPACE EVIDENCE FOR CURRENT QUERY]:\n${evidenceStr}`;
-          }
+        const orchRes = await this.agent.contextOrchestrator.orchestrate(query, context);
+        if (orchRes.aggregatedContext) {
+          finalSystemPrompt += `\n\n${orchRes.aggregatedContext}`;
         }
-      } catch (wbErr) {
-        console.warn('[QueryExecutor] Proactive WorkspaceBrain retrieval skipped:', wbErr.message);
+        if (orchRes.trace) {
+          orchestratorTrace = orchRes.trace;
+        }
+      } catch (orchErr) {
+        console.warn('[QueryExecutor] ContextOrchestrator execution fallback:', orchErr.message);
+        if (this.agent.workspaceBrain) {
+          try {
+            const facts = await this.agent.workspaceBrain.getWorkspaceFacts(query, context);
+            if (this.agent.reasoningBrain) {
+              const evidenceStr = this.agent.reasoningBrain.formatEvidenceContext(facts);
+              if (evidenceStr) {
+                finalSystemPrompt += `\n\n[PROACTIVE WORKSPACE EVIDENCE FOR CURRENT QUERY]:\n${evidenceStr}`;
+              }
+            }
+          } catch { /* ignore fallback */ }
+        }
       }
     }
 
@@ -101,7 +113,7 @@ class QueryExecutor {
       messages = [{ role: 'user', content: query }];
     }
 
-    return { model, systemPrompt, messages, mergedTools, llm, toolChoice };
+    return { model, systemPrompt, messages, mergedTools, llm, toolChoice, orchestratorTrace };
   }
 
   /**
@@ -110,7 +122,7 @@ class QueryExecutor {
   async execute(query, context = {}) {
     try {
       const { generateText } = await import('ai');
-      const { model, systemPrompt, messages, mergedTools, llm, toolChoice } = await this._prepareConfig(query, context);
+      const { model, systemPrompt, messages, mergedTools, llm, toolChoice, orchestratorTrace } = await this._prepareConfig(query, context);
 
       const result = await generateText({
         model,
@@ -213,7 +225,7 @@ class QueryExecutor {
       }
 
       // Construct the trace array of executed tools and outputs
-      const trace = [];
+      const trace = Array.isArray(orchestratorTrace) ? [...orchestratorTrace] : [];
       if (result.steps) {
         for (const step of result.steps) {
           if (step.toolCalls) {

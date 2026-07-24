@@ -90,7 +90,7 @@ class HybridRetriever {
       } else {
         try {
           const fs = require('fs');
-          if (fs.existsSync(notePath)) {
+          if (fs.existsSync(notePath) && fs.statSync(notePath).isFile()) {
             content = fs.readFileSync(notePath, 'utf8');
           }
         } catch (err) {
