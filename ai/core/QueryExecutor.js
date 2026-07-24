@@ -12,6 +12,7 @@ class QueryExecutor {
   }
 
   async _prepareConfig(query, context) {
+    this.agent.lastQuery = query;
     const llm = this.agent.llmRegistry.getActiveProvider();
     const model = await llm.getModelInstance();
     const tools = await getTools(this.agent);
@@ -242,8 +243,9 @@ class QueryExecutor {
         }
       }
 
+      const workspaceFiles = this.agent.documentService ? this.agent.documentService._collectMarkdownFiles(this.agent.workspaceRoot) : [];
       const SelfCorrectionEngine = require('./SelfCorrectionEngine');
-      const validation = SelfCorrectionEngine.validateAndCorrect(textResult || '', { query });
+      const validation = SelfCorrectionEngine.validateAndCorrect(textResult || '', { query, workspaceFiles });
       const finalResultText = validation.validatedText || textResult || "AI query completed with no text output.";
 
       return {

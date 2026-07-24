@@ -289,7 +289,9 @@ const runTool = async (agent, name, args) => {
   }
   if (name === 'semantic_search') {
     try {
-      const results = await agent.contextEngine.semanticRetriever.search(args.query, args.topK || 5);
+      const queryStr = args.query || args.topic || args.q || agent.lastQuery || '';
+      if (!queryStr) return 'No search query provided for semantic search.';
+      const results = await agent.contextEngine.semanticRetriever.search(queryStr, args.topK || 5);
       if (!results.length) return 'No semantically similar notes found.';
       return results.map((r, i) => `[${i+1}] ${r.note_path} (score: ${r.score.toFixed(3)})\n${r.content}`).join('\n\n');
     } catch (err) { return `Semantic search error: ${err.message}`; }

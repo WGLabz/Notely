@@ -90,6 +90,7 @@ export default function AIChatPanel({
   onLoadConversation,
   onDeleteConversation,
 }) {
+  const [previewTarget, setPreviewTarget] = useState(null);
   const [draft, setDraft] = useState("");
   const [scope, setScope] = useState("auto");
   const [personas, setPersonas] = useState([]);
@@ -99,6 +100,27 @@ export default function AIChatPanel({
   const inputRef = useRef(null);
   const lastAutoRunRequestIdRef = useRef("");
   const messagesEndRef = useRef(null);
+
+  const handlePreviewLink = async (rawPath, lineNum = null) => {
+    setPreviewTarget({ path: rawPath, lineNum, content: null, isLoading: true });
+    try {
+      if (window.electronAPI?.readNote) {
+        const res = await window.electronAPI.readNote(rawPath);
+        const text = typeof res === "string" ? res : res?.content || "";
+        setPreviewTarget({ path: rawPath, lineNum, content: text, isLoading: false });
+      } else {
+        const fs = require("fs");
+        if (fs.existsSync(rawPath)) {
+          const text = fs.readFileSync(rawPath, "utf8");
+          setPreviewTarget({ path: rawPath, lineNum, content: text, isLoading: false });
+        } else {
+          setPreviewTarget({ path: rawPath, lineNum, content: `Note preview unavailable for: "${rawPath}"`, isLoading: false });
+        }
+      }
+    } catch (err) {
+      setPreviewTarget({ path: rawPath, lineNum, content: `Unable to load preview: ${err.message}`, isLoading: false });
+    }
+  };
 
   const { confirm } = useConfirm();
 
@@ -379,7 +401,7 @@ export default function AIChatPanel({
                             lineNum = parseInt(hashMatch[1], 10);
                             rawPath = rawPath.replace(/#L\d+/i, '');
                           }
-                          onOpenDocument?.(rawPath, lineNum);
+                          handlePreviewLink(rawPath, lineNum);
                         }
                       }}
                     />
@@ -413,7 +435,7 @@ export default function AIChatPanel({
                             <button
                               key={idx}
                               type="button"
-                              onClick={() => onOpenDocument?.(ref.path)}
+                              onClick={() => handlePreviewLink(ref.path)}
                               title={`${ref.path} (${(ref.relevance * 100).toFixed(0)}% relevance)`}
                               style={{ background: "var(--surface-accent)", color: "var(--accent-solid)", padding: "1px 5px", borderRadius: "3px", border: "1px solid var(--border-soft)", fontFamily: "monospace", fontSize: "10px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "2px" }}
                             >
@@ -540,6 +562,102 @@ export default function AIChatPanel({
           </div>
         </div>
       </div>
+      {/* Floating Note Preview Overlay */}
+      {previewTarget ? (
+        <div
+          className="ai-chat-preview-modal-overlay"
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.7)",
+            backdropFilter: "blur(3px)",
+            zIndex: 99999,
+            display: "flex",
+            flexDirection: "column",
+            padding: "12px",
+          }}
+        >
+          <div
+            className="ai-chat-preview-card"
+            style={{
+              background: "var(--surface-primary, #1e1e1e)",
+              border: "1px solid var(--border-soft, #333)",
+              borderRadius: "8px",
+              display: "flex",
+              flexDirection: "column",
+              height: "100%",
+              overflow: "hidden",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justify: "space-between",
+                padding: "8px 12px",
+                borderBottom: "1px solid var(--border-soft, #333)",
+                background: "var(--surface-secondary, #252526)",
+              }}
+            >
+              <div style={{ fontWeight: 600, fontSize: "12px", color: "var(--text-primary, #eee)", display: "flex", alignItems: "center", gap: "6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                📄 <span>{previewTarget.path.split(/[\\/]/).pop()}</span>
+                {previewTarget.lineNum ? (
+                  <span style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px", background: "var(--accent-muted, rgba(99,102,241,0.25))", color: "var(--accent-solid, #818cf8)", fontFamily: "monospace" }}>
+                    L{previewTarget.lineNum}
+                  </span>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewTarget(null)}
+                style={{ background: "none", border: "none", color: "var(--text-muted, #999)", cursor: "pointer", padding: "2px", display: "flex", alignItems: "center" }}
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <div style={{ flex: 1, padding: "12px", overflowY: "auto", fontSize: "12px", lineHeight: "1.5" }}>
+              {previewTarget.isLoading ? (
+                <div style={{ color: "var(--text-muted)", textAlign: "center", padding: "30px", fontSize: "12px" }}>Loading note preview…</div>
+              ) : (
+                <div
+                  className="markdown-body"
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(previewTarget.content || "") }}
+                />
+              )}
+            </div>
+
+            <div
+              style={{
+                padding: "8px 12px",
+                borderTop: "1px solid var(--border-soft, #333)",
+                background: "var(--surface-secondary, #252526)",
+                display: "flex",
+                justify: "flex-end",
+                gap: "6px",
+              }}
+            >
+              <AppButton variant="secondary" onClick={() => setPreviewTarget(null)} style={{ fontSize: "11px", height: "24px" }}>
+                Close
+              </AppButton>
+              <AppButton
+                variant="primary"
+                onClick={() => {
+                  onOpenDocument?.(previewTarget.path, previewTarget.lineNum);
+                  setPreviewTarget(null);
+                }}
+                style={{ fontSize: "11px", height: "24px" }}
+              >
+                Open in Editor
+              </AppButton>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </aside>
   );
 }

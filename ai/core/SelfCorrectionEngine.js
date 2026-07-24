@@ -46,8 +46,18 @@ class SelfCorrectionEngine {
       corrected = true;
     }
 
-    // 3. Grounding Fallback Check
-    // If evidence was empty but text makes specific note claims, append disclaimer
+    // 3. Note Title Hallucination Verification & Line Link Formatting
+    if (options.workspaceFiles && Array.isArray(options.workspaceFiles)) {
+      const titleRes = GroundingEngine.verifyNoteTitleClaims(currentText, options.workspaceFiles);
+      if (titleRes.hallucinations.length > 0) {
+        issues.push(`Stripped ${titleRes.hallucinations.length} ungrounded note title claim(s)`);
+        currentText = titleRes.text;
+        corrected = true;
+      }
+      currentText = GroundingEngine.formatLineNumberLinks(currentText, options.workspaceFiles);
+    }
+
+    // 4. Grounding Fallback Check
     if (options.evidenceContext === false || options.evidenceContext === '') {
       const lower = currentText.toLowerCase();
       if (lower.includes('in your note') && !lower.includes("couldn't find")) {
