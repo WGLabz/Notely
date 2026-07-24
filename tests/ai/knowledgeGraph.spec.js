@@ -99,8 +99,43 @@ describe('Knowledge Graph Architecture Tests', () => {
     const { GraphRetriever } = require('../../ai/context/GraphRetriever');
     const retriever = new GraphRetriever(graphDb);
     const rows = retriever.traverse(notePath, 2);
+    assert.ok(rows.length >= 2);
+  });
 
-    assert.ok(rows.length > 0);
+  it('should support GraphRAG multi-hop query tool with sentence evidence', async () => {
+    const service = new GraphService({ appDataDir: tmpDir }, graphDb);
+    const notePath = path.join(tmpDir, 'graphrag-note.md');
+    fs.writeFileSync(notePath, '# AI Note\nDiscussion with Bikash Panda regarding GraphRAG.');
+
+    const evStore = new EvidenceStore(graphDb);
+    const evId = evStore.addEvidence({
+      sourceId: notePath,
+      extractor: 'glirel_onnx',
+      subjectText: 'Bikash Panda',
+      rawSentence: 'Discussion with Bikash Panda regarding GraphRAG.',
+      confidence: 0.96
+    });
+
+    const noteId = service.entityResolver.generateEntityId('graphrag-note', 'Note');
+    const personId = service.entityResolver.generateEntityId('Bikash Panda', 'Person');
+
+    graphDb.upsertEntity({ id: noteId, name: 'graphrag-note', type: 'Note', note_path: notePath });
+    graphDb.upsertEntity({ id: personId, name: 'Bikash Panda', type: 'Person' });
+    graphDb.upsertRelationship({
+      source_id: noteId,
+      target_id: personId,
+      type: 'has_person',
+      confidence: 0.96,
+      evidence_id: evId
+    });
+
+    const queryTools = require('../../ai/core/QueryTools');
+    const result = await queryTools.runTool({ graphDb }, 'explore_graph', { identifier: 'Bikash Panda' });
+
+    assert.ok(result.includes('Bikash Panda'), 'Should include searched entity name');
+    assert.ok(result.includes('has_person'), 'Should include relationship type');
+    assert.ok(result.includes('Evidence:'), 'Should include evidence tag');
+    assert.ok(result.includes('Discussion with Bikash Panda regarding GraphRAG.'), 'Should include exact evidence sentence');
   });
 
   it('should execute orphan cleanup in GraphMaintenance', () => {

@@ -94,6 +94,22 @@ const getOfficialTools = (agent) => {
           }
         }
       }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'create_note',
+        description: 'Create a new markdown note in the workspace with title, content, and optional subfolder.',
+        parameters: {
+          type: 'object',
+          properties: {
+            title: { type: 'string', description: 'Title or file name for the new note (e.g. "Project Blueprint").' },
+            content: { type: 'string', description: 'Markdown body content.' },
+            subfolder: { type: 'string', description: 'Optional subfolder inside workspace.' }
+          },
+          required: ['title', 'content']
+        }
+      }
     }
   ];
 
@@ -116,20 +132,20 @@ const getOfficialTools = (agent) => {
     });
   }
 
-  // Add explore_graph if graph DB is available
-  if (agent.contextEngine?.graphRetriever) {
+  // Add explore_graph if graph DB or retriever is available
+  if (agent.contextEngine?.graphRetriever || agent.graphDb) {
     officialTools.push({
       type: 'function',
       function: {
         name: 'explore_graph',
-        description: 'Explore how a note is linked to other notes in the knowledge graph.',
+        description: 'Explore how a note, person, concept, technology, or topic is linked to other entities in the knowledge graph.',
         parameters: {
           type: 'object',
           properties: {
-            notePath: { type: 'string', description: 'The full path of the note to start graph traversal from.' },
+            identifier: { type: 'string', description: 'The note path, title, person name, or topic (e.g., "Bikash Panda", "Semantic Search", "ai-and-search.md") to start graph traversal from.' },
+            notePath: { type: 'string', description: 'Alias for identifier.' },
             maxDepth: { type: 'number', description: 'Maximum traversal hops (default 2).' }
-          },
-          required: ['notePath']
+          }
         }
       }
     });
@@ -279,11 +295,48 @@ const runTool = async (agent, name, args) => {
     } catch (err) { return `Semantic search error: ${err.message}`; }
   }
   if (name === 'explore_graph') {
+    const target = args.identifier || args.notePath || '';
     try {
-      const rows = agent.contextEngine.graphRetriever.traverse(args.notePath, args.maxDepth || 2);
-      if (!rows.length) return `No graph relations found for: ${args.notePath}`;
-      return rows.map(r => `[depth ${r.depth}] ${r.from_path} --[${r.relation}]--> ${r.to_path}`).join('\n');
+      let rows = [];
+      if (agent.graphDb) {
+        rows = agent.graphDb.traversePathOrId(target, args.maxDepth || 2);
+      } else if (agent.contextEngine?.graphRetriever) {
+        rows = agent.contextEngine.graphRetriever.traverse(target, args.maxDepth || 2);
+      }
+      if (!rows || !rows.length) return `No knowledge graph connections found for: "${target}"`;
+      return rows.map(r => {
+        let line = `[(${r.from_type || 'Entity'}) ${r.from_name || r.from_path}] --[${r.relation}]--> [(${r.to_type || 'Entity'}) ${r.to_name || r.to_path}]`;
+        if (r.evidence) {
+          line += `\n  Evidence: "${r.evidence}"`;
+        }
+        return line;
+      }).join('\n');
     } catch (err) { return `Graph traversal error: ${err.message}`; }
+  }
+  if (name === 'create_note') {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const title = String(args.title || 'Untitled').trim();
+      const fileName = title.endsWith('.md') ? title : `${title}.md`;
+      const targetDir = args.subfolder ? path.join(agent.workspaceRoot, args.subfolder) : agent.workspaceRoot;
+      if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true });
+      }
+      const fullPath = path.join(targetDir, fileName);
+      if (fs.existsSync(fullPath)) {
+        return `Notice: A note named "${fileName}" already exists. Updating or overwriting existing notes is strictly disabled to safeguard note content.`;
+      }
+      const content = String(args.content || '');
+      fs.writeFileSync(fullPath, content, 'utf8');
+
+      if (agent.graphService) {
+        await agent.graphService.processNote(fullPath, content);
+      }
+      return `Created new note: [${fileName}](file:///${fullPath.replace(/\\/g, '/')})`;
+    } catch (err) {
+      return `Error creating note: ${err.message}`;
+    }
   }
   return `Error: Tool ${name} not found`;
 };

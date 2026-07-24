@@ -98,10 +98,26 @@ class HybridRetriever {
         }
       }
 
+      // Attach graph relations & evidence triples for the matched note
+      let graphTriples = [];
+      if (this.graphRetriever) {
+        try {
+          const rels = this.graphRetriever.traverse(notePath, 1);
+          graphTriples = (rels || []).map(r => {
+            let line = `(${r.from_type || 'Entity'}) ${r.from_name || r.from_path} --[${r.relation}]--> (${r.to_type || 'Entity'}) ${r.to_name || r.to_path}`;
+            if (r.evidence) {
+              line += ` (Evidence: "${r.evidence}")`;
+            }
+            return line;
+          });
+        } catch { /* ignore graph lookup error */ }
+      }
+
       results.push({
         note_path: notePath,
         content: content.slice(0, 4000), // budget preview limit
-        score: score
+        score: score,
+        graph_triples: graphTriples
       });
     }
 
@@ -125,9 +141,13 @@ class HybridRetriever {
       execute: async ({ query, activeNotePath = null, topK = 5 }) => {
         const results = await this.search(query, activeNotePath, topK);
         if (!results.length) return 'No relevant note content found.';
-        return results.map((r, i) =>
-          `[${i + 1}] ${r.note_path} (RRF score: ${r.score.toFixed(4)})\n${r.content}`
-        ).join('\n\n');
+        return results.map((r, i) => {
+          let output = `[${i + 1}] ${r.note_path} (RRF score: ${r.score.toFixed(4)})\n${r.content}`;
+          if (r.graph_triples && r.graph_triples.length) {
+            output += `\n\nKnowledge Graph Connections:\n  * ` + r.graph_triples.slice(0, 10).join('\n  * ');
+          }
+          return output;
+        }).join('\n\n---\n\n');
       }
     };
   }

@@ -168,13 +168,15 @@ class GraphDB {
   isNoteUpToDate(notePath, mtimeMs) {
     if (!this.db || !notePath) return false;
     try {
-      const crypto = require('crypto');
-      const normPath = String(notePath || '').trim().toLowerCase();
-      const entityId = `ent-${crypto.createHash('sha256').update(`note:${normPath}`).digest('hex').slice(0, 16)}`;
-      const row = this.db.prepare('SELECT updated_at FROM entities WHERE id = ?').get(entityId);
+      const normPath = String(notePath || '').trim();
+      const row = this.db.prepare('SELECT updated_at FROM entities WHERE note_path = ? OR LOWER(note_path) = LOWER(?) LIMIT 1').get(normPath, normPath);
       if (!row || !row.updated_at) return false;
 
-      const dbTime = new Date(row.updated_at).getTime();
+      // SQLite datetime('now') stores UTC string 'YYYY-MM-DD HH:MM:SS'
+      const utcString = row.updated_at.includes('T') ? row.updated_at : row.updated_at.replace(' ', 'T') + 'Z';
+      const dbTime = new Date(utcString).getTime();
+      if (isNaN(dbTime)) return false;
+
       return dbTime >= (mtimeMs - 1000); // 1-second tolerance
     } catch {
       return false;
@@ -332,14 +334,26 @@ class GraphDB {
   }
 
   /**
-   * Traversal by note path or entity ID
+   * Traversal by note path or entity ID/name with evidence context
    */
   traversePathOrId(identifier, maxDepth = 2) {
-    if (!this.db) return [];
+    if (!this.db || !identifier) return [];
     let startEntity = this.getEntityByPath(identifier);
     if (!startEntity) {
-      const stmt = this.db.prepare('SELECT * FROM entities WHERE id = ? LIMIT 1');
-      startEntity = stmt.get(identifier);
+      try {
+        const stmt = this.db.prepare('SELECT * FROM entities WHERE LOWER(name) = LOWER(?) OR id = ? LIMIT 1');
+        startEntity = stmt.get(String(identifier).trim(), identifier);
+      } catch (__err) {
+        /* ignore lookup error */
+      }
+    }
+    if (!startEntity) {
+      try {
+        const stmt = this.db.prepare('SELECT * FROM entities WHERE LOWER(name) LIKE LOWER(?) LIMIT 1');
+        startEntity = stmt.get(`%${String(identifier).trim()}%`);
+      } catch (__err) {
+        /* ignore lookup error */
+      }
     }
     if (!startEntity) return [];
 
@@ -349,16 +363,28 @@ class GraphDB {
     return edges.map(e => {
       const srcNode = nodeMap.get(e.source_id);
       const tgtNode = nodeMap.get(e.target_id);
+      let evidenceText = null;
+      if (e.evidence_id) {
+        try {
+          const ev = this.db.prepare('SELECT raw_sentence FROM evidence WHERE id = ?').get(e.evidence_id);
+          evidenceText = ev?.raw_sentence || null;
+        } catch (__err) {
+          /* ignore evidence lookup error */
+        }
+      }
       return {
         from_id: e.source_id,
         from_name: srcNode?.name || e.source_id,
+        from_type: srcNode?.type || 'Entity',
         from_path: srcNode?.note_path || srcNode?.name || e.source_id,
         relation: e.type,
         to_id: e.target_id,
         to_name: tgtNode?.name || e.target_id,
+        to_type: tgtNode?.type || 'Entity',
         to_path: tgtNode?.note_path || tgtNode?.name || e.target_id,
         weight: e.weight || 1.0,
-        confidence: e.confidence || 1.0
+        confidence: e.confidence || 1.0,
+        evidence: evidenceText
       };
     });
   }

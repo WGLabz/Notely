@@ -66,6 +66,21 @@ class QueryExecutor {
       });
     }
 
+    // Proactive WorkspaceBrain retrieval for current query topic
+    if (this.agent.workspaceBrain) {
+      try {
+        const facts = await this.agent.workspaceBrain.getWorkspaceFacts(query, context);
+        if (this.agent.reasoningBrain) {
+          const evidenceStr = this.agent.reasoningBrain.formatEvidenceContext(facts);
+          if (evidenceStr) {
+            finalSystemPrompt += `\n\n[PROACTIVE WORKSPACE EVIDENCE FOR CURRENT QUERY]:\n${evidenceStr}`;
+          }
+        }
+      } catch (wbErr) {
+        console.warn('[QueryExecutor] Proactive WorkspaceBrain retrieval skipped:', wbErr.message);
+      }
+    }
+
     systemPrompt = finalSystemPrompt;
 
     const mergedTools = {
@@ -133,12 +148,12 @@ class QueryExecutor {
         try {
           const nextMessages = [...messages];
           if (nextMessages.length > 0 && nextMessages[nextMessages.length - 1].role === 'user') {
-            let toolContext = `I executed the following tools to help answer the request:`;
+            let toolContext = `Retrieved the following contextual information from the workspace notes:`;
             for (const tr of toolResultsContent) {
               const val = tr.output !== undefined ? tr.output : tr.result;
-              toolContext += `\n\n- Tool: ${tr.toolName}\nOutput: ${typeof val === 'object' ? JSON.stringify(val) : val}`;
+              toolContext += `\n\n- Information: ${typeof val === 'object' ? JSON.stringify(val) : val}`;
             }
-            toolContext += `\n\nBased on these tool outputs, please provide a friendly, structured, and concise natural language response to my query: "${query}".`;
+            toolContext += `\n\nBased on these workspace details, please provide a friendly, structured, and concise natural language response to my query: "${query}".`;
             
             nextMessages[nextMessages.length - 1] = {
               role: 'user',
@@ -175,7 +190,7 @@ class QueryExecutor {
               const toolResult = stepResult?.toolResults?.find(r => r.toolCallId === call.toolCallId);
               if (toolResult) {
                 const val = toolResult.output !== undefined ? toolResult.output : toolResult.result;
-                formattedOutput += `\n\n#### Tool Output: ${call.toolName}\n`;
+                formattedOutput += `\n\n`;
                 if (typeof val === 'string') {
                   try {
                     const parsed = JSON.parse(val);
@@ -193,7 +208,7 @@ class QueryExecutor {
           }
         }
         if (formattedOutput) {
-          textResult = `I executed tools to fetch this information for you:${formattedOutput}`;
+          textResult = `Based on your workspace notes, here is the relevant details:${formattedOutput}`;
         }
       }
 
@@ -215,11 +230,16 @@ class QueryExecutor {
         }
       }
 
+      const SelfCorrectionEngine = require('./SelfCorrectionEngine');
+      const validation = SelfCorrectionEngine.validateAndCorrect(textResult || '', { query });
+      const finalResultText = validation.validatedText || textResult || "AI query completed with no text output.";
+
       return {
         type: 'query',
-        result: textResult || "AI query completed with no text output.",
+        result: finalResultText,
         tokensUsed,
-        trace
+        trace,
+        corrected: validation.corrected
       };
     } catch (error) {
       console.error('[QueryExecutor] Execution failed:', error.message);

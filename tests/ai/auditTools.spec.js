@@ -110,4 +110,26 @@ describe('AI Subsystem Technical Audit Tests', () => {
     const relationshipCount = graphDb.getNoteRelationshipCount(notePath);
     assert.strictEqual(relationshipCount, 1);
   });
+
+  it('should support create_note for new notes and block overwriting existing notes', async () => {
+    const queryTools = require('../../ai/core/QueryTools');
+    const mockAgent = { workspaceRoot: tempDir, graphDb };
+
+    // 1. create_note for brand new note
+    const createRes = await queryTools.runTool(mockAgent, 'create_note', {
+      title: 'Agent New Note',
+      content: '# Agent Created Note\nInitial text.'
+    });
+    assert.ok(createRes.includes('Created new note'));
+    const createdPath = path.join(tempDir, 'Agent New Note.md');
+    assert.ok(fs.existsSync(createdPath));
+
+    // 2. verify existing notes cannot be overwritten
+    const overwriteRes = await queryTools.runTool(mockAgent, 'create_note', {
+      title: 'Agent New Note',
+      content: 'Overwriting content attempt'
+    });
+    assert.ok(overwriteRes.includes('already exists'));
+    assert.ok(fs.readFileSync(createdPath, 'utf8').includes('Initial text.'));
+  });
 });
