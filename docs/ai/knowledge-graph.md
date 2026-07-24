@@ -70,11 +70,16 @@ sequenceDiagram
 
 ## Key Components & Concepts
 
-### 1. Markdown AST Parser (Structure Only)
+### 1. Markdown AST Parser (Structure & Metadata)
 
 The structural parser converts raw Markdown text into a structural AST tree without imposing domain semantics.
 
 - **Root Note Entity**: Uniquely identifies the document by path hash.
+- **Frontmatter & Header Key-Value Metadata**: Automatically extracts YAML block frontmatter and top key-value lines (`Tags:`, `Name:`, `Location:`, `Time:`):
+  - `Tags:` / `- tag` $\rightarrow$ Generates `#tag` (`Tag`) nodes linked to Note.
+  - `Name: Person A, Person B` $\rightarrow$ Generates `Person` entities linked via `has_person`.
+  - `Location: City` $\rightarrow$ Generates `Location` entities linked via `located_in`.
+  - `Time: DateRange` $\rightarrow$ Preserved in `Note.properties.metadata`.
 - **Wikilinks (`[[Target]]`)**: Links documents to target notes with bidirectional edge weights.
 - **Section Headings (`# Heading`)**: Captures document hierarchy (`contains_section`) with level-attenuated weights ($H_1 = 1.4, H_2 = 1.3, \dots, H_6 = 0.9$). Built-in Notely system sections (`# RawNotes`, `# Cleansed`) are automatically excluded from becoming section nodes.
 - **Tags (`#tag`)**: Categorizes concepts (`tagged`).
@@ -93,23 +98,22 @@ Semantic extraction uses two offline ONNX models (~70MB each) executing via loca
 
 ```mermaid
 graph LR
-    subgraph Pass 1: NER
-        A[Raw Sentence] --> B[ModernBERT Tokenizer]
-        B --> C[ONNX NER Model]
-        C --> D[Entity Spans & Scores]
+    subgraph Pass 1: GLiNER NER
+        A[Raw Sentence] --> B[GLiNER ONNX Session]
+        B --> C[Zero-Shot Entity Spans & Scores]
     end
     
-    subgraph Pass 2: RE
-        D --> E[Co-occurring Entity Pair Matrix]
-        E --> F[ONNX RE Model]
-        F --> G[Typed Relationships & Confidence]
+    subgraph Pass 2: GLiREL RE
+        C --> D[Co-occurring Entity Pair Matrix]
+        D --> E[GLiREL ONNX Session]
+        E --> F[Typed Relationships & Confidence]
     end
 ```
 
 1. **Pass 1 — Named Entity Recognition (NER)**:
-   Segments document using `Intl.Segmenter` and classifies tokens to locate entities with confidence scores $\ge 0.60$. Automatically merges WordPiece subword tokens (`['React', '##Native']` $\rightarrow$ `ReactNative`) and dynamically formats model entity labels without hardcoded word lists, preserving complete domain independence across engineering, medicine, finance, and law.
+   Segments document using `Intl.Segmenter` and runs zero-shot GLiNER ONNX session to locate entities with confidence scores $\ge 0.50$. Dynamically maps candidates to standard entity categories (`Person`, `Organization`, `Technology`, `Location`, `Concept`, `Product`, `Event`, `Document`, `Diagram`, `Task`) without hardcoded taxonomies or word lists, preserving complete domain independence across engineering, medicine, finance, and law.
 2. **Pass 2 — Relation Extraction (RE)**:
-   Evaluates co-occurring entity pairs within sentence windows, running ONNX relation classification tensors to score edge connection strength.
+   Evaluates co-occurring entity pairs within sentence windows, running zero-shot GLiREL ONNX relation classification tensors to score edge connection strength (`depends_on`, `uses`, `created_by`, `contains`, `is_a`, `related_to`).
 
 ---
 

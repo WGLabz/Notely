@@ -19,7 +19,6 @@ import {
   Workflow,
   PenTool,
   Grid,
-  SlidersHorizontal,
 } from "lucide-react";
 import AppSelect from "./AppSelect";
 import { applySnippet, createMediaMarkdown, insertTextAtCursor, normalizeImagePathForMarkdown } from "../utils/markdownUtils";
@@ -252,7 +251,6 @@ export function MarkdownToolbar({
     setShowWebLinker(false);
     setShowTableBuilder(false);
     setShowValidationPanel(false);
-    setShowViewMenu(false);
     setDiagramMode("picker");
   };
 
@@ -263,7 +261,6 @@ export function MarkdownToolbar({
     if (panel === "web") return showWebLinker;
     if (panel === "table") return showTableBuilder;
     if (panel === "validation") return showValidationPanel;
-    if (panel === "view") return showViewMenu;
     return false;
   };
 
@@ -274,7 +271,6 @@ export function MarkdownToolbar({
     if (panel === "web") setShowWebLinker(true);
     if (panel === "table") setShowTableBuilder(true);
     if (panel === "validation") setShowValidationPanel(true);
-    if (panel === "view") setShowViewMenu(true);
   };
 
   const toggleToolbarPanel = (panel) => {
@@ -292,8 +288,7 @@ export function MarkdownToolbar({
     showReferenceLinker ||
     showWebLinker ||
     showTableBuilder ||
-    showValidationPanel ||
-    showViewMenu;
+    showValidationPanel;
 
   useEffect(() => {
     if (!anyPopoverOpen) {
@@ -307,15 +302,13 @@ export function MarkdownToolbar({
       const insideWebLinker = webLinkPopoverRef.current?.contains(event.target);
       const insideTableBuilder = tablePopoverRef.current?.contains(event.target);
       const insideValidation = validationPopoverRef.current?.contains(event.target);
-      const insideViewMenu = viewMenuPopoverRef.current?.contains(event.target);
       if (
         !insideMermaid &&
         !insideAssetLinker &&
         !insideReferenceLinker &&
         !insideWebLinker &&
         !insideTableBuilder &&
-        !insideValidation &&
-        !insideViewMenu
+        !insideValidation
       ) {
         closeToolbarPanels();
       }
@@ -954,10 +947,6 @@ export function MarkdownToolbar({
       <AppIconButton onClick={runMarkdownValidation} title="Validate markdown syntax" aria-label="Validate markdown syntax">
         <CheckCircle2 size={18} />
       </AppIconButton>
-      <AppIconButton onClick={() => toggleToolbarPanel("view")} title="View settings (Table editor, Outline)" aria-label="View settings" className={showViewMenu ? "active" : ""}>
-        <SlidersHorizontal size={16} />
-        <span style={{ fontSize: "12px", fontWeight: 600, marginLeft: "2px" }}>View</span>
-      </AppIconButton>
       <span
         className={`toolbar-validation-summary ${validationStatus}${validationIssues.length ? " has-issues" : ""}`}
         data-tooltip={validationSummary}
@@ -965,48 +954,6 @@ export function MarkdownToolbar({
         {validationIssues.length > 0 && <span className="toolbar-issue-dot" aria-hidden="true" />}
         {validationSummary}
       </span>
-
-      {showViewMenu && (
-        <div
-          className="toolbar-view-menu-panel"
-          ref={viewMenuPopoverRef}
-          role="dialog"
-          aria-label="View options"
-          style={{
-            position: "absolute",
-            zIndex: 1000,
-            top: "100%",
-            right: 0,
-            marginTop: "4px",
-            background: "var(--surface-bg, #ffffff)",
-            border: "1px solid var(--border-soft, #d0d7de)",
-            borderRadius: "var(--radius-md, 8px)",
-            boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
-            padding: "10px 14px",
-            minWidth: "210px",
-          }}
-        >
-          <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            View Settings
-          </div>
-          <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "13px", padding: "4px 0", userSelect: "none" }}>
-            <input
-              type="checkbox"
-              checked={tableEditorEnabled !== false}
-              onChange={(e) => onTableEditorToggle?.(e.target.checked)}
-            />
-            <span>Visual Table Editor</span>
-          </label>
-          <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "13px", padding: "4px 0", userSelect: "none" }}>
-            <input
-              type="checkbox"
-              checked={Boolean(outlineEnabled)}
-              onChange={(e) => onOutlineEnabledChange?.(e.target.checked)}
-            />
-            <span>Document Outline</span>
-          </label>
-        </div>
-      )}
 
       {showValidationPanel && (
         <div
