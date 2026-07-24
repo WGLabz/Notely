@@ -453,13 +453,13 @@ export function OnboardingFlow({
 
                     {selectedAIProvider === "local" ? (
                       <div style={{ padding: "10px", background: "var(--surface-muted)", border: "1px solid var(--border-soft)", borderRadius: "6px", marginBottom: "4px" }}>
-                        <strong style={{ fontSize: "13px", display: "block", marginBottom: "4px" }}>Local Knowledge Graph Engine (ModernBERT ONNX)</strong>
+                        <strong style={{ fontSize: "13px", display: "block", marginBottom: "4px" }}>Local Knowledge Graph Engine (GLiNER + GLiREL ONNX)</strong>
                         {graphModelStatus.downloaded ? (
-                          <div style={{ color: "var(--accent-solid)", fontSize: "12px" }}>✓ ModernBERT model weights downloaded & ready offline!</div>
+                          <div style={{ color: "var(--accent-solid)", fontSize: "12px" }}>✓ GLiNER & GLiREL model weights downloaded & ready offline!</div>
                         ) : graphModelStatus.isDownloading ? (
                           <div>
                             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--text-muted)", marginBottom: "3px" }}>
-                              <span>Downloading ModernBERT weights...</span>
+                              <span>Downloading GLiNER & GLiREL weights...</span>
                               <span>{graphModelStatus.progress}%</span>
                             </div>
                             <div style={{ width: "100%", height: "4px", background: "var(--background-soft)", borderRadius: "2px", overflow: "hidden" }}>
@@ -468,7 +468,7 @@ export function OnboardingFlow({
                           </div>
                         ) : (
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>~70 MB download for offline graph extraction.</span>
+                            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>Offline zero-shot graph extraction weights.</span>
                             <button
                               type="button"
                               className="btn"
@@ -488,7 +488,7 @@ export function OnboardingFlow({
                           </div>
                         )}
                         <div style={{ color: "var(--text-muted)", fontSize: "10.5px", marginTop: "6px", borderLeft: "2px solid var(--accent-solid)", paddingLeft: "6px" }}>
-                          💡 <strong>Fast CPU Extraction:</strong> ModernBERT runs on CPU in a background worker process, consuming ~70MB-110MB RAM with ~22ms per sentence speed.
+                          💡 <strong>Zero-Shot Extraction:</strong> GLiNER & GLiREL run in a background worker process, extracting entities and relations directly on CPU without cloud APIs.
                         </div>
                       </div>
                     ) : (

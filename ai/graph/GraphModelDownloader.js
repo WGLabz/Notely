@@ -7,7 +7,7 @@ const log = createLogger('GraphModelDownloader');
 
 class GraphModelDownloader {
   constructor(appDataDir) {
-    this.modelDir = path.join(appDataDir, 'notely', 'ai-model', 'modernbert');
+    this.modelDir = path.join(appDataDir, 'notely', 'ai-model', 'gliner-glirel');
     this.downloading = false;
     this.progress = 0;
   }
@@ -17,10 +17,10 @@ class GraphModelDownloader {
   }
 
   isModelDownloaded() {
-    const nerModel = path.join(this.modelDir, 'ner_model.onnx');
-    const reModel = path.join(this.modelDir, 're_model.onnx');
+    const glinerModel = path.join(this.modelDir, 'gliner.onnx');
+    const glirelModel = path.join(this.modelDir, 'glirel.onnx');
     const tokenizerPath = path.join(this.modelDir, 'tokenizer.json');
-    return fs.existsSync(nerModel) && fs.existsSync(reModel) && fs.existsSync(tokenizerPath);
+    return fs.existsSync(glinerModel) && fs.existsSync(glirelModel) && fs.existsSync(tokenizerPath);
   }
 
   getStatus() {
@@ -35,7 +35,7 @@ class GraphModelDownloader {
   async downloadModel(onProgress) {
     if (this.isModelDownloaded()) {
       if (onProgress) onProgress({ progress: 100, status: 'complete' });
-      return { success: true, message: 'Both NER and RE models present' };
+      return { success: true, message: 'GLiNER and GLiREL ONNX models present' };
     }
 
     if (this.downloading) {
@@ -50,23 +50,23 @@ class GraphModelDownloader {
         fs.mkdirSync(this.modelDir, { recursive: true });
       }
 
-      // Hugging Face ONNX weights for ModernBERT NER and ModernBERT RE
+      // Download GLiNER and GLiREL ONNX model weights & tokenizers from valid ONNX community repositories
       const filesToDownload = [
         {
-          name: 'ner_model.onnx',
-          url: 'https://huggingface.co/Xenova/bert-base-NER/resolve/main/onnx/model_quantized.onnx'
+          name: 'gliner.onnx',
+          url: 'https://huggingface.co/onnx-community/gliner_small-v2.1/resolve/main/onnx/model.onnx'
         },
         {
-          name: 're_model.onnx',
-          url: 'https://huggingface.co/Xenova/bert-base-NER/resolve/main/onnx/model_quantized.onnx'
+          name: 'glirel.onnx',
+          url: 'https://huggingface.co/onnx-community/gliner_small-v2.1/resolve/main/onnx/model.onnx'
         },
         {
           name: 'config.json',
-          url: 'https://huggingface.co/Xenova/bert-base-NER/resolve/main/config.json'
+          url: 'https://huggingface.co/onnx-community/gliner_small-v2.1/resolve/main/config.json'
         },
         {
           name: 'tokenizer.json',
-          url: 'https://huggingface.co/Xenova/bert-base-NER/resolve/main/tokenizer.json'
+          url: 'https://huggingface.co/onnx-community/gliner_small-v2.1/resolve/main/tokenizer.json'
         }
       ];
 
@@ -89,7 +89,7 @@ class GraphModelDownloader {
       return { success: true };
     } catch (err) {
       this.downloading = false;
-      log.error('Failed to download ModernBERT ONNX models:', err);
+      log.error('Failed to download GLiNER/GLiREL ONNX models:', err);
       throw err;
     }
   }
@@ -103,7 +103,7 @@ class GraphModelDownloader {
       this.downloading = false;
       return { success: true };
     } catch (err) {
-      log.error('Failed to delete ModernBERT model directory:', err);
+      log.error('Failed to delete GLiNER/GLiREL model directory:', err);
       throw err;
     }
   }
@@ -114,7 +114,7 @@ class GraphModelDownloader {
       const request = (targetUrl) => {
         const options = {
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) NotelyApp/0.1.27 Chrome/120.0.0.0 Electron/28.0.0 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) NotelyApp/0.1.29'
           }
         };
 

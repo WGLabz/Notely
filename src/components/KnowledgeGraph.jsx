@@ -57,11 +57,19 @@ const TYPE_COLORS = {
   Project: { background: 'var(--kg-project-bg)', border: 'var(--kg-project-border)', text: 'var(--kg-project-border)' },
   Technology: { background: 'var(--kg-tech-bg)', border: 'var(--kg-tech-border)', text: 'var(--kg-tech-border)' },
   Company: { background: 'var(--kg-company-bg)', border: 'var(--kg-company-border)', text: 'var(--kg-company-border)' },
+  Organization: { background: 'var(--kg-company-bg)', border: 'var(--kg-company-border)', text: 'var(--kg-company-border)' },
   Concept: { background: 'var(--kg-concept-bg)', border: 'var(--kg-concept-border)', text: 'var(--kg-concept-border)' },
   Task: { background: 'var(--kg-task-bg)', border: 'var(--kg-task-border)', text: 'var(--kg-task-border)' },
   Image: { background: 'var(--kg-image-bg)', border: 'var(--kg-image-border)', text: 'var(--kg-image-border)' },
   Document: { background: 'var(--kg-doc-bg)', border: 'var(--kg-doc-border)', text: 'var(--kg-doc-border)' },
-  ExternalURL: { background: 'var(--kg-url-bg)', border: 'var(--kg-url-border)', text: 'var(--kg-url-border)' }
+  ExternalURL: { background: 'var(--kg-url-bg)', border: 'var(--kg-url-border)', text: 'var(--kg-url-border)' },
+  CodeBlock: { background: 'var(--kg-tech-bg)', border: 'var(--kg-tech-border)', text: 'var(--kg-tech-border)' },
+  Diagram: { background: 'var(--kg-image-bg)', border: 'var(--kg-image-border)', text: 'var(--kg-image-border)' },
+  Section: { background: 'var(--kg-concept-bg)', border: 'var(--kg-concept-border)', text: 'var(--kg-concept-border)' },
+  Tag: { background: 'var(--kg-project-bg)', border: 'var(--kg-project-border)', text: 'var(--kg-project-border)' },
+  KeyTerm: { background: 'var(--kg-person-bg)', border: 'var(--kg-person-border)', text: 'var(--kg-person-border)' },
+  Formula: { background: 'var(--kg-company-bg)', border: 'var(--kg-company-border)', text: 'var(--kg-company-border)' },
+  Callout: { background: 'var(--kg-task-bg)', border: 'var(--kg-task-border)', text: 'var(--kg-task-border)' }
 };
 
 const DEFAULT_COLOR = { background: 'var(--kg-default-bg)', border: 'var(--kg-default-border)', text: 'var(--text-strong)' };
@@ -342,12 +350,16 @@ export default function KnowledgeGraph({ onBack }) {
     try {
       setError('');
       setIsRebuilding(true);
-      setGraphStatus(prev => ({ ...prev, isBuilding: true, current: 0, noteName: 'Initializing ModernBERT worker...' }));
+      setNodes([]);
+      setEdges([]);
+      setGraphStatus(prev => ({ ...prev, isBuilding: true, current: 0, noteName: 'Initializing GLiNER/GLiREL worker...' }));
       const rebuildRes = await aiBuildGraph();
       if (!rebuildRes.success) {
         setError(rebuildRes.error || 'Rebuild failed.');
         setIsRebuilding(false);
         setGraphStatus(prev => ({ ...prev, isBuilding: false }));
+      } else {
+        loadGraphData();
       }
     } catch (err) {
       setError(err.message || 'Failed to rebuild Knowledge Graph.');

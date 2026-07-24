@@ -42,6 +42,20 @@ describe('Knowledge Graph Architecture Tests', () => {
     assert.strictEqual(ast.codeBlocks[0].language, 'javascript');
   });
 
+  it('should parse YAML frontmatter and header metadata (Tags, Name, Location, Time)', () => {
+    const parser = new MarkdownASTParser();
+    const markdown = `---\nTags: meeting, hello\n  - guide\n  - diagrams\n---\nName: Hari Mohan, Bikash panda\nTime: 09:57, 24 Jul 2026 to 09:57, 25 Jul 2026\nLocation: Delhi\n# Discussion\nContent text here.`;
+
+    const ast = parser.parse('/test/meeting.md', markdown);
+    assert.ok(ast.tags.some(t => t.name === 'meeting'));
+    assert.ok(ast.tags.some(t => t.name === 'hello'));
+    assert.ok(ast.tags.some(t => t.name === 'guide'));
+    assert.ok(ast.metadataEntities.some(e => e.name === 'Hari Mohan' && e.type === 'Person'));
+    assert.ok(ast.metadataEntities.some(e => e.name === 'Bikash panda' && e.type === 'Person'));
+    assert.ok(ast.metadataEntities.some(e => e.name === 'Delhi' && e.type === 'Location'));
+    assert.strictEqual(ast.rootEntity.properties.metadata.location, 'Delhi');
+  });
+
   it('should save and query raw sentence evidence in EvidenceStore', () => {
     const store = new EvidenceStore(graphDb);
     const evId = store.addEvidence({

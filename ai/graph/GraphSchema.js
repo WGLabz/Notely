@@ -11,6 +11,9 @@ CREATE TABLE IF NOT EXISTS entities (
     type TEXT NOT NULL DEFAULT 'Entity',
     note_path TEXT,
     properties TEXT,
+    extractor TEXT DEFAULT 'gliner',
+    model_version TEXT DEFAULT '2.1',
+    confidence REAL DEFAULT 1.0,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
 );
@@ -50,6 +53,8 @@ CREATE TABLE IF NOT EXISTS relationships (
     type TEXT NOT NULL,
     weight REAL DEFAULT 1.0,
     confidence REAL DEFAULT 1.0,
+    extractor TEXT DEFAULT 'glirel',
+    model_version TEXT DEFAULT '1.0',
     metadata TEXT,
     evidence_id TEXT REFERENCES evidence(id) ON DELETE SET NULL,
     created_at TEXT DEFAULT (datetime('now')),

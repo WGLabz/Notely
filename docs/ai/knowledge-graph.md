@@ -15,9 +15,9 @@ flowchart TD
     MD --> SEG[Sentence Segmenter Intl.Segmenter]
     
     subgraph Local Neural AI Pipeline
-        SEG --> NER[ModernBERT NER ONNX Session]
+        SEG --> NER[GLiNER Zero-Shot NER ONNX Session]
         NER -->|Entities & Spans| RES[Entity & Alias Resolver]
-        RES --> RE[ModernBERT RE ONNX Session]
+        RES --> RE[GLiREL Zero-Shot RE ONNX Session]
         RE -->|Scored Relations| EV
     end
     
@@ -28,6 +28,7 @@ flowchart TD
         DB --> MAINT[Background Graph Maintenance]
         CTE --> HYB[Hybrid Retriever RRF]
         HYB --> LLM[LLM Context Builder]
+        MAINT --> DB
     end
 ```
 
@@ -43,8 +44,8 @@ sequenceDiagram
     participant UI as Electron Renderer
     participant Worker as Background UtilityProcess
     participant AST as Markdown AST Parser
-    participant NER as ModernBERT NER (ONNX)
-    participant RE as ModernBERT RE (ONNX)
+    participant NER as GLiNER Zero-Shot NER (ONNX)
+    participant RE as GLiREL Zero-Shot RE (ONNX)
     participant EV as Evidence Store
     participant DB as SQLite GraphDB
 
